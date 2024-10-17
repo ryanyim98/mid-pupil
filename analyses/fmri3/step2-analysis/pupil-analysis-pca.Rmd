@@ -1,0 +1,190 @@
+---
+title: "pupil-analysis-pca"
+output: html_document
+date: "2024-08-05"
+---
+```{r}
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(tidyverse)
+library(patchwork)
+library(lme4)
+library(lmerTest)
+library(sjPlot)
+library(ggeffects)
+library(MuMIn)
+
+theme_set(theme_bw() + #set the theme 
+            theme(text = element_text(family = "Helvetica",size = 10))) #set the default text size
+purpleOrange_palette6 = c("purple4","purple2","plum3","khaki","gold","goldenrod4")
+purpleOrange_palette2 = c("purple4","gold")
+size_palette2 = c("#e78ac3","#66c2a5")
+
+anticipation_window = c(3.5, 4.5) #4~6 plus 1.5 seconds of delay
+
+pupil_pca_out_justant <- read_csv("~/Desktop/midaffemo/analyses/pupil/esther/pupil_pca_justant.csv")
+
+pupil_pca_out_justant$cue_value <- factor(pupil_pca_out_justant$cue_value,
+                                levels = c("-$5","-$1","-$0","+$0","+$1","+$5"))
+
+pupil_pca_out_wholetrial <- read_csv("~/Desktop/midaffemo/analyses/pupil/esther/pupil_pca_wholetrial.csv")
+
+pupil_pca_out_wholetrial$cue_value <- factor(pupil_pca_out_wholetrial$cue_value,
+                                levels = c("-$5","-$1","-$0","+$0","+$1","+$5"))
+
+```
+# JUST ANT
+
+## look at the luminance component
+```{r}
+pupil_pca_out_justant_trial <- pupil_pca_out_justant %>% 
+  select(subject:cue_value,trial_id_unique,PC1:PC6) %>% 
+  pivot_longer(PC1:PC6,names_to = "PC_component", values_to = "weights") %>% 
+  mutate(cue_size = factor(cue_size, levels = c(1,2), labels = c("small","large")))
+
+cue_luminance <- read_csv("luminance.csv") %>% 
+  filter(type == "cue") %>% 
+  mutate(cue_size = ifelse(grepl("small",img_id),"small","large"),
+         cue_value = ifelse(grepl("plus5",img_id),"+$5",
+                            ifelse(grepl("plus1",img_id),"+$1",
+                                   ifelse(grepl("plus0",img_id),"+$0",
+                                          ifelse(grepl("minus0",img_id),"-$0",
+                                                 ifelse(grepl("minus1",img_id),"-$1",
+                                                        ifelse(grepl("minus5",img_id),"-$5",NA)))))))%>% 
+  mutate(cue_size = factor(cue_size, levels = c("small","large")))
+
+ggplot(pupil_pca_out_justant_trial, aes(x = cue_value, y = weights, group = cue_size,
+                                color = cue_size))+
+  stat_summary()+
+  facet_wrap(~PC_component)
+
+ggplot(pupil_pca_out_justant_trial %>% filter(PC_component=="PC2"), aes(x = cue_value, y = weights, group = cue_size,
+                                color = cue_size))+
+  stat_summary()+
+  ggplot(cue_luminance, aes(x = cue_value, y = luminance, group = cue_size,
+                                color = cue_size))+
+  geom_point()
+
+lumiance_corr <- pupil_pca_out_justant %>% 
+  filter(sample_in_trial_t == 0.005) %>% 
+  select(subject:cue_value,trial_id_unique,PC1:PC6) %>% 
+  mutate(cue_size = factor(cue_size, levels = c(1,2), labels = c("small","large"))) %>% 
+  left_join(cue_luminance)
+
+summary(lm(PC1~luminance,lumiance_corr))
+summary(lm(PC2~luminance,lumiance_corr))
+summary(lm(PC3~luminance,lumiance_corr))
+summary(lm(PC4~luminance,lumiance_corr))
+summary(lm(PC5~luminance,lumiance_corr))
+summary(lm(PC6~luminance,lumiance_corr))
+
+
+pupil_pca_out_justant_trial_ant <- pupil_pca_out_justant %>% 
+  filter(sample_in_trial_t <= 1) %>% 
+  group_by(subject,cue_size,cue_value,trial_id_unique,PC1,PC2,PC3,PC4,PC5,PC6) %>% 
+  summarise(pupilDiameter_scaled = mean(pupilDiameter_scaled, na.rm = T)) %>% 
+  mutate(cue_size = factor(cue_size, levels = c(1,2), labels = c("small","large")))%>% 
+  left_join(cue_luminance)
+
+summary(l0<-lmer(scale(pupilDiameter_scaled) ~ scale(luminance) + (1|subject),pupil_pca_out_justant_trial_ant))
+r.squaredGLMM(l0)
+
+summary(lmer(scale(PC2) ~ scale(luminance) + (1|subject),pupil_pca_out_justant_trial_ant))
+summary(lmer(scale(PC5) ~ scale(luminance) + (1|subject),pupil_pca_out_justant_trial_ant))
+
+summary(l1<-lmer(scale(luminance) ~ scale(PC1) + scale(PC2) + scale(PC5) + (1|subject),pupil_pca_out_justant_trial_ant))
+r.squaredGLMM(l1)
+```
+  
+```{r}
+anova(lm(PC1~cue_value,lumiance_corr))
+anova(lm(PC2~cue_value,lumiance_corr))
+anova(lm(PC3~cue_value,lumiance_corr))
+anova(lm(PC4~cue_value,lumiance_corr))
+anova(lm(PC5~cue_value,lumiance_corr))
+anova(lm(PC6~cue_value,lumiance_corr))
+```
+  
+
+```{r}
+df_beh <- unique(read_csv('/Users/yanyan/Desktop/midaffemo/analyses/behavior/derivatives/beh.csv') %>% 
+  left_join(pupil_pca_out_justant %>% 
+              select(subject, trial,PC1:PC6), by = c("subject","trial"))) %>% 
+  mutate(cue_value = factor(trialtype, levels = 1:6, labels = c("-$0","-$1","-$5","+$0","+$1","+$5")))
+
+
+df_beh$cue_value <- factor(df_beh$cue_value,
+                                levels = c("-$5","-$1","-$0","+$0","+$1","+$5"))
+
+summary(l1<-lmer(scale(arating) ~ scale(PC1) + scale(PC2) + scale(PC3) + scale(PC4) + scale(PC5) + scale(PC6) + (1|subject),df_beh %>% filter(probe == 1)))
+r.squaredGLMM(l1)
+summary(l2<-lmer(scale(vrating) ~ scale(PC1) + scale(PC2) + scale(PC3) + scale(PC4) + scale(PC5) + scale(PC6) + (1|subject),df_beh %>% filter(probe == 1)))
+r.squaredGLMM(l2)
+ggplot(df_beh)+
+  geom_smooth(aes(y = arating, x = PC1), method = "lm",color = "red", se = F)+
+  geom_smooth(aes(y = arating, x = PC2), method = "lm", color = "blue", se = F)+
+  geom_smooth(aes(y = arating, x = PC3), method = "lm", color = "skyblue", se = F)+
+  geom_smooth(aes(y = arating, x = PC4), method = "lm", color = "orange", se = F)+
+  geom_smooth(aes(y = arating, x = PC5), method = "lm", color = "pink", se = F)+
+  geom_smooth(aes(y = arating, x = PC6), method = "lm", color = "purple", se = F)+
+  ylim(1,5)
+  # facet_wrap(~cue_size)
+
+ggplot(df_beh)+
+  geom_smooth(aes(y = vrating, x = PC1), method = "lm",color = "red", se = F)+
+  geom_smooth(aes(y = vrating, x = PC2), method = "lm", color = "blue", se = F)+
+  geom_smooth(aes(y = vrating, x = PC3), method = "lm", color = "skyblue", se = F)+
+  geom_smooth(aes(y = vrating, x = PC4), method = "lm", color = "orange", se = F)+
+  geom_smooth(aes(y = vrating, x = PC5), method = "lm", color = "pink", se = F)+
+  geom_smooth(aes(y = vrating, x = PC6), method = "lm", color = "purple", se = F)+
+  ylim(1,5)
+```
+
+## whole trial
+```{r}
+pupil_pca_out_wholetrial_trial <- pupil_pca_out_wholetrial %>% 
+  select(subject:cue_value,trial_id_unique,PC1:PC10) %>% 
+  pivot_longer(PC1:PC10,names_to = "PC_component", values_to = "weights") %>% 
+  mutate(cue_size = factor(cue_size, levels = c(1,2), labels = c("small","large")))
+
+ggplot(pupil_pca_out_wholetrial_trial, aes(x = cue_value, y = weights, group = cue_size,
+                                color = cue_size))+
+  stat_summary()+
+  facet_wrap(~PC_component)
+
+ggplot(pupil_pca_out_wholetrial_trial %>% filter(PC_component=="PC10"), aes(x = cue_value, y = weights, group = cue_size,
+                                color = cue_size))+
+  stat_summary()+
+  ggplot(cue_luminance, aes(x = cue_value, y = luminance, group = cue_size,
+                                color = cue_size))+
+  geom_point()
+
+lumiance_corr <- pupil_pca_out_wholetrial %>% 
+  filter(sample_in_trial_t == 0.005) %>% 
+  select(subject:cue_value,trial_id_unique,PC1:PC10) %>% 
+  mutate(cue_size = factor(cue_size, levels = c(1,2), labels = c("small","large"))) %>% 
+  left_join(cue_luminance)
+
+summary(lm(PC1~luminance,lumiance_corr))
+summary(lm(PC2~luminance,lumiance_corr))
+summary(lm(PC3~luminance,lumiance_corr))
+summary(lm(PC4~luminance,lumiance_corr))
+summary(lm(PC5~luminance,lumiance_corr))
+summary(lm(PC6~luminance,lumiance_corr))
+summary(lm(PC7~luminance,lumiance_corr))
+summary(lm(PC8~luminance,lumiance_corr))
+summary(lm(PC9~luminance,lumiance_corr))
+summary(lm(PC10~luminance,lumiance_corr))
+
+pupil_pca_out_wholetrial_trial_ant <- pupil_pca_out_wholetrial %>% 
+  filter(sample_in_trial_t <= 1) %>% 
+  group_by(subject,cue_size,cue_value,trial_id_unique,PC1,PC2,PC3,PC4,PC5,PC6) %>% 
+  summarise(pupilDiameter_scaled = mean(pupilDiameter_scaled, na.rm = T)) %>% 
+  mutate(cue_size = factor(cue_size, levels = c(1,2), labels = c("small","large")))%>% 
+  left_join(cue_luminance)
+
+summary(lmer(scale(pupilDiameter_scaled) ~ scale(luminance) + (1|subject),pupil_pca_out_wholetrial_trial_ant))
+
+summary(lmer(scale(PC3) ~ scale(luminance) + (1|subject),pupil_pca_out_wholetrial_trial_ant))
+```

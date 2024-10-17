@@ -1,0 +1,581 @@
+---
+title: "vrmid_analysis"
+output: html_document
+---
+
+# note to self: ITI denotes time after trial ends
+```{r setup, include=FALSE}
+source(here::here("../load_libraries.R"))
+theme_set(theme_bw() + #set the theme 
+            theme(text = element_text(family = "Helvetica",size = 8))) #set the default text size
+purpleOrange_palette6 = c("purple4","purple2","plum3","khaki","gold","goldenrod4")
+purpleOrange_palette2 = c("purple4","gold")
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+my.df <-read.csv("../../data/study1/reduced_data.csv")%>%
+  mutate(probe = ifelse(probe == "anti","out", 
+                        ifelse(probe == "out","anti",NA)))
+
+my.df$valence <- as.numeric(my.df$valence)
+my.df$arousal <- as.numeric(my.df$arousal)
+
+# class(my.df)
+
+#converted valence and arousal to numeric
+my.df <- my.df %>% group_by(Subject) %>% 
+  mutate(mean_valence=mean(valence, na.rm=TRUE),
+         mean_arousal=mean(arousal, na.rm=TRUE))
+
+#the timing bit
+my.df$Time_str = times(my.df$Time)
+
+#some time points are wrong (from 12 pm to 1 am)
+my.df$Time_str <- times(ifelse(hour(hms(as.character(my.df$Time_str)))< 7, 
+                               times(my.df$Time_str + "12:00:00"),
+                           my.df$Time_str))
+
+my.df <- my.df%>%
+  group_by(Subject,trial)%>%
+  mutate(Time_str_start = Time_str[1],
+         Time_in_trial_sec = times(Time_str - Time_str_start + "00:00:01"),
+         Time_sec = chron::seconds(Time_in_trial_sec))
+
+my.df <- my.df%>%
+  relocate(Time_sec,.after = Time)%>%
+  ungroup()%>%
+  mutate(current_stimulus = ifelse(Time_sec <= 4, "cue",
+                                   ifelse(Time_sec %in% c(5,6),"fixation",
+                                          ifelse((Time_sec %in% c(7,8) & probe == "out") |
+                                                    (Time_sec %in% c(15,16) & probe == "anti"),"target",
+                                                 ifelse((Time_sec %in% c(9,10) & probe == "out") |
+                                                    (Time_sec %in% c(17,18) & probe == "anti"),"outcome",
+                                                    ifelse((Time_sec %in% c(11:18) & probe == "out") |
+                                                    (Time_sec %in% c(7:14) & probe == "anti"),"self_report","ITI"))))),
+         last_ITI = lag(ITI_duration))%>%
+  relocate(current_stimulus, .after = Time_sec)
+```
+
+
+```{r}
+my.df_rotated <- my.df %>% 
+  ungroup()%>%
+  mutate(sub_valence=valence - mean_valence,
+         sub_arousal=arousal - mean_arousal)%>% 
+  mutate(PosA = (sub_arousal+sub_valence)/sqrt(2), 
+         NegA = (sub_arousal-sub_valence)/sqrt(2))%>%
+  group_by(Subject)%>%
+  mutate(PosA_scaled = as.numeric(scale(PosA)),
+         NegA_scaled = as.numeric(scale(NegA)),
+         arousal_scaled = as.numeric(scale(arousal)),
+         valence_scaled = as.numeric(scale(valence)))
+
+my.df_rotated$condition <- factor(my.df_rotated$condition, levels = c("large","receding","looming","small"))
+
+my.df_rotated$trial.type <- factor(my.df_rotated$trial.type, levels = c("minus5","minus1","minus0","plus0","plus1","plus5"), labels = c("-$5","-$1","-$0","+$0","+$1","+$5"))
+
+my.df_beh <- my.df_rotated%>%
+  filter(Time_sec == 1)%>%
+  ungroup()%>%
+  select(Subject, trial:ITI_duration,PosA_scaled, NegA_scaled, valence, arousal)%>%
+  mutate(last_ITI = lag(ITI_duration,1))%>%
+  group_by(Subject)%>%
+  mutate(valence_scaled = scale(valence),
+         arousal_scaled = scale(arousal))%>%
+  ungroup()
+
+length(unique(my.df_beh$Subject))
+
+my.df <- left_join(my.df,
+                   my.df_beh%>%
+                     select(Subject, trial, last_ITI),
+                   by = c("Subject", "trial"))
+```
+#write my.df
+
+```{r}
+dfOut <- my.df_rotated%>%
+            select(Subject,Time,Time_sec:ITI_duration,
+                   Time_str,Time_str_start,last_ITI,
+                   Time_in_trial_sec,PosA:NegA_scaled,
+                   PPG_1:HeartRateVar_rmssd)
+write_csv(dfOut,"/Users/rh/Desktop/VRMID-analysis/data/vrmid-pupillometry/study1/per_second_data.csv")
+```
+
+```{r}
+summary(lmer(PosA_scaled ~ NegA_scaled + (1 + NegA_scaled|Subject),my.df_rotated))
+
+p1 <- ggplot(my.df_beh%>%filter(probe == "anti"), aes(x = trial.type, y = arousal_scaled))+
+  stat_summary(fun.data = "mean_cl_boot",geom = "pointrange",
+               size = 0.3)+
+  labs(title = "anticipation arousal",
+       x = "cue value")+
+  theme(legend.position = "none")
+
+p2 <- ggplot(my.df_beh%>%filter(probe == "anti"), aes(x = trial.type, y = valence_scaled))+
+  stat_summary(fun.data = "mean_cl_boot",geom = "pointrange",
+               size = 0.3)+
+  labs(title = "valence",
+       x = "cue value")+
+  theme(legend.position = "none")
+```
+
+
+
+```{r}
+p3 <- ggplot(my.df_beh%>%filter(probe == "out"), aes(x = trial.type, y = arousal_scaled,
+                                                      color = reaction_outcome,
+                                                     shape = reaction_outcome))+
+  stat_summary(fun.data = "mean_cl_boot",geom = "pointrange",
+               size = 0.3)+
+  scale_color_brewer(palette = "Set1",
+                     direction = -1)+
+  labs(title = "outcome arousal",
+       x = "cue value")+
+  theme(legend.position = "top")
+
+p4 <- ggplot(my.df_beh%>%filter(probe == "out"), aes(x = trial.type, y = valence_scaled,
+                                                      color = reaction_outcome,
+                                                     shape = reaction_outcome))+
+  stat_summary(fun.data = "mean_cl_boot",geom = "pointrange",
+               size = 0.3)+
+  scale_color_brewer(palette = "Set1",
+                     direction = -1)+
+  labs(title = "valence",
+       x = "cue value")+
+  theme(legend.position = "none")
+
+p1+p2+p3+p4+plot_layout(nrow = 1)
+ggsave("../../poster/fig3.png",width = 10, height = 3, units = "in",dpi = 300)
+```
+
+# pupillometry
+```{r}
+#correlation between-eyes
+summary(lmer(RightPDil ~ LeftPDil + (1|Subject),my.df))
+
+#get average pupil size (NA = closed)
+my.df_physio_1hz <- my.df_rotated%>%
+  mutate(pupil_size = ifelse(LeftOpen == 1 & RightOpen == 1 & RightPDil != -1 &  LeftPDil != -1 &
+                               RightPPos_x != -1 & LeftPPos_x != -1,
+                             (RightPDil+LeftPDil)/2, NA))%>%
+  relocate(Time_sec)%>%
+  group_by(Subject)%>%
+  mutate(pupil_size_scaled = scale(pupil_size))
+
+table(!is.na(my.df_physio_1hz$pupil_size_scaled))/nrow(my.df_physio_1hz)
+
+my.df_physio_1hz$ITI_duration <- as.factor(my.df_physio_1hz$ITI_duration)
+my.df_physio_1hz$last_ITI <- as.factor(my.df_physio_1hz$last_ITI)
+#inspect time
+
+table(my.df_physio_1hz%>%
+  group_by(Subject,trial)%>%
+  filter(Time_sec == max(Time_sec))%>%
+  ungroup(Subject,trial)%>%
+  select(ITI_duration,Time_sec))
+
+out_outcome_sec = c(9,11)
+anti_outcome_sec = c(17,19)
+cue_sec = c(2,5)
+```
+
+
+```{r}
+p7 <- ggplot(my.df_physio_1hz%>%
+         filter(probe == "anti",
+                !is.na(last_ITI)), aes(x = Time_sec, y = pupil_size, color = last_ITI))+
+  stat_summary(aes(group = last_ITI))+
+  stat_summary(aes(group = last_ITI), geom = "line")+
+  scale_color_manual(values = purpleOrange_palette6)+
+  labs(title = "anticipation probe")+
+  geom_vline(xintercept = anti_outcome_sec, color = "red")+
+  geom_vline(xintercept = cue_sec, color = "blue")
+
+p8 <- ggplot(my.df_physio_1hz%>%
+         filter(probe == "out",
+                !is.na(last_ITI)), aes(x = Time_sec, y = pupil_size, color = last_ITI))+
+  stat_summary(aes(group = last_ITI))+
+  stat_summary(aes(group = last_ITI), geom = "line")+
+  scale_color_manual(values = purpleOrange_palette6)+
+  labs(title = "outcome probe")+
+  geom_vline(xintercept = out_outcome_sec, color = "red")+
+  geom_vline(xintercept = cue_sec, color = "blue")
+
+p9 <- ggplot(my.df_physio_1hz%>%
+         filter(Time_sec < 7,
+                !is.na(last_ITI)), aes(x = Time_sec, y = pupil_size, color = last_ITI))+
+  stat_summary(aes(group = last_ITI))+
+  stat_summary(aes(group = last_ITI), geom = "line")+
+  scale_color_manual(values = purpleOrange_palette6)+
+  labs(title = "Anticipation phase")
+
+p9+p7+p8
+```
+```{r}
+ggplot(my.df_physio_1hz%>%
+         filter(Time_sec <= 4), aes(x = Time_sec, y = pupil_size, color = trial.type))+
+  stat_summary(aes(group = trial.type))+
+  stat_summary(aes(group = trial.type), geom = "line")+
+  scale_color_manual(values = purpleOrange_palette6)+
+  labs(title = "Anticipation phase")
+
+lmm <- lmer(pupil_size ~ trial.type * Time_sec + (1|Subject),my.df_physio_1hz%>%
+         filter(Time_sec <= 6)%>%
+           mutate(Time_sec = as.factor(Time_sec)))
+
+summary(lmm)
+
+plot_model(lmm, type = "pred", terms = c("Time_sec", "trial.type"))+
+  scale_color_manual(values = purpleOrange_palette6)+
+  geom_line()
+```
+
+```{r}
+ggplot(my.df_physio_1hz%>%
+         filter(probe == "anti",
+                Time_sec <= 22)%>%
+         mutate(trial.type = factor(trial.type, levels = c("+$5","+$1","+$0","-$0","-$1","-$5"))), aes(x = Time_sec, y = pupil_size_scaled, color = trial.type))+
+  stat_summary(aes(group = trial.type))+
+  stat_summary(aes(group = trial.type), geom = "line")+
+  scale_color_manual(values = rev(purpleOrange_palette6))+
+  # geom_vline(xintercept = cue_sec - 0.5, color = "blue")+
+  # geom_vline(xintercept = c(15,17), color = "green")+
+  # geom_vline(xintercept = anti_outcome_sec, color = "red")+
+  # annotate("text", x=cue_sec[1]-0.5, y=1, label="cue", angle=90, color = "blue")+
+  # annotate("text", x=15-0.5, y=1, label="target", angle=90, color = "green")+
+  # annotate("text", x=outcome_sec[1]-0.5, y=1, label="outcome", angle=90, color = "red")+
+  labs(title = "Anticipation probe")
+
+ggplot(my.df_physio_1hz%>%
+         filter(probe == "out",
+                Time_sec <= 22), aes(x = Time_sec, y = pupil_size_scaled, color = trial.type))+
+  stat_summary(aes(group = reaction_outcome, color = trial.type))+
+  stat_summary(aes(group = reaction_outcome, color = trial.type), geom = "line")+
+  scale_color_manual(values = purpleOrange_palette6)+
+  # geom_vline(xintercept = cue_sec, color = "blue")+
+  # geom_vline(xintercept = c(7,9), color = "green")+
+  # geom_vline(xintercept = out_outcome_sec, color = "red")+
+  # annotate("text", x=cue_sec[1]-0.5, y=1, label="cue", angle=90, color = "blue")+
+  # annotate("text", x=7-0.5, y=1, label="target", angle=90, color = "green")+
+  # annotate("text", x=9-0.5, y=1, label="outcome", angle=90, color = "red")+
+  labs(title = "Outcome probe")
+```
+
+```{r fig.width=6}
+ggplot(my.df_physio_1hz%>%
+         filter(probe == "out"), aes(x = Time_sec, y = pupil_size_scaled, color = reaction_outcome))+
+  stat_summary(aes(group = reaction_outcome),size=0.1)+
+  stat_summary(aes(group = reaction_outcome), geom = "line")+
+  scale_color_manual(values = purpleOrange_palette2)+
+  facet_wrap(~trial.type,nrow = 2)+
+  geom_vline(xintercept = cue_sec, color = "blue")+
+  geom_vline(xintercept = c(7,9), color = "green")+
+  geom_vline(xintercept = out_outcome_sec, color = "red")+
+  annotate("text", x=cue_sec[1]-0.5, y=1, label="cue", angle=90, color = "blue")+
+  annotate("text", x=7-0.5, y=1, label="target", angle=90, color = "green")+
+  annotate("text", x=9-0.5, y=1, label="outcome", angle=90, color = "red")+
+  labs(title = "Outcome probe")
+```
+
+```{r}
+df <- my.df_physio_1hz%>%
+  filter(Time_sec <= 4, Time_sec >= 2)%>%
+  group_by(Subject, reaction_outcome,trial,probe, last_ITI,valence,trial.type,condition, arousal, ITI_duration,PosA_scaled,NegA_scaled)%>%
+  summarise(pupil_size_scaled = mean(pupil_size_scaled, na.rm = TRUE),
+            pupil_size = mean(pupil_size, na.rm = TRUE))
+```
+
+```{r}
+lm1 <- lmer(PosA_scaled ~ pupil_size_scaled +  (1|Subject) + (1|condition) + (1|last_ITI),df%>%filter(trial.type == "+$5", probe == "anti"))
+summary(lm1)
+plot_model(lm1, type = "pred", terms = c("pupil_size_scaled"), show.data = TRUE)
+
+lm2 <- lmer(NegA_scaled ~ pupil_size_scaled + (1|Subject) + (1|condition) + (1|last_ITI),df%>%filter(trial.type == "-$5", probe == "anti"))
+summary(lm2)
+plot_model(lm2, type = "pred", terms = c("pupil_size_scaled"), show.data = TRUE)
+
+lm3 <- lmer(NegA_scaled ~ pupil_size_scaled * trial.type + (1|Subject) + (1|condition) + (1|last_ITI),df%>%
+              filter(probe == "anti"))
+summary(lm3)
+
+plot_model(lm3, type = "pred", terms = c("pupil_size_scaled","trial.type"))+
+  scale_color_manual(values = purpleOrange_palette6)+
+  scale_fill_manual(values = purpleOrange_palette6)
+
+lm3b <- lmer(NegA_scaled ~ pupil_size_scaled * trial.type + (1|Subject) + (1|condition) + (1|last_ITI),df%>%
+              filter(pupil_size_scaled > -5))
+summary(lm3b)
+plot_model(lm3b, type = "pred", terms = c("pupil_size_scaled"), show.data = TRUE)
+
+lm4 <- lmer(PosA_scaled ~ pupil_size_scaled * trial.type + (1|Subject) + (1|condition) + (1|last_ITI),df%>%
+              filter(pupil_size_scaled > -5))
+summary(lm4)
+plot_model(lm4, type = "pred", terms = c("pupil_size_scaled","trial.type"))
+
+lm4b <- lmer(PosA_scaled ~ pupil_size_scaled * trial.type + (1|Subject) + (1|condition) + (1|last_ITI),df%>%
+              filter(pupil_size_scaled > -5, probe == "anti"))
+summary(lm4b)
+
+lm5 <- lmer(pupil_size_scaled ~ condition * trial.type + (1|Subject) + (1|last_ITI),df)
+summary(lm5)
+anova(lm5)
+plot_model(lm5, type = "pred", terms = c("trial.type","condition"))+
+  geom_line()+
+  scale_color_manual(values = purpleOrange_palette6)
+
+
+lm6 <- lmer(PosA_scaled ~ condition * trial.type + (1|Subject) + (1|last_ITI),df%>%filter(probe == "anti"))
+summary(lm6)
+plot_model(lm6, type = "pred", terms = c("trial.type","condition"))+
+  geom_line()+
+  scale_color_manual(values = purpleOrange_palette6)
+
+lm7 <- lmer(NegA_scaled ~ condition * trial.type + (1|Subject) + (1|last_ITI),df%>%filter(probe == "anti"))
+summary(lm7)
+plot_model(lm7, type = "pred", terms = c("trial.type","condition"))+
+  geom_line()+
+  scale_color_manual(values = purpleOrange_palette6)
+
+lm8 <- lmer(arousal ~ condition * trial.type + (1|Subject) + (1|last_ITI),df%>%filter(probe == "anti", condition %in% c("small","large")))
+summary(lm8)
+plot_model(lm8, type = "pred", terms = c("trial.type","condition"))+
+  geom_line()+
+  scale_color_manual(values = purpleOrange_palette2)
+
+lm8 <- lmer(valence ~ condition * trial.type + (1|Subject) + (1|last_ITI),df%>%filter(probe == "anti", condition %in% c("small","large")))
+summary(lm8)
+plot_model(lm8, type = "pred", terms = c("trial.type","condition"))+
+  geom_line()+
+  scale_color_manual(values = purpleOrange_palette2)
+
+lm9 <- lmer(pupil_size_scaled ~ PosA_scaled + NegA_scaled + (1|trial.type) + (1|Subject) + (1|last_ITI) + (1|condition),df%>%filter(probe == "anti"))
+summary(lm9)
+```
+```{r}
+lm7b <- lmer(arousal ~ condition * trial.type + (1|Subject),
+             df%>%filter(probe == "anti",condition %in% c("small","large")))
+summary(lm7b)
+anova(lm7b)
+p1 <- plot_model(lm7b, type = "pred", terms = c("trial.type","condition"))+
+  geom_line()+
+  scale_color_manual(values = purpleOrange_palette2)
+
+lm7c <- lmer(valence ~ condition * trial.type + (1|Subject),
+             df%>%filter(probe == "anti",condition %in% c("small","large")))
+                         # trial.type %in% c("-$5","+$5")))
+summary(lm7c)
+anova(lm7c)
+p2 <- plot_model(lm7c, type = "pred", terms = c("trial.type","condition"))+
+  geom_line()+
+  scale_color_manual(values = purpleOrange_palette2)
+
+lm7d <- lmer(pupil_size_scaled ~ condition * trial.type + (1|Subject),
+             df%>%filter(condition %in% c("small","large")))
+summary(lm7d)
+anova(lm7d)
+p3 <- plot_model(lm7d, type = "pred", terms = c("trial.type","condition"))+
+  geom_line()+
+  scale_color_manual(values = purpleOrange_palette2)
+
+p1+p2+p3
+ggsave("../../poster/fig_prereg1.png",width = 9, height = 2.5, units = "in",dpi = 300)
+```
+
+# affect trajectory
+## no rotation
+```{r}
+#first collapse across conditions
+aff_traj_avg_ant_noRotat <- my.df_beh%>%
+  ungroup()%>%
+  filter(probe == "anti")%>%
+  group_by(trial.type,probe)%>%
+  summarise(valence_mean = mean(valence, na.rm = T),
+            arousal_mean = mean(arousal, na.rm = T),
+            valence_sd = sd(valence, na.rm = T)/sqrt(30),
+            arousal_sd = sd(arousal, na.rm = T)/sqrt(30))%>%
+  mutate(report_type = "anticipation")%>%
+  select(report_type,trial.type,valence_mean:arousal_sd)
+
+aff_traj_avg_out_noRotat <- my.df_beh%>%
+  ungroup()%>%
+  filter(probe == "out")%>%
+  group_by(trial.type,probe, reaction_outcome)%>%
+  summarise(valence_mean = mean(valence, na.rm = T),
+            arousal_mean = mean(arousal, na.rm = T),
+            valence_sd = sd(valence, na.rm = T)/sqrt(30),
+            arousal_sd = sd(arousal, na.rm = T)/sqrt(30))%>%
+  mutate(report_type = reaction_outcome)%>%
+  select(report_type,trial.type,valence_mean:arousal_sd)
+
+aff_traj_avg_noRotat <- rbind(aff_traj_avg_ant_noRotat,aff_traj_avg_out_noRotat)
+
+ggplot(data = aff_traj_avg_noRotat%>%filter(report_type == "anticipation"), aes(x = valence_mean, y = arousal_mean, color = trial.type))+
+  geom_segment(aes(x = 1, y = 3,
+                   xend =5, yend = 3),
+               size = 0.5, arrow = arrow(length = unit(0.03, "npc")),
+               color = "darkgrey")+
+  geom_segment(aes(x = 3, y = 1,
+                   xend =3, yend = 5),
+               size = 0.5, arrow = arrow(length = unit(0.03, "npc")),
+               color = "darkgrey")+
+  geom_segment(aes(y=arousal_mean-arousal_sd, yend=arousal_mean+arousal_sd,
+                    x=valence_mean, xend = valence_mean), width=.5)+
+  geom_segment(aes(y=arousal_mean, yend=arousal_mean,
+                    x=valence_mean + valence_sd, xend = valence_mean - valence_sd),
+               width=.5)+
+  geom_point(aes(shape = report_type,size = report_type),
+             size = 2)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  geom_line(aes(group = trial.type, color = trial.type), linetype = "dashed")+
+  labs(title = "Affect circumplex",
+       x = "valence",
+       y = "arousal")+
+  theme_blank()+
+  xlim(1,5)+
+  labs(color = "cue value")
+ggsave("../../figures/space-ant.png",width = 5.5, height = 4, units = "in",dpi = 300)
+```
+
+```{r}
+ggplot(data = aff_traj_avg_noRotat%>%filter(report_type %in% c("anticipation","Hit")), aes(x = valence_mean, y = arousal_mean, color = trial.type, group = report_type))+
+  geom_point(aes(shape = report_type),
+             size = 2)+
+  geom_segment(aes(x = 1, y = 3,
+                   xend =5, yend = 3),
+               size = 0.5, arrow = arrow(length = unit(0.03, "npc")),
+               color = "darkgrey")+
+  geom_segment(aes(x = 3, y = 1,
+                   xend =3, yend = 5),
+               size = 0.5, arrow = arrow(length = unit(0.03, "npc")),
+               color = "darkgrey")+
+  geom_segment(aes(y=arousal_mean-arousal_sd, yend=arousal_mean+arousal_sd,
+                    x=valence_mean, xend = valence_mean, group = report_type, linetype = report_type), width=.5)+
+  geom_segment(aes(y=arousal_mean, yend=arousal_mean,
+                    x=valence_mean + valence_sd, xend = valence_mean - valence_sd,
+                   group = report_type, linetype = report_type),
+               width=.5)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  geom_line(aes(group = trial.type, color = trial.type), linetype = "dotted")+
+  labs(title = "Affect circumplex",
+       x = "valence",
+       y = "arousal",
+       color = "cue value")+
+  theme_blank()+
+  xlim(1,5)
+ggsave("../../figures/space-hit.png",width = 5.5, height = 4, units = "in",dpi = 300)
+```
+
+```{r}
+ggplot(data = aff_traj_avg_noRotat, aes(x = valence_mean, y = arousal_mean, color = trial.type, 
+                                        group = report_type))+
+    geom_segment(aes(x = 1, y = 3,
+                   xend =5, yend = 3),
+               size = 0.5, arrow = arrow(length = unit(0.03, "npc")),
+               color = "darkgrey")+
+  geom_segment(aes(x = 3, y = 1,
+                   xend =3, yend = 5),
+               size = 0.5, arrow = arrow(length = unit(0.03, "npc")),
+               color = "darkgrey")+
+  geom_point(aes(shape = report_type),
+             size = 2)+
+  geom_segment(aes(y=arousal_mean-arousal_sd, yend=arousal_mean+arousal_sd,
+                    x=valence_mean, xend = valence_mean, group = report_type, linetype = report_type), width=.5)+
+  geom_segment(aes(y=arousal_mean, yend=arousal_mean,
+                    x=valence_mean + valence_sd, xend = valence_mean - valence_sd,
+                   group = report_type, linetype = report_type),
+               width=.5)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  geom_line(aes(group = trial.type, color = trial.type), linetype = "dotted")+
+  labs(title = "Affect trajectory (valence-arousal)")+
+  labs(title = "Affect circumplex",
+       x = "valence",
+       y = "arousal",
+       color = "cue value")+
+  theme_blank()+
+  xlim(1,5)
+
+ggsave("../../figures/space-miss.png",width = 5.5, height = 4, units = "in",dpi = 300)
+```
+
+## rotation
+```{r}
+aff_traj_avg_ant_wRotat <-  my.df_beh%>%
+  ungroup()%>%
+  filter(probe == "anti")%>%
+  group_by(trial.type,probe)%>%
+  summarise(PosA_mean = mean(PosA_scaled, na.rm = T),
+            NegA_mean = mean(NegA_scaled, na.rm = T),
+            PosA_sd = sd(PosA_scaled, na.rm = T)/sqrt(30),
+            NegA_sd = sd(NegA_scaled, na.rm = T)/sqrt(30))%>%
+  mutate(report_type = "anticipation")%>%
+  select(report_type,trial.type,PosA_mean:NegA_sd)
+
+aff_traj_avg_out_wRotat <- my.df_beh%>%
+  ungroup()%>%
+  filter(probe == "out")%>%
+  group_by(trial.type,probe,reaction_outcome)%>%
+  summarise(PosA_mean = mean(PosA_scaled, na.rm = T),
+            NegA_mean = mean(NegA_scaled, na.rm = T),
+            PosA_sd = sd(PosA_scaled, na.rm = T)/sqrt(30),
+            NegA_sd = sd(NegA_scaled, na.rm = T)/sqrt(30))%>%
+  mutate(report_type = reaction_outcome)%>%
+  select(report_type,trial.type,PosA_mean:NegA_sd)
+
+aff_traj_avg_wRotat <- rbind(aff_traj_avg_ant_wRotat,aff_traj_avg_out_wRotat)
+
+ggplot(data = aff_traj_avg_wRotat, aes(x = PosA_mean, y = NegA_mean, color = trial.type))+
+  geom_point(aes(shape = report_type,size = report_type))+
+  scale_color_manual(values = purpleOrange_palette6)+
+  geom_segment(aes(x=PosA_mean-PosA_sd, xend=PosA_mean+PosA_sd,
+                    y=NegA_mean, yend = NegA_mean, group = report_type), width=.5)+
+  geom_segment(aes(x=PosA_mean, xend=PosA_mean,
+                    y=NegA_mean + NegA_sd, yend = NegA_mean - NegA_sd,
+                   group = report_type),width=.5)+
+  geom_line(aes(group = trial.type, color = trial.type), linetype = "dashed")+
+  labs(title = "Affect trajectory (PA-NA)")
+```
+
+#rotation, +$5 by motion
+```{r}
+aff_traj_avg_ant_wRotat_5byMotion <- my.df_beh%>%
+  ungroup()%>%
+  filter(trial.type == "+$5")%>%
+  group_by(probe,condition)%>%
+  summarise_at(vars(PosA_scaled, NegA_scaled),
+               ~mean(.x, na.rm = TRUE))%>%
+  pivot_wider(names_from = probe, values_from = c(PosA_scaled,NegA_scaled))%>%
+  mutate(report_type = "anticipation")%>%
+  select(condition,report_type,PosA_scaled_anti,NegA_scaled_anti)%>%
+  rename(PosA = PosA_scaled_anti,
+         NegA = NegA_scaled_anti)
+
+aff_traj_avg_out_wRotat_5byMotion <- my.df_beh%>%
+  ungroup()%>%
+  filter(trial.type == "+$5")%>%
+  group_by(probe,reaction_outcome,condition)%>%
+  summarise_at(vars(PosA_scaled, NegA_scaled),
+               ~mean(.x, na.rm = TRUE))%>%
+  pivot_wider(names_from = probe, values_from = c(PosA_scaled,NegA_scaled))%>%
+  rename(report_type =reaction_outcome)%>%
+  select(condition,report_type,PosA_scaled_out,NegA_scaled_out)%>%
+  rename(PosA = PosA_scaled_out,
+         NegA = NegA_scaled_out)
+
+aff_traj_avg_wRotat_5byMotio <- rbind(aff_traj_avg_ant_wRotat_5byMotion,aff_traj_avg_out_wRotat_5byMotion)
+
+ggplot(data = aff_traj_avg_wRotat_5byMotio, aes(x = PosA, y = NegA, color = condition))+
+  geom_point(aes(shape = report_type,size = report_type))+
+  scale_color_manual(values = purpleOrange_palette6)+
+  geom_line(aes(group = condition, color = condition), linetype = "dashed")+
+  labs(title = "Affect trajectory (PA-NA)")+
+  ylim(-1.5,1.5)+
+  xlim(-1.5,1.5)
+```
+

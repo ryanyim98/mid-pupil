@@ -1,0 +1,2742 @@
+---
+title: "pupil-pilot-look"
+author: "Ryan Yan"
+date: "2024-01-12"
+output: html_document
+---
+
+```{r}
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(tidyverse)
+library(patchwork)
+library(lme4)
+library(lmerTest)
+library(sjPlot)
+library(ggeffects)
+library(MuMIn)
+
+theme_set(theme_bw() + #set the theme 
+            theme(text = element_text(family = "Helvetica",size = 10))) #set the default text size
+purpleOrange_palette6 = c("purple4","purple2","plum3","khaki","gold","goldenrod4")
+purpleOrange_palette2 = c("purple4","gold")
+size_palette2 = c("#e78ac3","#66c2a5")
+
+anticipation_window = c(3.5, 4.5) #4~6 plus 1.5 seconds of delay
+```
+
+```{r}
+anticipation_window = c(3.5, 5.5) #2-4 plus 1.5 seconds of delay
+outcome_window_ant = c(17.5,19.5) #16-18 plus 1.5 seconds of delay
+outcome_window_out = c(7.5,9.5) #6-8 plus 1.5 seconds of delay
+```
+
+```{r}
+sr = 200
+
+df.pupil <- read_csv("./derivatives/pupillometry_baselineCorrected.csv") %>% 
+  mutate(cue_value = factor(trialtype, levels = 1:6, labels = c("-$0","-$1","-$5","+$0","+$1","+$5"))) %>% 
+  filter(!is.na(subject)) %>% 
+  ungroup() %>% 
+  group_by(subject) %>% 
+  mutate(pupilDiameter_scaled = as.numeric(scale(pupilDiameter)),
+         pupilDiameter_bc_scaled = as.numeric(scale(pupilDiameter_bc)),
+         pupilDiameter_baseline_scaled = as.numeric(scale(pupilDiameter_baseline)))
+  # mutate(pupilDiameter_bc = zoo::rollmean(pupilDiameter_bc, k = sr*0.05, fill = NA)) #10 ms rolling window
+
+bad_participants <- read_delim("../subject_to_drop_pupil.txt", col_names = F, delim = " ")
+
+df.pupil <- df.pupil %>% 
+  filter(!sub_id %in% bad_participants) %>% 
+  filter(!subject %in% c("sk240301","hc240324","js240311","jy240308","tc240311","el240312"))
+
+ggpubr::ggdensity(df.pupil$pupilDiameter_scaled)
+df.pupil <- df.pupil %>% filter(abs(pupilDiameter_scaled) < 5)
+
+unique(df.pupil$subject)
+length(unique(df.pupil$subject))
+unique(df.pupil$trial)
+names(df.pupil)
+
+df.pupil$cue_value <- factor(df.pupil$cue_value,
+                                levels = c("-$5","-$1","-$0","+$0","+$1","+$5"))
+
+df.beh <- df.pupil %>% 
+  filter(sample_in_trial_n == 1) %>% 
+  select(block,trial,subject,probe,rating_type,cue_value,cue_size,rt,target_ms,total_winpercent,binned_winpercent,
+         arating, vrating,hit) %>%
+  ungroup() %>% 
+  group_by(subject) %>% 
+  mutate(arousal_scaled = as.numeric(scale(arating)),
+         valence_scaled = as.numeric(scale(vrating)))
+
+df.pupil$emotion <- df.pupil$erating
+
+df.pupil$emotion <- factor(df.pupil$emotion, levels = 1:6, 
+                           labels = c("Anxious","Angry","Sad","Calm","Happy","Excited"))
+
+df.pupil$arousal <- df.pupil$arating
+df.pupil$valence <- df.pupil$vrating
+
+df.pupil <- df.pupil %>% 
+  mutate(emotion_cat = ifelse(emotion %in% c("Anxious","Angry","Excited"),"higharous",
+                              ifelse(emotion %in% c("Sad","Calm","Happy"),"lowarous",NA)))%>%
+  ungroup()%>%
+  group_by(subject) %>% 
+  mutate(arousal_scaled = as.numeric(scale(arousal)),
+         valence_scaled = as.numeric(scale(valence)))
+
+ggplot(df.pupil %>% 
+         filter(sample_in_trial_t >= 0) %>% 
+         group_by(subject,sample_in_trial_t) %>% 
+         summarise(pupilDiameter_bc_scaled = mean(pupilDiameter_bc_scaled, na.rm = T)))+
+  geom_line(aes(x = sample_in_trial_t, y = pupilDiameter_bc_scaled,
+                 color = subject),size = 1)+
+  scale_x_continuous(breaks = 0:22)
+
+df.pupil<-df.pupil %>% 
+    group_by(subject,trial) %>%  
+    mutate(diff = pupilDiameter_scaled - lag(pupilDiameter_scaled,1)) %>% 
+    filter(abs(diff) < 0.5)
+```
+
+```{r}
+
+subject_n <- unique(df.pupil$subject)
+# df.pupil <- df.pupil %>% filter(ifelse(subject == subject_n[8], !trial %in% c(52:72,86,87),
+#                                        ifelse(subject == subject_n[16],!trial %in% c(49:71),
+#                                               ifelse(subject == subject_n[23],!trial %in% c(50,51,58,60,61,66,68,74:94),trial > 0))))
+
+# df.pupil <- df.pupil %>% filter(ifelse(subject == subject_n[23],!trial %in% c(83:94),trial > 0))
+# df.pupil <- df.pupil %>%   filter(sample_in_trial_t > 0,
+#          ifelse(subject ==  subject_n[23] & trial == 94, sample_in_trial_t < 3,
+#                 ifelse(subject == subject_n[23] & trial == 48, sample_in_trial_t < 15,
+#                        ifelse(subject == subject_n[15] & trial == 47, sample_in_trial_t < 14,
+#                               ifelse(subject == subject_n[15] & trial == 48, sample_in_trial_t < 15,
+#                                      ifelse(subject == subject_n[16] & trial == 24, sample_in_trial_t < 18,
+#                                             ifelse(subject == subject_n[17] & trial == 72, sample_in_trial_t < 19,sample_in_trial_t < 22)))))))
+
+
+for (i in 1:length(subject_n)){
+    df1<-df.pupil %>% filter(subject == subject_n[i]) 
+  ggplot(df1, aes(x = sample_in_trial_t, y = pupilDiameter_scaled))+
+    geom_line()+
+    facet_wrap(~trial)+
+    labs(title = i)
+  
+  #ggpubr::ggdensity(df1$diff, rug = T)
+  
+  ggsave(paste0("~/Desktop/midaffemo/analyses/pupil/pupil_figs/",subject_n[i],".png"),dpi = 300, height = 7, width = 14)
+  
+}
+```
+
+#data for PCA
+```{r}
+df.pupil.esther <- df.pupil %>% 
+  filter(ifelse(probe == 1, sample_in_trial_t <= 18, 
+                ifelse(probe == 2, sample_in_trial_t <= 16, NA))) %>% 
+  filter(!is.na(event)) %>% 
+  select(subject,block,trial,probe,cue_size,Time_sec,rating_type,cue_value,trial_gain,iti,event,times,sample_in_trial_t,pupilDiameter,pupilDiameter_bc,pupilDiameter_scaled,vrating_t,arating_t,erating_t,rt,hit,vrating,arating,erating,outcome_type,arousal_scaled,valence_scaled,last_iti,trial_duration,emotion_cat)
+
+unique(df.pupil.esther$event)
+unique(df.pupil.esther$subject)
+
+ggplot(df.pupil.esther %>% 
+         filter(probe == 1,sample_in_trial_t > 0) %>% 
+         group_by(subject,sample_in_trial_t) %>% 
+         summarise(pupilDiameter = mean(pupilDiameter_bc, na.rm = T)))+
+  geom_line(aes(x = sample_in_trial_t, y = pupilDiameter,
+                 color = subject),size = 1)+
+  scale_x_continuous(breaks = 0:22)+
+ggplot(df.pupil.esther %>% 
+         filter(probe == 2,sample_in_trial_t > 0) %>% 
+         group_by(subject,sample_in_trial_t) %>% 
+         summarise(pupilDiameter = mean(pupilDiameter_bc, na.rm = T)))+
+  geom_line(aes(x = sample_in_trial_t, y = pupilDiameter,
+                 color = subject),size = 1)+
+  scale_x_continuous(breaks = 0:22)
+
+write_csv(df.pupil.esther,"esther/pupil_for_pca.csv")
+```
+
+# get pupil time course for regression
+
+## approach 1: concurrent continous bold and pupillometry (downsample to TR = 2 sec)
+```{r}
+df.pupil.for.regs <- df.pupil%>%
+  mutate(tr = floor((Time_sec+2)/2))  %>% 
+  filter(tr > 0)%>% 
+  group_by(subject,block,trial,probe,rating_type,
+           tr)%>%
+  summarise(mean_pupil_nobc_scaled= mean(pupilDiameter_scaled, na.rm = T))
+
+df.1sub <- read_csv("../timecourses/data/realsubj/MIDaffemo/timecourses_b0_woOutliers_long.csv") %>% 
+  filter(subject == "nq240330", voi == "nacc") %>% 
+  mutate(trial_tr_noiti = ifelse(probe == 1, 9,8),
+         trial_tr = trial_tr_noiti + iti/2) %>% 
+  select(trial,trial_tr,tr,run) %>% 
+  filter(tr <= trial_tr)
+
+end_run1 <- df.1sub %>%
+  subset(trial == 24) %>%
+  .[1:5,] %>%
+  mutate(tr = tr + 10)
+
+# create the 5 TRs at the tail of run 2
+end_run2 <- df.1sub %>%
+        filter(run == "run-02")%>%
+        subset(trial == 24) %>%
+        .[1:5,] %>%
+        mutate(tr = tr + 9)
+
+# create the 5 TRs at the tail of run 3
+end_run3 <- df.1sub %>%
+        filter(run == "run-03")%>%
+        subset(trial == 24) %>%
+        .[1:5,] %>%
+        mutate(tr = tr + 10)
+
+# create the 5 TRs at the tail of run 4
+end_run4 <- df.1sub %>%
+        filter(run == "run-04")%>%
+        subset(trial == 24) %>%
+        .[1:5,] %>%
+        mutate(tr = tr + 11)
+
+df.1sub <- df.1sub %>%
+        # insert 5 rows at the end of each run
+        add_row(end_run1, .after = 240) %>%
+        add_row(end_run2, .after = 485) %>%
+        add_row(end_run3, .after = 730) %>%
+        add_row(end_run4, .after = 975)
+      
+df.1sub <- df.1sub %>% 
+  mutate(block = as.numeric(substr(run,6,6))) %>% 
+  mutate(trial = trial + (block - 1) * 24) %>% 
+  select(-block,-run)
+
+for (sub in unique(df.pupil.for.regs$subject)){
+  if(!is.na(sub)){
+    df.pupil.for.regs_ <- left_join(df.1sub,df.pupil.for.regs %>% 
+                                      filter(subject == sub),
+          by = c("trial","tr")) %>% 
+  relocate(subject)
+    
+    # # #linear interpolation
+    # int <- zoo::na.approx(df.pupil.for.regs_$mean_pupil_nobc_scaled)
+    # df.pupil.for.regs_$mean_pupil_nobc_scaled_i <- NA
+    # df.pupil.for.regs_$mean_pupil_nobc_scaled_i[1:length(int)] <-int
+    df.pupil.for.regs_$mean_pupil_nobc_scaled[is.na(df.pupil.for.regs_$mean_pupil_nobc_scaled)] <- 0
+    write_delim(data.frame(df.pupil.for.regs_$mean_pupil_nobc_scaled),
+                paste0("./glm_pupil_regs/",sub,"_scaled.1D"), col_names = F)
+    
+  }
+}
+
+write_delim(data.frame(unique(df.pupil.for.regs$subject)),
+            "subjects-pupil-fmri.txt", col_names = F)
+```
+
+```{r}
+count(df.beh %>% 
+  filter(!subject %in% c("mc240228","sp240228")) %>%
+  group_by(probe),cue_value)
+
+ggplot(df.beh, aes(x = trial, y = total_winpercent, color = subject))+
+  geom_line(linewidth = 1)+
+  geom_hline(yintercept = 0.66)
+
+ggplot(df.beh, aes(x = trial, y = binned_winpercent, color = cue_value))+
+  geom_line(linewidth = 1)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  geom_hline(yintercept = 0.66)+
+  facet_wrap(~subject)
+
+rt_sum <- df.beh %>% 
+  filter(rt != -1) %>% 
+  group_by(subject) %>% 
+  mutate(rt = as.numeric(scale(rt))) %>% 
+  group_by(subject,cue_value,probe) %>% 
+  summarise(rt = mean(rt,na.rm = T))
+
+ggplot(rt_sum %>% 
+         mutate(probe = ifelse(probe == 1, "anticipation probe","outcome probe")), aes(x = cue_value, y = rt, color = cue_value))+
+  stat_summary(aes(group = probe), geom = "pointrange")+
+  scale_color_manual(values = purpleOrange_palette6)+
+  facet_wrap(~probe, nrow = 2)
+
+ggplot(df.beh %>% 
+         group_by(subject,cue_value,probe) %>% 
+         summarise(hit_rate = mean(hit)) %>% 
+         mutate(probe = ifelse(probe == 1, "anticipation probe","outcome probe")), aes(x = cue_value, y = hit_rate, color = cue_value))+
+  stat_summary(aes(group = probe), geom = "pointrange")+
+  scale_color_manual(values = purpleOrange_palette6)+
+  facet_wrap(~probe, nrow = 2)
+```
+
+## no rotation
+```{r}
+#first collapse across conditions
+aff_traj_avg_ant_noRotat <- df.beh%>%
+  ungroup()%>%
+  filter(probe == 1)%>%
+  group_by(cue_value,probe)%>%
+  summarise(valence_mean = mean(vrating, na.rm = T),
+            arousal_mean = mean(arating, na.rm = T),
+            valence_sd = sd(vrating, na.rm = T)/sqrt(30),
+            arousal_sd = sd(arating, na.rm = T)/sqrt(30))%>%
+  mutate(report_type = "anticipation")%>%
+  select(report_type,cue_value,valence_mean:arousal_sd)
+
+aff_traj_avg_out_noRotat <- df.beh%>%
+  ungroup()%>%
+  filter(probe == 2)%>%
+  group_by(cue_value,probe, hit)%>%
+  summarise(valence_mean = mean(vrating, na.rm = T),
+            arousal_mean = mean(arating, na.rm = T),
+            valence_sd = sd(vrating, na.rm = T)/sqrt(30),
+            arousal_sd = sd(arating, na.rm = T)/sqrt(30))%>%
+  mutate(report_type = ifelse(hit==1,"Hit","Miss"))%>%
+  select(report_type,cue_value,valence_mean:arousal_sd)
+
+aff_traj_avg_noRotat <- rbind(aff_traj_avg_ant_noRotat,aff_traj_avg_out_noRotat)
+
+ggplot(data = aff_traj_avg_noRotat%>%filter(report_type == "anticipation"), aes(x = valence_mean, y = arousal_mean, color = cue_value))+
+  geom_segment(aes(x = 1, y = 3,
+                   xend =5, yend = 3),
+               size = 0.5, arrow = arrow(length = unit(0.03, "npc")),
+               color = "darkgrey")+
+  geom_segment(aes(x = 3, y = 1,
+                   xend =3, yend = 5),
+               size = 0.5, arrow = arrow(length = unit(0.03, "npc")),
+               color = "darkgrey")+
+  geom_segment(aes(y=arousal_mean-arousal_sd, yend=arousal_mean+arousal_sd,
+                    x=valence_mean, xend = valence_mean), width=.5)+
+  geom_segment(aes(y=arousal_mean, yend=arousal_mean,
+                    x=valence_mean + valence_sd, xend = valence_mean - valence_sd),
+               width=.5)+
+  geom_point(aes(shape = report_type,size = report_type),
+             size = 2)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  geom_line(aes(group = cue_value, color = cue_value), linetype = "dashed")+
+  labs(title = "Affect circumplex",
+       x = "valence",
+       y = "arousal")+
+  theme_blank()+
+  xlim(1,5)+
+  labs(color = "cue value")
+ggsave("../../../VRMID-analysis/figures//space-ant.png",width = 5.5, height = 4, units = "in",dpi = 300)
+```
+
+```{r}
+ggplot(data = aff_traj_avg_noRotat%>%filter(report_type %in% c("anticipation","Hit")), aes(x = valence_mean, y = arousal_mean, color = cue_value, group = report_type))+
+  geom_point(aes(shape = report_type),
+             size = 2)+
+  geom_segment(aes(x = 1, y = 3,
+                   xend =5, yend = 3),
+               size = 0.5, arrow = arrow(length = unit(0.03, "npc")),
+               color = "darkgrey")+
+  geom_segment(aes(x = 3, y = 1,
+                   xend =3, yend = 5),
+               size = 0.5, arrow = arrow(length = unit(0.03, "npc")),
+               color = "darkgrey")+
+  geom_segment(aes(y=arousal_mean-arousal_sd, yend=arousal_mean+arousal_sd,
+                    x=valence_mean, xend = valence_mean, group = report_type, linetype = report_type), width=.5)+
+  geom_segment(aes(y=arousal_mean, yend=arousal_mean,
+                    x=valence_mean + valence_sd, xend = valence_mean - valence_sd,
+                   group = report_type, linetype = report_type),
+               width=.5)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  geom_line(aes(group = cue_value, color = cue_value), linetype = "dotted")+
+  labs(title = "Affect circumplex",
+       x = "valence",
+       y = "arousal",
+       color = "cue value")+
+  theme_blank()+
+  xlim(1,5)
+ggsave("../../../VRMID-analysis/figures/space-hit.png",width = 5.5, height = 4, units = "in",dpi = 300)
+```
+
+```{r}
+ggplot(data = aff_traj_avg_noRotat, aes(x = valence_mean, y = arousal_mean, color = cue_value, 
+                                        group = report_type))+
+    geom_segment(aes(x = 1, y = 3,
+                   xend =5, yend = 3),
+               size = 0.5, arrow = arrow(length = unit(0.03, "npc")),
+               color = "darkgrey")+
+  geom_segment(aes(x = 3, y = 1,
+                   xend =3, yend = 5),
+               size = 0.5, arrow = arrow(length = unit(0.03, "npc")),
+               color = "darkgrey")+
+  geom_point(aes(shape = report_type),
+             size = 2)+
+  geom_segment(aes(y=arousal_mean-arousal_sd, yend=arousal_mean+arousal_sd,
+                    x=valence_mean, xend = valence_mean, group = report_type, linetype = report_type), width=.5)+
+  geom_segment(aes(y=arousal_mean, yend=arousal_mean,
+                    x=valence_mean + valence_sd, xend = valence_mean - valence_sd,
+                   group = report_type, linetype = report_type),
+               width=.5)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  geom_line(aes(group = cue_value, color = cue_value), linetype = "dotted")+
+  labs(title = "Affect trajectory (valence-arousal)")+
+  labs(title = "Affect circumplex",
+       x = "valence",
+       y = "arousal",
+       color = "cue value")+
+  theme_blank()+
+  xlim(1,5)
+
+ggsave("../../../VRMID-analysis/figures/space-miss.png",width = 5.5, height = 4, units = "in",dpi = 300)
+```
+
+# entire time course
+
+```{r}
+df.pupil_summary_bc <- df.pupil%>%
+  mutate(pupilDiameter_bc = as.numeric(scale(pupilDiameter_bc))) %>% 
+  filter(probe == 1) %>% 
+  ungroup()%>%
+  group_by(sample_in_trial_t)%>%
+  summarise(mean = mean(pupilDiameter_bc, na.rm = T))
+
+pt1<-ggplot(df.pupil_summary_bc %>% 
+         filter(sample_in_trial_t >= 0,sample_in_trial_t <= 20), aes(x = sample_in_trial_t,
+                       y = mean))+
+  geom_line(size = 1)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  scale_fill_manual(values = purpleOrange_palette6)+
+    geom_vline(xintercept = c(0,2,4,12,14,16,18), size = 1, color = "grey")+
+  geom_segment(x = 3.5, xend = 5.5, y = -1.5, color = 'purple',size = 2)+
+  # annotate("rect", xmin =0.1, xmax = 2, ymin = -1.5, ymax = 1.5,
+  #          color = "lightseagreen", fill = NA)+
+  annotate("text", x = 1,y = 1, label = "cue",
+          color = "lightseagreen", angle = -90)+
+    # annotate("rect", xmin =2.1, xmax = 4, ymin = -1.5, ymax = 1.5,
+    #       color = "lightskyblue1", fill = NA)+
+  annotate("text", x = 3,y = 1, label = "fixation",
+          color = "lightskyblue1", angle = -90)+
+  # annotate("rect", xmin =12.1, xmax = 14, ymin = -1.5, ymax = 1.5,
+  #         color = "lightskyblue1", fill = NA)+
+  annotate("text", x = 13,y = 1, label = "fixation 2",
+          color = "lightskyblue1", angle = -90)+
+  # annotate("rect", xmin =14.1, xmax = 16, ymin = -1.5, ymax = 1.5,
+  #          color = "lightskyblue3", fill = NA)+
+  annotate("text", x = 15,y = 1, label = "target",
+          color = "lightskyblue3", angle = -90)+
+  # annotate("rect", xmin = 16.1, xmax = 18, ymin = -1.5, ymax = 1.5,
+  #          color = "lightskyblue4", fill = NA)+
+  annotate("text", x = 17,y = 1, label = "outcome",
+          color = "lightskyblue4", angle = -90)+
+  labs(title = "anticipation probes",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  theme_blank()+
+  ylim(-1.6,2)
+
+df.pupil_summary_bc2 <- df.pupil%>%
+  mutate(pupilDiameter_bc = as.numeric(scale(pupilDiameter_bc))) %>% 
+  filter(probe == 2) %>% 
+  ungroup()%>%
+  group_by(sample_in_trial_t)%>%
+  summarise(mean = mean(pupilDiameter_bc, na.rm = T))
+
+pt2<-ggplot(df.pupil_summary_bc2 %>% 
+         filter(sample_in_trial_t >= 0,sample_in_trial_t <= 18), aes(x = sample_in_trial_t,
+                       y = mean))+
+  geom_vline(xintercept = c(0,2,4,6,8), size = 1, color = "grey")+
+  geom_line(size = 1)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  scale_fill_manual(values = purpleOrange_palette6)+
+  geom_segment(x = 7.5, xend = 9.5, y = -1.5, color = 'skyblue',size = 2)+
+  # annotate("rect", xmin =0.1, xmax = 2, ymin = -1.5, ymax = 1.5,
+  #          color = "lightseagreen", fill = NA)+
+  annotate("text", x = 1,y = 1, label = "cue",
+          color = "lightseagreen", angle = -90)+
+  # annotate("rect", xmin =2.1, xmax = 4, ymin = -1.5, ymax = 1.5,
+  #         color = "lightskyblue1", fill = NA)+
+  annotate("text", x = 3,y = 1, label = "fixation",
+          color = "lightskyblue1", angle = -90)+
+  # annotate("rect", xmin =4.1, xmax = 6, ymin = -1.5, ymax = 1.5,
+  #          color = "lightskyblue3", fill = NA)+
+  annotate("text", x = 5,y = 1, label = "target",
+          color = "lightskyblue3", angle = -90)+
+  # annotate("rect", xmin = 6.1, xmax = 8, ymin = -1.5, ymax = 1.5,
+  #          color = "lightskyblue4", fill = NA)+
+  annotate("text", x = 7,y = 1, label = "outcome",
+          color = "lightskyblue4", angle = -90)+
+  labs(title = "outcome probes",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  theme_blank()+
+  ylim(-1.6,2)
+
+pt1+pt2
+
+ggsave("./pupil_tc_poster.png",width = 10, height = 4, units = "in",dpi = 300)
+```
+
+# by cue size
+
+```{r}
+df.pupil_summary_bc_size <- df.pupil%>%
+  filter(sample_in_trial_t <= anticipation_window[2]+1.5,
+         sample_in_trial_t >= 0) %>% 
+  mutate(pupilDiameter_bc = as.numeric(scale(pupilDiameter_bc))) %>%
+  ungroup()%>%
+  mutate(cue_size = factor(cue_size, labels = c("small","large"))) %>% 
+  group_by(cue_size,sample_in_trial_t,subject)%>%
+  summarise(pupilDiameter_bc = mean(pupilDiameter_bc, na.rm = T)) %>% 
+  group_by(cue_size,sample_in_trial_t) %>% 
+  summarise(mean = mean(pupilDiameter_bc, na.rm = T),
+            se = sd(pupilDiameter_bc, na.rm = T)/n())
+
+ggplot(df.pupil_summary_bc_size %>% 
+         filter(!is.na(cue_size)), aes(x = sample_in_trial_t,
+                       y = mean))+
+  geom_line(aes(color = cue_size), size = 1)+
+  geom_ribbon(aes(x = sample_in_trial_t,
+                  ymin = mean-se, 
+                  ymax = mean+se, fill = cue_size), 
+              alpha = 0.3)+
+  scale_color_manual(values = size_palette2)+
+  scale_fill_manual(values = size_palette2)+
+  annotate("rect", xmin =0.1, xmax = 2, ymin = -2.5, ymax = 1.5,
+           color = "lightseagreen", fill = NA)+
+  annotate("text", x = 1,y = 1.2, label = "anticipation",
+          color = "lightseagreen")+
+    annotate("rect", xmin =2.1, xmax = 4, ymin = -2.5, ymax = 1.5,
+          color = "lightskyblue1", fill = NA)+
+  annotate("text", x = 3,y = 1.2, label = "fixation",
+          color = "lightskyblue1")+
+  labs(title = "anticipation phase",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  theme(legend.position = "none")+
+  ylim(-2.5,1.5)
+
+ggsave("../../../VRMID-analysis/figures/study3_fig2_motion.png",width = 4, height = 5, units = "in",dpi = 300)
+```
+
+```{r}
+df.pupil_summary_bc_values_all1 <- df.pupil%>%
+  mutate(pupilDiameter_bc = as.numeric(scale(pupilDiameter_bc))) %>% 
+  filter(probe == 1) %>% 
+  ungroup()%>%
+  filter(!is.na(cue_value)) %>% 
+  group_by(cue_value,sample_in_trial_t)%>%
+  summarise(mean = mean(pupilDiameter_bc, na.rm = T))
+
+ggplot(df.pupil_summary_bc_values_all1 %>% 
+         filter(sample_in_trial_t >= 0,sample_in_trial_t <= 20), aes(x = sample_in_trial_t,
+                       y = mean))+
+  geom_line(aes(color = cue_value), size = 1)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  scale_fill_manual(values = purpleOrange_palette6)+
+  annotate("rect", xmin =0.1, xmax = 2, ymin = -1.5, ymax = 1.5,
+           color = "lightseagreen", fill = NA)+
+  annotate("text", x = 1,y = 1.2, label = "anticipation",
+          color = "lightseagreen")+
+    annotate("rect", xmin =2.1, xmax = 4, ymin = -1.5, ymax = 1.5,
+          color = "lightskyblue1", fill = NA)+
+  annotate("text", x = 3,y = 1.2, label = "fixation",
+          color = "lightskyblue1")+
+  annotate("rect", xmin =12.1, xmax = 14, ymin = -1.5, ymax = 1.5,
+          color = "lightskyblue1", fill = NA)+
+  annotate("text", x = 13,y = 1.2, label = "fixation",
+          color = "lightskyblue1")+
+  annotate("rect", xmin =14.1, xmax = 16, ymin = -1.5, ymax = 1.5,
+           color = "lightskyblue3", fill = NA)+
+  annotate("text", x = 15,y = 1.2, label = "target",
+          color = "lightskyblue3")+
+  annotate("rect", xmin = 16.1, xmax = 18, ymin = -1.5, ymax = 1.5,
+           color = "lightskyblue4", fill = NA)+
+  annotate("text", x = 17,y = 1.2, label = "outcome",
+          color = "lightskyblue4")+
+  labs(title = "anticipation probes",
+       x = "time (s)",
+       y = "z-scored pupil size")
+
+df.pupil_summary_bc_values_all2 <- df.pupil%>%
+  mutate(pupilDiameter_bc = as.numeric(scale(pupilDiameter_bc))) %>% 
+  filter(probe == 2) %>% 
+  ungroup()%>%
+  filter(!is.na(cue_value)) %>% 
+  group_by(cue_value,sample_in_trial_t)%>%
+  summarise(mean = mean(pupilDiameter_bc, na.rm = T))
+
+ggplot(df.pupil_summary_bc_values_all2 %>% 
+         filter(sample_in_trial_t >= 0,sample_in_trial_t <= 18), aes(x = sample_in_trial_t,
+                       y = mean))+
+  geom_line(aes(color = cue_value), size = 1)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  scale_fill_manual(values = purpleOrange_palette6)+
+  annotate("rect", xmin =0.1, xmax = 2, ymin = -1.5, ymax = 1.5,
+           color = "lightseagreen", fill = NA)+
+  annotate("text", x = 1,y = 1.2, label = "anticipation",
+          color = "lightseagreen")+
+  annotate("rect", xmin =2.1, xmax = 4, ymin = -1.5, ymax = 1.5,
+          color = "lightskyblue1", fill = NA)+
+  annotate("text", x = 3,y = 1.2, label = "fixation",
+          color = "lightskyblue1")+
+  annotate("rect", xmin =4.1, xmax = 6, ymin = -1.5, ymax = 1.5,
+           color = "lightskyblue3", fill = NA)+
+  annotate("text", x = 5,y = 1.2, label = "target",
+          color = "lightskyblue3")+
+  annotate("rect", xmin = 6.1, xmax = 8, ymin = -1.5, ymax = 1.5,
+           color = "lightskyblue4", fill = NA)+
+  annotate("text", x = 7,y = 1.2, label = "outcome",
+          color = "lightskyblue4")+
+  labs(title = "outcome probes",
+       x = "time (s)",
+       y = "z-scored pupil size")
+```
+
+```{r}
+df.pupil_summary_anti <- df.pupil%>%
+  filter(sample_in_trial_t <= anticipation_window[2]+1.5,
+         sample_in_trial_t >= 0)%>%
+  ungroup()%>%
+  group_by(subject) %>% 
+  mutate(pupilDiameter_bc = as.numeric(scale(pupilDiameter_bc))) %>% 
+  group_by(cue_value,sample_in_trial_t)%>%
+  summarise(mean = mean(pupilDiameter_bc, na.rm = T),
+            lower = mean(pupilDiameter_bc, na.rm = T) - qt(0.975, df = n() - 1) * sd(pupilDiameter_bc, na.rm = T) / sqrt(n()),
+            upper = mean(pupilDiameter_bc, na.rm = T) + qt(0.975, df = n() - 1) * sd(pupilDiameter_bc, na.rm = T) / sqrt(n()))
+
+ggplot(df.pupil_summary_anti, aes(x = sample_in_trial_t,
+                       y = mean))+
+  geom_line(aes(color = cue_value), size = 1)+
+  geom_ribbon(aes(x = sample_in_trial_t,
+                  ymin = lower,
+                  ymax = upper, fill = cue_value),
+              alpha = 0.3)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  scale_fill_manual(values = purpleOrange_palette6)+
+  annotate("rect", xmin =0.1, xmax = 2, ymin = -1.5, ymax = 1.5,
+           color = "lightseagreen", fill = NA)+
+  annotate("text", x = 1,y = 1.2, label = "anticipation",
+          color = "lightseagreen")+
+  annotate("rect", xmin =2.1, xmax = 4, ymin = -1.5, ymax = 1.5,
+          color = "lightskyblue1", fill = NA)+
+  annotate("text", x = 3,y = 1.2, label = "fixation",
+          color = "lightskyblue1")+
+  theme(legend.position = "none")+
+  labs(title = "anticipation phase (N = 20)",
+       x = "time (s)",
+       y = "z-scored pupil size")
+
+ggsave("../../../VRMID-analysis/figures/study3_fig1_ant.png",width = 4, height = 5, units = "in",dpi = 300)
+```
+
+```{r}
+df.pupil_summary_bc_values_all_subj <- df.pupil%>%
+  mutate(pupilDiameter_bc = as.numeric(scale(pupilDiameter_bc))) %>% 
+  ungroup()%>%
+  filter(!is.na(cue_value)) %>% 
+  group_by(cue_value,subject,sample_in_trial_t)%>%
+  summarise(mean = mean(pupilDiameter_bc, na.rm = T))
+
+ggplot(df.pupil_summary_bc_values_all_subj %>% 
+         filter(sample_in_trial_t >= 0,sample_in_trial_t <= 8), aes(x = sample_in_trial_t,
+                       y = mean))+
+  geom_line(aes(color = cue_value),size=1)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  scale_fill_manual(values = purpleOrange_palette6)+
+  annotate("rect", xmin =0.1, xmax = 2, ymin = -2, ymax = 2,
+           color = "lightseagreen", fill = NA)+
+  annotate("text", x = 1,y = 1.2, label = "anticipation",
+          color = "lightseagreen")+
+    annotate("rect", xmin =2.1, xmax = 4, ymin = -2, ymax = 2,
+          color = "lightskyblue1", fill = NA)+
+  annotate("text", x = 3,y = 1.2, label = "fixation",
+          color = "lightskyblue1")+
+  labs(title = "anticipation period",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  facet_wrap(~subject)
+```
+#confirmatory hypothesis
+
+
+
+```{r warning = F, message = F}
+data_lm_anti <-  df.pupil%>%
+  filter(!subject %in% c("tc240311","st240312")) %>% 
+  mutate(pupil_window = ifelse(sample_in_trial_t <= outcome_window_ant[2] & 
+                                 sample_in_trial_t > outcome_window_ant[1],
+                               "out",
+                               ifelse(sample_in_trial_t <= anticipation_window[2] & 
+                                        sample_in_trial_t > anticipation_window[1],
+                                      "ant",NA)))%>%
+  filter(probe == 1, pupil_window %in% c("out","ant"))%>%
+  ungroup()%>%
+  group_by(subject) %>% 
+  mutate(arousal_scaled = as.numeric(scale(arousal)),
+         valence_scaled = as.numeric(scale(valence)))%>% 
+  group_by(probe,subject,trial,hit,cue_value,emotion,emotion_cat,
+           arousal,valence,pupil_window,
+           arousal_scaled,valence_scaled,cue_size,rt,iti,last_iti)%>%
+  summarise(mean_pupil_bc_scaled = mean(pupilDiameter_bc_scaled, na.rm = T),
+            mean_pupil_nobc_scaled= mean(pupilDiameter_scaled, na.rm = T),
+            mean_pupil_baseline_scaled = mean(pupilDiameter_baseline_scaled, na.rm = T))%>%
+  pivot_wider(values_from = mean_pupil_bc_scaled:mean_pupil_nobc_scaled, names_from = pupil_window)%>%
+  ungroup()%>%
+  group_by(subject)%>%
+  mutate(log_rt = log(rt),
+         log_rt = as.numeric(scale(log_rt)))
+
+data_lm_outcome <-  df.pupil%>%
+    filter(!subject %in% c("tc240311","st240312")) %>% 
+  mutate(pupil_window = ifelse(probe == 2 & sample_in_trial_t <= outcome_window_out[2] 
+                               & sample_in_trial_t > outcome_window_out[1],
+                               "out",
+                               ifelse(probe == 2 &  sample_in_trial_t <= anticipation_window[2] 
+                                      & sample_in_trial_t > anticipation_window[1],
+                                      "ant",NA)))%>%
+  filter(probe == 2, pupil_window %in% c("out","ant"))%>%
+  ungroup()%>%
+  group_by(subject) %>% 
+  mutate(arousal_scaled = as.numeric(scale(arousal)),
+         valence_scaled = as.numeric(scale(valence)))%>% 
+  group_by(probe,subject,trial,hit,cue_value,emotion,emotion_cat,
+           arousal,valence,pupil_window,
+           arousal_scaled,valence_scaled,cue_size,rt,iti,last_iti)%>%
+  summarise(mean_pupil_bc_scaled = mean(pupilDiameter_bc_scaled, na.rm = T),
+            mean_pupil_nobc_scaled= mean(pupilDiameter_scaled, na.rm = T),
+            mean_pupil_baseline_scaled = mean(pupilDiameter_baseline_scaled, na.rm = T))%>%
+  pivot_wider(values_from = mean_pupil_bc_scaled:mean_pupil_nobc_scaled, names_from = pupil_window)%>%
+  ungroup()%>%
+  group_by(subject)%>%
+  mutate(log_rt = log(rt),
+         log_rt = as.numeric(scale(log_rt)))
+```
+
+```{r}
+modA <- lmer(mean_pupil_bc_scaled_ant ~ cue_value + (1|cue_size) + (1|subject) + (1|last_iti),data_lm_anti)
+mydf <- ggpredict(modA, terms = c("cue_value"))
+
+ind_pupil_ant_sub <- df.pupil%>%
+  filter(probe == 1,
+         sample_in_trial_t > anticipation_window[1] & sample_in_trial_t <= anticipation_window[2])%>%
+  ungroup()%>%
+  group_by(subject,cue_value)%>%
+  summarise(mean_pupil = mean(pupilDiameter_bc_scaled, na.rm = T))
+
+ggplot()+
+  scale_color_manual(values = purpleOrange_palette6)+
+  geom_jitter(data = ind_pupil_ant_sub, aes(x = cue_value, y = mean_pupil, group = subject),
+              alpha = 0.3,width = 0.2)+
+  geom_point(data = mydf, aes(x = x, y = predicted, color = x),
+             size = 2)+
+  geom_errorbar(data = mydf, aes(x = x, ymin = predicted-std.error, ymax = predicted+std.error,color = x),
+                width = 0.2, size = 1)+
+  labs(title = "Anticipation (1.5~3.5s \
+       post fixation onset)")+
+  theme(legend.position = "none")
+```
+## phasic, anti
+```{r message=FALSE, warning=FALSE}
+lme1 <- lmer(arousal_scaled ~ mean_pupil_bc_scaled_ant + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_anti%>%
+               filter(is.na(emotion)))
+summary(lme1)
+
+
+lme1a <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_bc_scaled_ant) + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_anti)
+summary(lme1a)
+EMAtools::lme.dscore(lme1, data = data_lm_anti,
+                     type = "lme4")
+
+lme2 <- lmer(scale(valence_scaled) ~ scale(mean_pupil_bc_scaled_ant) + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_anti%>%
+               filter(is.na(emotion)))
+summary(lme2)
+
+
+p1a <- plot_model(lme1, type = "pred", terms = c("mean_pupil_bc_scaled_ant"),
+           show.data = T, dot.size = 0.5)+
+  labs(title = "Anticipation arousal",
+       x = "phasic pupil size",
+       y = "scaled arousal")+
+  scale_color_manual(values = purpleOrange_palette6)+
+  scale_fill_manual(values = purpleOrange_palette6)
+
+
+lme2 <- lmer(valence_scaled ~ mean_pupil_bc_scaled_ant + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_anti%>%
+                filter(is.na(emotion)))
+summary(lme2)
+summary(lmer(scale(valence_scaled) ~ scale(mean_pupil_bc_scaled_ant) + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_anti%>%
+                filter(is.na(emotion))))
+p1b <- plot_model(lme2, type = "pred", terms = c("mean_pupil_bc_scaled_ant"),
+           show.data = T,dot.size = 0.5)+
+  labs(title = "Anticipation valence",
+       x = "phasic pupil size",
+       y = "scaled valence")+
+  xlim(-4,4)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  scale_fill_manual(values = purpleOrange_palette6)
+
+p1a+p1b
+
+summary(lmer(scale(arousal_scaled) ~ scale(mean_pupil_nobc_scaled_ant) + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_anti%>%
+               filter(is.na(emotion))))
+summary(lmer(scale(valence_scaled) ~ scale(mean_pupil_nobc_scaled_ant) + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_anti%>%
+               filter(is.na(emotion))))
+```
+## tonic, anti
+```{r message=FALSE, warning=FALSE}
+lme3 <- lmer(arousal_scaled ~ mean_pupil_baseline_scaled + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_anti%>%
+               filter(is.na(emotion),iti != 0))
+summary(lme3)
+plot_model(lme3, type = "pred", terms = "mean_pupil_baseline_scaled",show.data = T)
+
+lme3a <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_baseline_scaled) + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_anti%>%
+               filter(is.na(emotion),iti != 0))
+summary(lme3a)
+EMAtools::lme.dscore(lme3, data = data_lm_anti,
+                     type = "lme4")
+
+
+p2a <- plot_model(lme3, type = "pred", terms = c("mean_pupil_baseline_scaled"),
+           show.data = T, dot.size = 0.5)+
+  labs(title = "Anticipation arousal",
+       x = "tonic pupil size",
+       y = "scaled arousal")+
+  annotate("text",x = 0, y = 0.9, color = "red",
+           label = "r = 0.00 (n.s.)")+
+  scale_color_manual(values = purpleOrange_palette6)+
+  scale_fill_manual(values = purpleOrange_palette6)
+
+
+lme4 <- lmer(valence_scaled ~ mean_pupil_baseline_scaled + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_anti%>%
+                filter(is.na(emotion)))
+summary(lme4)
+summary(lmer(scale(valence_scaled) ~ scale(mean_pupil_baseline_scaled) + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_anti%>%
+                filter(is.na(emotion))))
+p2b <- plot_model(lme4, type = "pred", terms = c("mean_pupil_baseline_scaled"),
+           show.data = T,dot.size = 0.5)+
+  labs(title = "Anticipation valence",
+       x = "tonic pupil size",
+       y = "scaled valence")+  
+  annotate("text",x = 0, y = 0.9, color = "red",
+           label = "r = 0.02 (n.s.)")+
+  xlim(-4,4)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  scale_fill_manual(values = purpleOrange_palette6)
+
+p2a+p2b
+```
+
+## phasic, out
+```{r message=FALSE, warning=FALSE}
+lme5 <- lmer(arousal_scaled ~ mean_pupil_bc_scaled_out + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_outcome%>%
+               filter(is.na(emotion)))
+summary(lme5)
+plot_model(lme5, type = "pred", terms = "mean_pupil_bc_scaled_out",show.data = T)
+
+lme5a <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_bc_scaled_out) + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_outcome)
+summary(lme5a)
+
+p3a <- plot_model(lme5, type = "pred", terms = c("mean_pupil_bc_scaled_out"),
+           show.data = T, dot.size = 0.5)+
+  labs(title = "Outcome arousal",
+       x = "phasic pupil size",
+       y = "scaled arousal")+  
+  annotate("text",x = 0, y = 0.9, color = "red",
+           label = "r = 0.129 ***")
+
+
+lme6 <- lmer(valence_scaled ~ mean_pupil_bc_scaled_out + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_outcome%>%
+                filter(is.na(emotion)))
+summary(lme6)
+summary(lmer(scale(valence_scaled) ~ scale(mean_pupil_bc_scaled_out) + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_outcome%>%
+                filter(is.na(emotion))))
+p3b <- plot_model(lme6, type = "pred", terms = c("mean_pupil_bc_scaled_out"),
+           show.data = T,dot.size = 0.5)+
+  labs(title = "OUtcome valence",
+       x = "phasic pupil size",
+       y = "scaled valence")+
+  xlim(-4,4)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  scale_fill_manual(values = purpleOrange_palette6)+  
+  annotate("text",x = 0, y = 0.9, color = "red",
+           label = "r = -0.02 (n.s.)")
+
+p3a+p3b
+```
+
+
+```{r}
+ind_pupil_out_sub <- df.pupil%>%
+  filter(ifelse(probe == 1, sample_in_trial_t <= outcome_window_ant[2] & sample_in_trial_t >
+                  outcome_window_ant[1],
+                sample_in_trial_t <= outcome_window_out[2] & sample_in_trial_t > outcome_window_out[1]),
+         !is.na(emotion))%>%
+  ungroup()%>%
+  group_by(subject,cue_value)%>%
+  summarise(mean_pupil = mean(pupilDiameter_bc_scaled, na.rm = T))
+
+modO <- lmer(mean_pupil_bc_scaled_out ~ cue_value * hit + (1|subject) + (1|cue_size) + (1|last_iti),data_lm_outcome)
+anova(modO)
+summary(modO)
+mydf2 <- ggeffects::ggpredict(modO, terms = c("cue_value","hit")) %>% rename(hit = group)
+
+ggplot()+
+  # geom_jitter(data = ind_pupil_out_sub, aes(group = subject,
+  #                                        x = cue_value, 
+  #                                        y = mean_pupil),
+  #           alpha = 0.1, width = 0.2)+
+  geom_point(data = mydf2, aes(x = x, y = predicted,color = x, shape = hit),position = position_dodge(width = 0.50),
+             size = 2)+
+  geom_errorbar(data = mydf2, aes(x = x, ymin = predicted-std.error,
+                                  ymax = predicted+std.error,color = x,
+                                  linetype = hit),position = position_dodge(width = 0.50),
+                size = 1, width = 0.2)+
+  labs(title = "Outcome (1.5~3.5s after outcome onset)")+
+  theme(legend.position = "right")+
+  guides(color = FALSE)+
+  scale_color_manual(values = purpleOrange_palette6)
+
+```
+
+```{r message=FALSE, warning=FALSE}
+lme7 <- lmer(arousal_scaled ~ mean_pupil_nobc_scaled_ant + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_anti%>%
+               filter(is.na(emotion)))
+summary(lme7)
+plot_model(lme7, type = "pred", terms = "mean_pupil_nobc_scaled_ant",show.data = T)
+
+lme7a <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_nobc_scaled_ant) + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_anti)
+summary(lme7a)
+EMAtools::lme.dscore(lme7, data = data_lm_anti,
+                     type = "lme4")
+
+
+p4a <- plot_model(lme7, type = "pred", terms = c("mean_pupil_nobc_scaled_ant"),
+           show.data = T, dot.size = 0.5)+
+  labs(title = "Anticipation arousal",
+       x = "raw pupil size",
+       y = "scaled arousal")+
+  annotate("text",x = 0, y = 0.9, color = "red",
+           label = "r = 0.228 **")+
+  scale_color_manual(values = purpleOrange_palette6)+
+  scale_fill_manual(values = purpleOrange_palette6)
+
+
+lme8 <- lmer(valence_scaled ~ mean_pupil_nobc_scaled_ant + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_anti%>%
+                filter(is.na(emotion)))
+summary(lme8)
+summary(lmer(scale(valence_scaled) ~ scale(mean_pupil_nobc_scaled_ant) + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_anti%>%
+                filter(is.na(emotion))))
+p4b <- plot_model(lme8, type = "pred", terms = c("mean_pupil_nobc_scaled_ant"),
+           show.data = T,dot.size = 0.5)+
+  labs(title = "Anticipation valence",
+       x = "Raw pupil size",
+       y = "scaled valence")+  
+  annotate("text",x = 0, y = 0.9, color = "red",
+           label = "r = -0.02 (n.s.)")+
+  xlim(-4,4)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  scale_fill_manual(values = purpleOrange_palette6)
+
+p4a+p4b
+```
+
+#axis rotation
+
+```{r}
+data_lm_all <- rbind(data_lm_anti,data_lm_outcome)
+data_lm_all <- data_lm_all %>% 
+  mutate(rating_type = ifelse(is.na(emotion),
+                              "Affect","Emotion"))
+
+```
+
+
+# full signal
+```{r message = F, warning=F}
+nbins = 360
+angles = seq(0,pi/2, by = pi/(2*nbins))
+angles = data.frame(angle1d = angles*180/pi,
+                    angle1r = angles,
+                    sin1 = sin(angles),
+                    cos1 = cos(angles))
+
+angles <- angles%>%
+  mutate(angle2d = angle1d + 90,
+         angle2r = angle1r + pi/2,
+         sin2 = sin(angle2r),
+         cos2 = cos(angle2r))
+
+lmer_out1 <- {}
+
+for (i in 1:nrow(angles)){
+  angle_info = angles[i,]
+  data_lm_anti_temp <- data_lm_anti%>%
+    mutate(axis1 = valence_scaled * angle_info$cos1 + arousal_scaled * angle_info$sin1,
+           axis2 = valence_scaled * angle_info$cos2 + arousal_scaled * angle_info$sin2)
+  sum_temp1 <- summary(lmer(scale(axis1) ~ scale(mean_pupil_nobc_scaled_ant) + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_anti_temp))
+  sum_temp2 <- summary(lmer(scale(axis2) ~ scale(mean_pupil_nobc_scaled_ant) + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_anti_temp))
+  lmer_out1 <- rbind(lmer_out1, sum_temp1$coefficients[2,],sum_temp2$coefficients[2,])
+}
+
+lmer_out1 <- as.data.frame(lmer_out1)
+lmer_out1$axis = rep(c("axis1","axis2"),nrow(angles))
+  
+lmer_out1[seq(1,nrow(angles)*2,by = 2),"angle"] = angles$angle1d
+lmer_out1[seq(2,nrow(angles)*2,by = 2),"angle"] = angles$angle2d
+
+lmer_out1[seq(1,nrow(angles)*2,by = 2),"sin"] = angles$sin1
+lmer_out1[seq(2,nrow(angles)*2,by = 2),"sin"] = angles$sin2
+
+lmer_out1[seq(1,nrow(angles)*2,by = 2),"cos"] = angles$cos1
+lmer_out1[seq(2,nrow(angles)*2,by = 2),"cos"] = angles$cos2
+
+lmer_out1$p_val <- (lmer_out1$`Pr(>|t|)` < 0.001)
+
+ggplot(lmer_out1, aes(x = angle,
+                     y = Estimate))+
+  geom_point(aes(color = p_val,
+                 group = axis))+
+  facet_wrap(~axis)+
+  geom_hline(yintercept = 0)+
+  labs(title = "Affect dimension ~ anticipatory pupil dilation",
+       subtitle = "angle is between the axis and valence",
+       color = "p < .001")+
+  scale_color_manual(values = c("grey","maroon"))+
+  geom_vline(xintercept = 90, linetype = "dashed")
+
+a1f <- lmer_out1[which.max(abs(lmer_out1$Estimate)),]
+```
+
+
+```{r}
+lmer_out2 <- {}
+
+for (i in 1:nrow(angles)){
+  angle_info = angles[i,]
+  data_lm_out_temp <- data_lm_outcome%>%
+    filter(is.na(emotion)) %>% 
+    mutate(axis1 = valence_scaled * angle_info$cos1 + arousal_scaled * angle_info$sin1,
+           axis2 = valence_scaled * angle_info$cos2 + arousal_scaled * angle_info$sin2)
+  sum_temp1 <- summary(lmer(scale(axis1) ~ scale(mean_pupil_nobc_scaled_out) + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_out_temp))
+  sum_temp2 <- summary(lmer(scale(axis2) ~ scale(mean_pupil_nobc_scaled_out) + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_out_temp))
+  lmer_out2 <- rbind(lmer_out2, sum_temp1$coefficients[2,],sum_temp2$coefficients[2,])
+}
+
+lmer_out2 <- as.data.frame(lmer_out2)
+lmer_out2$axis = rep(c("axis1","axis2"),nrow(angles))
+  
+lmer_out2[seq(1,nrow(angles)*2,by = 2),"angle"] = angles$angle1d
+lmer_out2[seq(2,nrow(angles)*2,by = 2),"angle"] = angles$angle2d
+
+lmer_out2[seq(1,nrow(angles)*2,by = 2),"sin"] = angles$sin1
+lmer_out2[seq(2,nrow(angles)*2,by = 2),"sin"] = angles$sin2
+
+lmer_out2[seq(1,nrow(angles)*2,by = 2),"cos"] = angles$cos1
+lmer_out2[seq(2,nrow(angles)*2,by = 2),"cos"] = angles$cos2
+
+lmer_out2$p_val <- (lmer_out2$`Pr(>|t|)` < 0.001)
+
+ggplot(lmer_out2, aes(x = angle,
+                     y = Estimate))+
+  geom_point(aes(color = p_val))+
+  facet_wrap(~axis)+
+  geom_hline(yintercept = 0)+
+  labs(title = "Affect dimension ~ outcome pupil dilation",
+       subtitle = "angle is between the axis and valence",
+       color = "p < .001")+
+  scale_color_manual(values = c("grey","maroon"))+
+  geom_vline(xintercept = 90, linetype = "dashed")
+
+a2f <- lmer_out2[which.max(abs(lmer_out2$Estimate)),]
+```
+
+```{r}
+df_axes1 <- rbind(a1f,a2f)
+df_axes1$probe <- c("anticipation","outcome")
+
+df_axes1 <- df_axes1%>%
+  mutate(rad = angle/180 *pi,
+         cos = cos(rad),
+         sin = sin(rad))
+pb1 <- ggplot(df_axes1%>%
+         mutate(cos = cos * abs(Estimate),
+                sin = sin * abs(Estimate)))+
+  geom_segment(aes(x = -0.2, y = 0,
+                   xend = 0.2, yend = 0),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")),
+               color = "grey")+
+  geom_segment(aes(x = 0, y = -0.1,
+                   xend = 0, yend = 0.4),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")),
+               color = "grey")+
+  geom_segment(aes(x = 0,y = 0,
+                   xend = cos, yend = sin,
+                   color = probe),
+               size = 2, arrow = arrow(length = unit(0.03, "npc")))+
+  geom_text(aes(x = cos * 1.2, y = sin * 1.1, color = probe, label = round(Estimate,2)),
+            size = 5,check_overlap = F)+
+  scale_color_manual(values = c("purple","skyblue"))+
+  xlim(-0.2,0.2)+
+  ylim(-0.1,0.5)+
+  labs(x = "valence zscore",
+       y = "arousal zscore",
+       title = "full signal")+
+  theme_blank()+
+  theme(legend.position = "none")+
+  annotate("text",x=0.1,y = 0.35, label = "anticipation probe", color = "purple")+
+  annotate("text",x=0.1,y = 0.3, label = "outcome probe", color = "skyblue")
+
+pb1+
+  labs(title = "")
+
+ggsave("./axis_rot_poster.png",width = 4, height = 4, units = "in",dpi = 300)
+```
+
+
+```{r message = F, warning=F}
+nbins = 360
+angles = seq(0,pi/2, by = pi/(2*nbins))
+angles = data.frame(angle1d = angles*180/pi,
+                    angle1r = angles,
+                    sin1 = sin(angles),
+                    cos1 = cos(angles))
+
+angles <- angles%>%
+  mutate(angle2d = angle1d + 90,
+         angle2r = angle1r + pi/2,
+         sin2 = sin(angle2r),
+         cos2 = cos(angle2r))
+
+lmer_out1 <- {}
+
+for (i in 1:nrow(angles)){
+  angle_info = angles[i,]
+  data_lm_anti_temp <- data_lm_anti%>%
+    mutate(axis1 = valence_scaled * angle_info$cos1 + arousal_scaled * angle_info$sin1,
+           axis2 = valence_scaled * angle_info$cos2 + arousal_scaled * angle_info$sin2)
+  sum_temp1 <- summary(lmer(scale(axis1) ~ scale(mean_pupil_bc_scaled_ant) + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_anti_temp))
+  sum_temp2 <- summary(lmer(scale(axis2) ~ scale(mean_pupil_bc_scaled_ant) + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_anti_temp))
+  lmer_out1 <- rbind(lmer_out1, sum_temp1$coefficients[2,],sum_temp2$coefficients[2,])
+}
+
+lmer_out1 <- as.data.frame(lmer_out1)
+lmer_out1$axis = rep(c("axis1","axis2"),nrow(angles))
+  
+lmer_out1[seq(1,nrow(angles)*2,by = 2),"angle"] = angles$angle1d
+lmer_out1[seq(2,nrow(angles)*2,by = 2),"angle"] = angles$angle2d
+
+lmer_out1[seq(1,nrow(angles)*2,by = 2),"sin"] = angles$sin1
+lmer_out1[seq(2,nrow(angles)*2,by = 2),"sin"] = angles$sin2
+
+lmer_out1[seq(1,nrow(angles)*2,by = 2),"cos"] = angles$cos1
+lmer_out1[seq(2,nrow(angles)*2,by = 2),"cos"] = angles$cos2
+
+lmer_out1$p_val <- (lmer_out1$`Pr(>|t|)` < 0.001)
+
+ggplot(lmer_out1, aes(x = angle,
+                     y = Estimate))+
+  geom_point(aes(color = p_val,
+                 group = axis))+
+  facet_wrap(~axis)+
+  geom_hline(yintercept = 0)+
+  labs(title = "Affect dimension ~ anticipatory pupil dilation",
+       subtitle = "angle is between the axis and valence",
+       color = "p < .001")+
+  scale_color_manual(values = c("grey","maroon"))+
+  geom_vline(xintercept = 90, linetype = "dashed")
+
+a1p <- lmer_out1[which.max(abs(lmer_out1$Estimate)),]
+```
+
+
+```{r}
+lmer_out2 <- {}
+
+for (i in 1:nrow(angles)){
+  angle_info = angles[i,]
+  data_lm_out_temp <- data_lm_outcome%>%
+    mutate(axis1 = valence_scaled * angle_info$cos1 + arousal_scaled * angle_info$sin1,
+           axis2 = valence_scaled * angle_info$cos2 + arousal_scaled * angle_info$sin2)
+  sum_temp1 <- summary(lmer(scale(axis1) ~ scale(mean_pupil_bc_scaled_out) + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_out_temp))
+  sum_temp2 <- summary(lmer(scale(axis2) ~ scale(mean_pupil_bc_scaled_out) + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_out_temp))
+  lmer_out2 <- rbind(lmer_out2, sum_temp1$coefficients[2,],sum_temp2$coefficients[2,])
+}
+
+lmer_out2 <- as.data.frame(lmer_out2)
+lmer_out2$axis = rep(c("axis1","axis2"),nrow(angles))
+  
+lmer_out2[seq(1,nrow(angles)*2,by = 2),"angle"] = angles$angle1d
+lmer_out2[seq(2,nrow(angles)*2,by = 2),"angle"] = angles$angle2d
+
+lmer_out2[seq(1,nrow(angles)*2,by = 2),"sin"] = angles$sin1
+lmer_out2[seq(2,nrow(angles)*2,by = 2),"sin"] = angles$sin2
+
+lmer_out2[seq(1,nrow(angles)*2,by = 2),"cos"] = angles$cos1
+lmer_out2[seq(2,nrow(angles)*2,by = 2),"cos"] = angles$cos2
+
+lmer_out2$p_val <- (lmer_out2$`Pr(>|t|)` < 0.001)
+
+ggplot(lmer_out2, aes(x = angle,
+                     y = Estimate))+
+  geom_point(aes(color = p_val))+
+  facet_wrap(~axis)+
+  geom_hline(yintercept = 0)+
+  labs(title = "Affect dimension ~ outcome pupil dilation",
+       subtitle = "angle is between the axis and valence",
+       color = "p < .001")+
+  scale_color_manual(values = c("grey","maroon"))+
+  geom_vline(xintercept = 90, linetype = "dashed")
+
+a2p <- lmer_out2[which.max(abs(lmer_out2$Estimate)),]
+```
+
+```{r}
+df_axes2 <- rbind(a1p,a2p)
+df_axes2$probe <- c("anticipation","outcome")
+
+df_axes2 <- df_axes2%>%
+  mutate(rad = angle/180 *pi,
+         cos = cos(rad),
+         sin = sin(rad))
+pb2 <- ggplot(df_axes2%>%
+         mutate(cos = cos * abs(Estimate),
+                sin = sin * abs(Estimate)))+
+  geom_segment(aes(x = -0.2, y = 0,
+                   xend = 0.2, yend = 0),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")),
+               color = "grey")+
+  geom_segment(aes(x = 0, y = -0.1,
+                   xend = 0, yend = 0.4),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")),
+               color = "grey")+
+  geom_segment(aes(x = 0,y = 0,
+                   xend = cos, yend = sin,
+                   color = probe),
+               size = 2, arrow = arrow(length = unit(0.03, "npc")))+
+  geom_text(aes(x = cos * 1.2, y = sin * 1.1, color = probe, label = round(Estimate,2)),
+            size = 5,check_overlap = F)+
+  scale_color_manual(values = c("purple","skyblue"))+
+  xlim(-0.2,0.2)+
+  ylim(-0.1,0.5)+
+  labs(x = "valence",
+       y = "arousal",
+       title = "phasic")+
+  theme_blank()+
+  theme(legend.position = "none")+
+  annotate("text",x=0.1,y = 0.35, label = "anticipation probe", color = "purple")+
+  annotate("text",x=0.1,y = 0.3, label = "outcome probe", color = "skyblue")
+
+pb2
+```
+
+```{r message = F, warning=F}
+nbins = 360
+angles = seq(0,pi/2, by = pi/(2*nbins))
+angles = data.frame(angle1d = angles*180/pi,
+                    angle1r = angles,
+                    sin1 = sin(angles),
+                    cos1 = cos(angles))
+
+angles <- angles%>%
+  mutate(angle2d = angle1d + 90,
+         angle2r = angle1r + pi/2,
+         sin2 = sin(angle2r),
+         cos2 = cos(angle2r))
+
+lmer_out1 <- {}
+
+for (i in 1:nrow(angles)){
+  angle_info = angles[i,]
+  data_lm_anti_temp <- data_lm_anti%>%
+    filter(iti != 0) %>% 
+    mutate(axis1 = valence_scaled * angle_info$cos1 + arousal_scaled * angle_info$sin1,
+           axis2 = valence_scaled * angle_info$cos2 + arousal_scaled * angle_info$sin2)
+  sum_temp1 <- summary(lmer(scale(axis1) ~ scale(mean_pupil_baseline_scaled) + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_anti_temp))
+  sum_temp2 <- summary(lmer(scale(axis2) ~ scale(mean_pupil_baseline_scaled) + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_anti_temp))
+  lmer_out1 <- rbind(lmer_out1, sum_temp1$coefficients[2,],sum_temp2$coefficients[2,])
+}
+
+lmer_out1 <- as.data.frame(lmer_out1)
+lmer_out1$axis = rep(c("axis1","axis2"),nrow(angles))
+  
+lmer_out1[seq(1,nrow(angles)*2,by = 2),"angle"] = angles$angle1d
+lmer_out1[seq(2,nrow(angles)*2,by = 2),"angle"] = angles$angle2d
+
+lmer_out1[seq(1,nrow(angles)*2,by = 2),"sin"] = angles$sin1
+lmer_out1[seq(2,nrow(angles)*2,by = 2),"sin"] = angles$sin2
+
+lmer_out1[seq(1,nrow(angles)*2,by = 2),"cos"] = angles$cos1
+lmer_out1[seq(2,nrow(angles)*2,by = 2),"cos"] = angles$cos2
+
+lmer_out1$p_val <- (lmer_out1$`Pr(>|t|)` < 0.001)
+
+ggplot(lmer_out1, aes(x = angle,
+                     y = Estimate))+
+  geom_point(aes(color = p_val,
+                 group = axis))+
+  facet_wrap(~axis)+
+  geom_hline(yintercept = 0)+
+  labs(title = "Affect dimension ~ anticipatory pupil dilation",
+       subtitle = "angle is between the axis and valence",
+       color = "p < .001")+
+  scale_color_manual(values = c("grey","maroon"))+
+  geom_vline(xintercept = 90, linetype = "dashed")
+
+a1t <- lmer_out1[which.max(abs(lmer_out1$Estimate)),]
+```
+
+
+```{r}
+lmer_out2 <- {}
+
+for (i in 1:nrow(angles)){
+  angle_info = angles[i,]
+  data_lm_out_temp <- data_lm_outcome%>%
+     filter(iti != 0) %>% 
+    mutate(axis1 = valence_scaled * angle_info$cos1 + arousal_scaled * angle_info$sin1,
+           axis2 = valence_scaled * angle_info$cos2 + arousal_scaled * angle_info$sin2)
+  sum_temp1 <- summary(lmer(scale(axis1) ~ scale(mean_pupil_baseline_scaled) + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_out_temp))
+  sum_temp2 <- summary(lmer(scale(axis2) ~ scale(mean_pupil_baseline_scaled) + (1|subject) + (1|cue_size) + (1|last_iti),
+              data_lm_out_temp))
+  lmer_out2 <- rbind(lmer_out2, sum_temp1$coefficients[2,],sum_temp2$coefficients[2,])
+}
+
+lmer_out2 <- as.data.frame(lmer_out2)
+lmer_out2$axis = rep(c("axis1","axis2"),nrow(angles))
+  
+lmer_out2[seq(1,nrow(angles)*2,by = 2),"angle"] = angles$angle1d
+lmer_out2[seq(2,nrow(angles)*2,by = 2),"angle"] = angles$angle2d
+
+lmer_out2[seq(1,nrow(angles)*2,by = 2),"sin"] = angles$sin1
+lmer_out2[seq(2,nrow(angles)*2,by = 2),"sin"] = angles$sin2
+
+lmer_out2[seq(1,nrow(angles)*2,by = 2),"cos"] = angles$cos1
+lmer_out2[seq(2,nrow(angles)*2,by = 2),"cos"] = angles$cos2
+
+lmer_out2$p_val <- (lmer_out2$`Pr(>|t|)` < 0.001)
+
+ggplot(lmer_out2, aes(x = angle,
+                     y = Estimate))+
+  geom_point(aes(color = p_val))+
+  facet_wrap(~axis)+
+  geom_hline(yintercept = 0)+
+  labs(title = "Affect dimension ~ outcome pupil dilation",
+       subtitle = "angle is between the axis and valence",
+       color = "p < .001")+
+  scale_color_manual(values = c("grey","maroon"))+
+  geom_vline(xintercept = 90, linetype = "dashed")
+
+a2t <- lmer_out2[which.max(abs(lmer_out2$Estimate)),]
+```
+
+```{r}
+df_axes3 <- rbind(a1t,a2t)
+df_axes3$probe <- c("anticipation","outcome")
+
+df_axes3 <- df_axes3%>%
+  mutate(rad = angle/180 *pi,
+         cos = cos(rad),
+         sin = sin(rad))
+pb3 <- ggplot(df_axes3%>%
+         mutate(cos = cos * abs(Estimate),
+                sin = sin * abs(Estimate)))+
+  geom_segment(aes(x = -0.2, y = 0,
+                   xend = 0.2, yend = 0),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")),
+               color = "grey")+
+  geom_segment(aes(x = 0, y = -0.1,
+                   xend = 0, yend = 0.4),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")),
+               color = "grey")+
+  geom_segment(aes(x = 0,y = 0,
+                   xend = cos, yend = sin,
+                   color = probe),
+               size = 2, arrow = arrow(length = unit(0.03, "npc")))+
+  geom_text(aes(x = cos * 1.2, y = sin * 1.1, color = probe, label = round(Estimate,2)),
+            size = 5,check_overlap = F)+
+  scale_color_manual(values = c("purple","skyblue"))+
+  xlim(-0.2,0.2)+
+  ylim(-0.1,0.5)+
+  labs(x = "valence",
+       y = "arousal",
+       title = "tonic")+
+  theme_blank()+
+  theme(legend.position = "none")+
+  annotate("text",x=0.1,y = 0.35, label = "anticipation probe", color = "purple")+
+  annotate("text",x=0.1,y = 0.3, label = "outcome probe", color = "skyblue")
+```
+
+```{r}
+theme_set(theme_bw() + #set the theme 
+            theme(text = element_text(family = "Helvetica",size = 10)))
+
+pb3 + pb2 + pb1+
+  plot_layout(nrow = 1)+
+  plot_annotation(title = "Correlation strength")
+# ggsave("../../poster/fig9B.png",width = 7, height = 2.5, units = "in",dpi = 300)
+ggsave("../../../VRMID-analysis/figures/study3_axisrot_all.png",width = 11, height = 4, units = "in",dpi = 300)
+```
+
+# get r squared
+```{r}
+da <- data_lm_anti%>%
+  filter(!is.na(mean_pupil_baseline_scaled), !is.na(mean_pupil_bc_scaled_ant))
+
+t <- lmer(arousal_scaled ~  mean_pupil_baseline_scaled +(1|subject) + (1|cue_size) + (1|last_iti),
+              da)
+summary(t)
+p <-lmer(arousal_scaled ~  mean_pupil_bc_scaled_ant +(1|subject) + (1|cue_size) + (1|last_iti),
+              da)
+tp <- lmer(arousal_scaled ~  mean_pupil_nobc_scaled_ant +(1|subject) + (1|cue_size) + (1|last_iti),
+              da)
+anova(t,p,tp)
+round(r.squaredGLMM(t)*100,2)
+round(r.squaredGLMM(p)*100,2)
+round(r.squaredGLMM(tp)*100,2)
+EMAtools::lme.dscore(tp,da,"lme4")
+summary(tp)
+```
+```{r}
+do <- data_lm_outcome%>%
+  filter(!is.na(mean_pupil_baseline_scaled), !is.na(mean_pupil_bc_scaled_out))
+t <- lmer(arousal_scaled ~  mean_pupil_baseline_scaled +(1|subject) + (1|cue_size) + (1|last_iti),
+              do)
+summary(t)
+p <-lmer(arousal_scaled ~  mean_pupil_bc_scaled_out +(1|subject) + (1|cue_size) + (1|last_iti),
+              do)
+tp <- lmer(arousal_scaled ~  mean_pupil_nobc_scaled_out +(1|subject) + (1|cue_size) + (1|last_iti),
+              do)
+summary(p)
+anova(t,p,tp)
+round(r.squaredGLMM(t)*100,2)
+round(r.squaredGLMM(p)*100,2)
+round(r.squaredGLMM(tp)*100,2)
+EMAtools::lme.dscore(t,do,"lme4")
+EMAtools::lme.dscore(tp,do,"lme4")
+summary(tp)
+```
+
+#time window analysis
+
+```{r}
+df.pupil <- df.pupil %>% 
+  group_by(subject, trial, Time_sec) %>% 
+  mutate(sample_in_sec = row_number())
+
+unique(df.pupil$sample_in_sec)
+```
+
+```{r warning = F, message=F}
+regression_coefs_ant_bc <- {}
+
+for (t in 1:20) {
+  coefs <- {}
+  print(paste0("second: ",t))
+  for (s in 1:sr){
+  df_ant_temp <- df.pupil%>%
+  filter(probe == 1,Time_sec == t, sample_in_sec == s)
+  lm_ant_temp <- lmer(scale(arousal_scaled) ~ scale(pupilDiameter_bc_scaled) + (1|subject) + (1|cue_size) + (1|last_iti),df_ant_temp)
+  lm_out <- c(summary(lm_ant_temp)$coefficient[2,],"r2m"=r.squaredGLMM(lm_ant_temp)[2])
+  coefs <- rbind(coefs,lm_out) 
+  }
+  coefs <- as.data.frame(coefs)%>%
+    mutate(sample_in_sec = row_number(),
+           Time_sec = t)
+  rownames(coefs) <- NULL
+  regression_coefs_ant_bc <- rbind(regression_coefs_ant_bc,coefs)
+}
+
+regression_coefs_ant_bc <- regression_coefs_ant_bc%>%
+  mutate(sample_point = row_number(),
+         p_val = (`Pr(>|t|)` < .001))
+
+write_csv(regression_coefs_ant_bc,"regression_coefs_ant_bc.csv")
+regression_coefs_ant_bc <- read_csv("regression_coefs_ant_bc.csv")
+```
+
+
+
+
+```{r warning = F, message=F, tidy=TRUE}
+regression_coefs_ant_nobc <- {}
+
+for (t in 1:20) {
+  coefs <- {}
+  print(t)
+  for (s in 1:sr){
+  df_ant_temp <- df.pupil%>%
+  filter(probe == 1,Time_sec == t, sample_in_sec == s)
+  lm_ant_temp <- lmer(scale(arousal_scaled) ~ scale(pupilDiameter_scaled) + (1|subject) + (1|cue_size),df_ant_temp) #did not add last_iti
+  lm_out <- c(summary(lm_ant_temp)$coefficient[2,],"r2m"=r.squaredGLMM(lm_ant_temp)[2])
+  coefs <- rbind(coefs,lm_out)
+  }
+  coefs <- as.data.frame(coefs)%>%
+    mutate(sample_in_sec = row_number(),
+           Time_sec = t)
+  rownames(coefs) <- NULL
+  regression_coefs_ant_nobc <- rbind(regression_coefs_ant_nobc,coefs)
+}
+
+regression_coefs_ant_nobc <- regression_coefs_ant_nobc%>%
+  mutate(sample_point = row_number(),
+         p_val = (`Pr(>|t|)` < .001))
+write_csv(regression_coefs_ant_nobc,"regression_coefs_ant_nobc.csv")
+regression_coefs_ant_nobc <- read_csv("regression_coefs_ant_nobc.csv")
+```
+
+#get the peak of the raw signal
+```{r}
+regression_coefs_nobc_smoothed <- regression_coefs_ant_nobc %>% 
+  mutate(smoothed_tval = zoo::rollmean(`t value`, k = sr, fill = NA))
+
+ggplot(regression_coefs_nobc_smoothed, aes(x = sample_point,y = smoothed_tval))+
+  geom_point(aes(color = smoothed_tval),
+             size = 1)+
+  # annotate("rect", xmin = 3.5*sr, xmax = 5.5*sr, ymin = 1, ymax = 8,
+  #          alpha = .2, color = "orange", fill = NA, linetype = "dashed")+
+  #   annotate("rect", xmin =13.5*sr, xmax = 15.5*sr, ymin = 1, ymax = 8,
+  #          alpha = .2, color = "violet", fill = NA, linetype = "dashed")+
+  # annotate("rect", xmin =15.5*sr, xmax = 17.5*sr, ymin = 1, ymax = 8,
+  #          alpha = .2, color = "blue", fill = NA, linetype = "dashed")+
+  scale_x_continuous(breaks = seq(0,sr*20,sr), labels =  0:20)+
+  labs(x = "time (sec)",
+       y =  "Correlation strength (t value)",
+       title = "Raw signal")+
+  scale_color_viridis_c()+
+  theme(legend.position = "none")+
+  theme_blank()
+
+ggsave("../../../VRMID-analysis/figures/study3_window_raw_ant.png",width = 6, height = 4, units = "in",dpi = 300)
+```
+#get the peak of the demeaned signal
+```{r}
+regression_coefs_ant_bc<- regression_coefs_ant_bc %>% 
+  mutate(sample_point = row_number())
+
+regression_coefs_bc_smoothed <- regression_coefs_ant_bc %>% 
+  mutate(smoothed_tval = zoo::rollmean(`t value`, k = sr, fill = NA))
+
+ggplot(regression_coefs_bc_smoothed, aes(x = sample_point,y = smoothed_tval))+
+  geom_point(aes(color = (`Pr(>|t|)` < 1/(20*sr))),
+             size = 1)+
+  annotate("rect", xmin = 3.5*sr, xmax = 5.5*sr, ymin = 1, ymax = 8,
+           alpha = .2, color = "orange", fill = NA, linetype = "dashed")+
+    annotate("rect", xmin =13.5*sr, xmax = 15.5*sr, ymin = 1, ymax = 8,
+           alpha = .2, color = "violet", fill = NA, linetype = "dashed")+
+  annotate("rect", xmin =15.5*sr, xmax = 17.5*sr, ymin = 1, ymax = 8,
+           alpha = .2, color = "blue", fill = NA, linetype = "dashed")+
+  scale_x_continuous(breaks = seq(0,sr*20,sr), labels =  0:20)+
+  labs(x = "time (sec)",
+       y =  "Correlation strength (t value)",
+       title = "Raw signal")+
+  scale_color_brewer(palette = "Set1")+
+  theme(legend.position = "none")
+```
+
+# permutation test
+
+### helper functions
+```{r}
+get.adjacency.matrix <- function(x, threshold) {
+  x <- ifelse(abs(x) > threshold, 1, 0)
+  n <- length(x)
+  adjacency_matrix <- matrix(0, n, n)
+  for (i in 1:n) {
+    for (j in (i+1):n) {
+      if (x[i] == 1 & x[j] == 1) {
+        adjacency_matrix[i,j] <- 1
+        adjacency_matrix[j,i] <- 1
+      }
+    }
+  }
+  return(adjacency_matrix)
+}
+```
+
+```{r}
+# Define a function to calculate cluster-level p-values
+get_cluster_p_values <- function(orig_cluster_size, num_permutations, t_values) {
+  cluster_p_values <- numeric(length(orig_cluster_size))
+  for (i in 1:num_permutations) {
+    # permuted_t_values <- sign(runif(length(t_values), -1, 1)) * abs(t_values)
+    permuted_t_values <- sample(t_values)
+    permuted_adjacency_matrix <- (abs(permuted_t_values) > threshold)
+    permuted_cluster <- get_cluster_sizes(permuted_adjacency_matrix, time)
+    permuted_cluster_sizes <- permuted_cluster$cluster
+    for (j in 1:length(orig_cluster_size)) {
+      if (length(permuted_cluster_sizes) != 0){
+        cluster_p_values[j] <- cluster_p_values[j] + (permuted_cluster_sizes >= orig_cluster_size[j])
+      }
+    }
+  }
+  cluster_p_values <- pmin(cluster_p_values / num_permutations, 1)
+  return(cluster_p_values)
+}
+```
+
+```{r}
+# Define a function to calculate cluster sizes
+get_cluster_sizes <- function(x,time) {
+  cluster_indices <- cumsum(x)
+  cluster_sizes <- tapply(cluster_indices, cluster_indices, length)
+  cluster_sizes <- cluster_sizes[cluster_sizes >= cluster_extent_threshold & names(cluster_sizes) != 0]
+  start_time <- c()
+  end_time <- c()
+
+  for (i in 1:length(cluster_sizes)){
+    temp_time <- time[which(cluster_indices %in% names(cluster_sizes)[i])]
+    start_time[i] <- min(temp_time)
+    end_time[i] <- max(temp_time)
+  }
+  cluster_info <- list()
+  cluster_info$cluster <- cluster_sizes
+  cluster_info$start_time <- start_time
+  cluster_info$end_time <- end_time
+  return(cluster_info)
+}
+```
+
+## anticipation, raw
+```{r warning = F, message=F}
+# Define your data: t-values and beta estimates for each time point
+t_values <- regression_coefs_ant_nobc$`t value`
+time <- regression_coefs_ant_nobc$sample_point
+beta_estimates <- regression_coefs_ant_nobc$Estimate
+
+# Define your cluster-forming threshold (e.g. t-value of 2.0)
+threshold <- 2.096
+
+# Define your cluster extent threshold (e.g. minimum number of adjacent time points)
+cluster_extent_threshold <- sr*2
+
+# Get the adjacency matrix based on cluster-forming threshold
+adjacency_matrix <- abs(t_values) < threshold
+
+  # View(cbind(cluster_indices,time,adjacency_matrix))
+
+orig_cluster <- get_cluster_sizes(adjacency_matrix,time)
+orig_cluster_size <- orig_cluster$cluster
+
+num_permutations <- 1000
+cluster_threshold <- 0.05
+
+cluster_p_values <- get_cluster_p_values(orig_cluster_size, 
+                                         num_permutations, 
+                                         t_values)
+
+orig_cluster$start_time/sr
+
+for (c in 1:length(orig_cluster$cluster)) {
+  start_time <- orig_cluster$start_time[c]
+  end_time <- orig_cluster$end_time[c]
+  cluster_size <- orig_cluster$cluster[c]
+  print(paste("Cluster from", round(start_time/sr,2), "s to", round(end_time/sr,2), "s (", cluster_size, "time points) with p-value", cluster_p_values[c]))
+}
+
+d1a <- as.data.frame(cbind(orig_cluster$start_time,orig_cluster$end_time,cluster_p_values))
+names(d1a)[1:2] <- c("Start","End")
+d1a$Start/sr
+d1a$End/sr
+```
+
+
+```{r}
+ant_nobc_pupil <- df.pupil%>%
+  filter(probe == 1)%>%
+  mutate(cluster = ifelse(sample_in_trial_n>= d1a[1,1] & sample_in_trial_n <= d1a[1,2],
+                          "ant",
+                          ifelse(sample_in_trial_n>= d1a[2,1] & sample_in_trial_n <= d1a[2,2],
+                                 "out",NA)))%>%
+  filter(cluster %in% c("ant","out"))%>%
+  group_by(subject,probe,cluster,cue_size,trial,arousal_scaled,valence_scaled,last_iti)%>%
+  summarise(mean_pupil = mean(pupilDiameter_scaled,
+                                 na.rm = T))%>%
+  pivot_wider(names_from = "cluster", values_from = "mean_pupil")
+
+ant_nobc_pupil$axis <-  ant_nobc_pupil$arousal_scaled
+summary(lmer(scale(axis)~ scale(ant)+ (1|subject) + (1|cue_size) + (1|last_iti),ant_nobc_pupil))
+
+lma1 <- lmer(scale(axis) ~ scale(out) + (1|subject) + (1|cue_size) + (1|last_iti),ant_nobc_pupil)
+summary(lma1)
+
+lma2 <- lmer(scale(axis) ~ scale(out) + scale(ant) + (1|subject) + (1|cue_size) + (1|last_iti),ant_nobc_pupil)
+summary(lma2)
+```
+
+
+```{r}
+regression_coefs_ant_nobc <- regression_coefs_ant_nobc%>%
+  mutate(significant_cluster = ifelse((sample_point >= d1a[1,1] & sample_point <= d1a[1,2]) |
+                                      (sample_point >= d1a[2,1] & sample_point <= d1a[2,2]),"sig","ns"))
+
+ggplot(regression_coefs_ant_nobc, aes(x = sample_point, y = `t value`))+
+  geom_point(aes(color = significant_cluster))+
+  scale_x_continuous(breaks = c(0,5*sr,10*sr,15*sr,20*sr),
+                     labels = c(0,5,10,15,20))+
+  labs(x = "sec",
+       color = "sig. cluster",
+       title = "anticipation probe")+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  geom_hline(yintercept = 2.096, color = "blue", linetype = "dashed")
+```
+
+
+
+```{r}
+df.pupil_summary_anticipation_collapse_r <- df.pupil%>%
+  ungroup()%>%
+  filter(probe == 1,sample_in_trial_n <= 20*sr)%>%
+  group_by(sample_in_trial_n,sample_in_trial_t)%>%
+  summarise(mean = mean(pupilDiameter_scaled, na.rm = T),
+            lower = mean(pupilDiameter_scaled, na.rm = T) - qt(0.975, df = n() - 1) * sd(pupilDiameter_scaled, na.rm = T) / sqrt(n()),
+            upper = mean(pupilDiameter_scaled, na.rm = T) + qt(0.975, df = n() - 1) * sd(pupilDiameter_scaled, na.rm = T) / sqrt(n()))%>%
+  mutate(significant_cluster = ifelse((sample_in_trial_n >= d1a[1,1] & sample_in_trial_n <= d1a[1,2]) |
+                                      (sample_in_trial_n >= d1a[2,1] & sample_in_trial_n <= d1a[2,2]),"sig","ns"))
+
+p1a <- ggplot(df.pupil_summary_anticipation_collapse_r%>%
+         filter(sample_in_trial_t <= 18, sample_in_trial_t >= 0), aes(x = sample_in_trial_t,
+                       y = mean))+
+  geom_point(aes(color = significant_cluster),
+             size = 0.5)+
+  geom_ribbon(aes(x = sample_in_trial_t,
+                  ymin = lower, 
+                  ymax = upper), 
+              alpha = 0.2)+
+  theme(legend.position = "right")+
+  scale_color_viridis_d()+
+  annotate("rect", xmin =0.1, xmax = 2, ymin = -1.5, ymax = 1.5,
+           color = "lightseagreen", fill = NA)+
+  annotate("text", x = 1,y = 1.2, label = "c",
+          color = "lightseagreen")+
+  annotate("rect", xmin =2.1, xmax = 4, ymin = -1.5, ymax = 1.5,
+          color = "lightskyblue1", fill = NA)+
+  annotate("text", x = 3,y = 1.2, label = "f",
+          color = "lightskyblue1")+
+  annotate("rect", xmin =12.1, xmax = 14, ymin = -1.5, ymax = 1.5,
+          color = "lightskyblue1", fill = NA)+
+  annotate("text", x = 13,y = 1.2, label = "f",
+          color = "lightskyblue1")+
+  annotate("rect", xmin =14.1, xmax = 16, ymin = -1.5, ymax = 1.5,
+           color = "lightskyblue3", fill = NA)+
+  annotate("text", x = 15,y = 1.2, label = "t",
+          color = "lightskyblue3")+
+  annotate("rect", xmin = 16.1, xmax = 18, ymin = -1.5, ymax = 1.5,
+           color = "lightskyblue4", fill = NA)+
+  annotate("text", x = 17,y = 1.2, label = "o",
+          color = "lightskyblue4")+
+  # annotate("rect", xmin = 5.5, xmax = 7.5, ymin = -0.5, ymax = 0.5,
+  #          color = "red", fill = "red", alpha = 0.1)+
+  labs(title = "anticipation probe",
+       subtitle = "significant cluster overlayed on raw pupil",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  geom_segment(aes(x = 8, y = 1, xend = 8, yend = 0.7),
+                  arrow = arrow(length = unit(0.03, "npc")))+
+  annotate("text",x = 8,y=1.2,label = "arousal report")
+
+p1a
+```
+
+## anticipation, phasic
+```{r warning = F, message=F}
+# Define your data: t-values and beta estimates for each time point
+t_values <- regression_coefs_ant_bc$`t value`
+time <- regression_coefs_ant_bc$sample_point
+beta_estimates <- regression_coefs_ant_bc$Estimate
+
+# Define your cluster-forming threshold (e.g. t-value of 2.0)
+threshold <- 2
+
+# Define your cluster extent threshold (e.g. minimum number of adjacent time points)
+cluster_extent_threshold <- sr*2
+
+# Get the adjacency matrix based on cluster-forming threshold
+adjacency_matrix <- abs(t_values) < threshold
+
+  # View(cbind(cluster_indices,time,adjacency_matrix))
+
+orig_cluster <- get_cluster_sizes(adjacency_matrix,time)
+orig_cluster_size <- orig_cluster$cluster
+
+num_permutations <- 1000
+cluster_threshold <- 0.05
+
+cluster_p_values <- get_cluster_p_values(orig_cluster_size, 
+                                         num_permutations, 
+                                         t_values)
+
+orig_cluster$start_time/sr
+
+for (c in 1:length(orig_cluster$cluster)) {
+  start_time <- orig_cluster$start_time[c]
+  end_time <- orig_cluster$end_time[c]
+  cluster_size <- orig_cluster$cluster[c]
+  print(paste("Cluster from", round(start_time/sr,2), "s to", round(end_time/sr,2), "s (", cluster_size, "time points) with p-value", cluster_p_values[c]))
+}
+
+d1b <- as.data.frame(cbind(orig_cluster$start_time,orig_cluster$end_time,cluster_p_values))
+names(d1b)[1:2] <- c("Start","End")
+d1b$Start/sr
+d1b$End/sr
+```
+
+
+```{r}
+ant_bc_pupil <- df.pupil%>%
+  filter(probe == 1)%>%
+  mutate(cluster = ifelse(sample_in_trial_n>= d1b[1,1] & sample_in_trial_n <= d1b[1,2],
+                          "ant",
+                          ifelse(sample_in_trial_n>= d1b[2,1] & sample_in_trial_n <= d1b[2,2],
+                                 "out",NA)))%>%
+  filter(cluster %in% c("ant","out"))%>%
+  group_by(subject,probe,cluster,cue_size,trial,arousal_scaled,valence_scaled,last_iti)%>%
+  summarise(mean_pupil = mean(pupilDiameter_bc_scaled,
+                                 na.rm = T))%>%
+  pivot_wider(names_from = "cluster", values_from = "mean_pupil")
+
+ant_bc_pupil$axis <-  ant_bc_pupil$arousal_scaled
+summary(lmer(scale(out)~ scale(ant)+ (1|subject) + (1|cue_size) + (1|last_iti),ant_bc_pupil))
+
+lma1 <- lmer(scale(axis) ~ scale(out) + (1|subject) + (1|cue_size) + (1|last_iti),ant_bc_pupil)
+summary(lma1)
+
+lma2 <- lmer(scale(axis) ~  scale(ant) +scale(ant2) + (1|subject) + (1|cue_size) + (1|last_iti),ant_bc_pupil)
+summary(lma2)
+```
+
+
+```{r}
+regression_coefs_ant_bc <- regression_coefs_ant_bc%>%
+  mutate(significant_cluster = ifelse((sample_point >= d1b[1,1] & sample_point <= d1b[1,2]) |
+                                      (sample_point >= d1b[2,1] & sample_point <= d1b[2,2]),"sig","ns"))
+
+ggplot(regression_coefs_ant_bc, aes(x = sample_point, y = `t value`))+
+  geom_point(aes(color = significant_cluster))+
+  scale_x_continuous(breaks = c(0,5*sr,10*sr,15*sr,20*sr),
+                     labels = c(0,5,10,15,20))+
+  labs(x = "sec",
+       color = "sig. cluster",
+       title = "anticipation probe (phasic)")+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  ylim(-1,8)+
+  geom_hline(yintercept = 2.096, color = "blue", linetype = "dashed")+
+ggplot(regression_coefs_ant_nobc, aes(x = sample_point, y = `t value`))+
+  geom_point(aes(color = significant_cluster))+
+  scale_x_continuous(breaks = c(0,5*sr,10*sr,15*sr,20*sr),
+                     labels = c(0,5,10,15,20))+
+  labs(x = "sec",
+       color = "sig. cluster",
+       title = "anticipation probe (raw)")+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  geom_hline(yintercept = 2.096, color = "blue", linetype = "dashed")+
+  ylim(-1,8)
+```
+
+
+
+```{r}
+df.pupil_summary_anticipation_collapse_p <- df.pupil%>%
+  ungroup()%>%
+  filter(probe == 1,sample_in_trial_n <= 20*sr)%>%
+  group_by(sample_in_trial_n,sample_in_trial_t)%>%
+  summarise(mean = mean(pupilDiameter_bc_scaled, na.rm = T),
+            lower = mean(pupilDiameter_bc_scaled, na.rm = T) - qt(0.975, df = n() - 1) * sd(pupilDiameter_bc_scaled, na.rm = T) / sqrt(n()),
+            upper = mean(pupilDiameter_bc_scaled, na.rm = T) + qt(0.975, df = n() - 1) * sd(pupilDiameter_bc_scaled, na.rm = T) / sqrt(n()))%>%
+  mutate(significant_cluster = ifelse((sample_in_trial_n >= d1b[1,1] & sample_in_trial_n <= d1b[1,2]) |
+                                      (sample_in_trial_n >= d1b[2,1] & sample_in_trial_n <= d1b[2,2]),"sig","ns"))
+
+p1b <- ggplot(df.pupil_summary_anticipation_collapse_p%>%
+         filter(sample_in_trial_t <= 18, sample_in_trial_t >= 0), aes(x = sample_in_trial_t,
+                       y = mean))+
+  geom_point(aes(color = significant_cluster),
+             size = 0.5)+
+  geom_ribbon(aes(x = sample_in_trial_t,
+                  ymin = lower, 
+                  ymax = upper), 
+              alpha = 0.2)+
+  theme(legend.position = "right")+
+  scale_color_viridis_d()+
+   annotate("rect", xmin =0.1, xmax = 2, ymin = -1.5, ymax = 1.5,
+           color = "lightseagreen", fill = NA)+
+  annotate("text", x = 1,y = 1.2, label = "c",
+          color = "lightseagreen")+
+  annotate("rect", xmin =2.1, xmax = 4, ymin = -1.5, ymax = 1.5,
+          color = "lightskyblue1", fill = NA)+
+  annotate("text", x = 3,y = 1.2, label = "f",
+          color = "lightskyblue1")+
+  annotate("rect", xmin =12.1, xmax = 14, ymin = -1.5, ymax = 1.5,
+          color = "lightskyblue1", fill = NA)+
+  annotate("text", x = 13,y = 1.2, label = "f",
+          color = "lightskyblue1")+
+  annotate("rect", xmin =14.1, xmax = 16, ymin = -1.5, ymax = 1.5,
+           color = "lightskyblue3", fill = NA)+
+  annotate("text", x = 15,y = 1.2, label = "t",
+          color = "lightskyblue3")+
+  annotate("rect", xmin = 16.1, xmax = 18, ymin = -1.5, ymax = 1.5,
+           color = "lightskyblue4", fill = NA)+
+  annotate("text", x = 17,y = 1.2, label = "o",
+          color = "lightskyblue4")+
+  # annotate("rect", xmin = 5.5, xmax = 7.5, ymin = -0.5, ymax = 0.5,
+  #          color = "red", fill = "red", alpha = 0.1)+
+  labs(title = "anticipation probe",
+       subtitle = "significant cluster overlayed on phasic pupil",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  geom_segment(aes(x = 8, y = 1, xend = 8, yend = 0.7),
+                  arrow = arrow(length = unit(0.03, "npc")))+
+  annotate("text",x = 8,y=1.2,label = "arousal report")
+
+p1b
+```
+```{r fig.height=8, fig.width = 6}
+p1a+p1b+plot_layout(nrow = 2)
+```
+
+
+## outcome
+
+```{r warning = F, message=F}
+regression_coefs_out_bc <- {}
+
+for (t in 1:20) {
+  coefs <- {}
+  print(t)
+  for (s in 1:sr){
+  df_out_temp <- df.pupil%>%
+  filter(probe == 2,Time_sec == t, sample_in_sec == s)
+  lm_out_temp <- lmer(scale(arousal_scaled) ~ scale(pupilDiameter_bc_scaled) + (1|subject) + (1|cue_size) + (1|last_iti),df_out_temp)
+  lm_out <- summary(lm_out_temp)$coefficient[2,]
+  coefs <- rbind(coefs,lm_out) 
+  }
+  coefs <- as.data.frame(coefs)%>%
+    mutate(sample_in_sec = row_number(),
+           Time_sec = t)
+  rownames(coefs) <- NULL
+  regression_coefs_out_bc <- rbind(regression_coefs_out_bc,coefs)
+}
+
+regression_coefs_out_bc <- regression_coefs_out_bc%>%
+  mutate(sample_point = row_number(),
+         p_val = (`Pr(>|t|)` < .001))
+
+write.csv(regression_coefs_out_bc, "regression_coefs_out_bc.csv")
+regression_coefs_out_bc <- read_csv("regression_coefs_out_bc.csv")
+```
+
+```{r warning = F, message=F}
+regression_coefs_out_nobc <- {}
+
+for (t in 1:20) {
+  coefs <- {}
+  print(t)
+  for (s in 1:sr){
+  df_out_temp <- df.pupil%>%
+  filter(probe == 2,Time_sec == t, sample_in_sec == s)
+  lm_out_temp <- lmer(scale(arousal_scaled) ~ scale(pupilDiameter_scaled) + (1|subject) + (1|cue_size),df_out_temp) # + (1|last_iti)
+  lm_out <- c(summary(lm_out_temp)$coefficient[2,],"r2m"=r.squaredGLMM(lm_out_temp)[2])
+  coefs <- rbind(coefs,lm_out)
+  }
+  coefs <- as.data.frame(coefs)%>%
+    mutate(sample_in_sec = row_number(),
+           Time_sec = t)
+  rownames(coefs) <- NULL
+  regression_coefs_out_nobc <- rbind(regression_coefs_out_nobc,coefs)
+}
+
+regression_coefs_out_nobc <- regression_coefs_out_nobc%>%
+  mutate(sample_point = row_number(),
+         p_val = (`Pr(>|t|)` < .001))
+
+write.csv(regression_coefs_out_nobc, "regression_coefs_out_nobc.csv")
+regression_coefs_out_nobc <- read_csv("regression_coefs_out_nobc.csv")
+```
+
+
+#get the peak of the raw signal
+```{r}
+sr = 200
+regression_coefs_nobc_smoothed <- regression_coefs_ant_nobc%>% 
+  mutate(smoothed_tval = zoo::rollmean(`t value`, k = sr/2, fill = NA))%>% 
+  mutate(smoothed_r2 = zoo::rollmean(r2m, k = sr/2, fill = NA))%>% 
+  mutate(smoothed_beta = zoo::rollmean(Estimate, k = sr/2, fill = NA)) %>% 
+  filter(sample_point <= sr * 18)
+
+
+pp1<-ggplot(regression_coefs_nobc_smoothed, aes(x = sample_point,y = smoothed_beta))+
+    geom_vline(xintercept = c(0, 2, 4, 12,14, 16,18)*sr, color = "grey",size=1) +
+  scale_x_continuous(breaks = seq(0,sr*20,sr), labels =  0:20)+
+  geom_segment(x = 3.5*sr, xend = 5.5*sr, y = 0, color = 'purple',size = 2)+
+    geom_line(aes(color = smoothed_beta, group = 1),
+             size = 2)+
+  labs(x = "time (sec)",
+       y =  "Correlation strength (beta)",
+       title = "Anticipation probe")+
+   scale_color_viridis_b(limits = c(0, 0.25))+
+  theme(legend.position = "none")+
+  annotate("text", x = 1*sr, y = 0.05, label = "cue",angle = -90) +
+  annotate("text", x = 3*sr, y = 0.05, label = "fixation",angle = -90) +
+  annotate("text", x = 5*sr, y = 0.05, label = "rating",angle = -90) +
+  annotate("text", x = 13*sr, y = 0.05, label = "fixation2",angle = -90) +
+  annotate("text", x = 15*sr, y = 0.05, label = "target",angle = -90) +
+  annotate("text", x = 17*sr, y = 0.05, label = "outcome",angle = -90)+
+  theme_blank()+
+  ylim(-0.05,0.3)
+
+regression_coefs_out_nobc_smoothed <- regression_coefs_out_nobc%>% 
+  mutate(smoothed_tval = zoo::rollmean(`t value`, k = sr/2, fill = NA))%>% 
+  mutate(smoothed_r2 = zoo::rollmean(r2m, k = sr/2, fill = NA))%>% 
+  mutate(smoothed_beta = zoo::rollmean(Estimate, k = sr/2, fill = NA))%>% 
+  filter(sample_point <= sr * 18)
+
+pp2<-ggplot(regression_coefs_out_nobc_smoothed, aes(x = sample_point,y = smoothed_beta))+
+  scale_x_continuous(breaks = seq(0,(sr*20),sr), labels =  0:20)+
+  
+  labs(x = "time (sec)",
+       y =  "Correlation strength (beta)",
+       title = "Outcome probe")+
+  scale_color_viridis_b(limits = c(0, 0.25),guide = "none")+
+  theme(legend.position = "none")+
+  geom_vline(xintercept = c(0,2,4,6,8,16)*sr, color = "grey",size=1) +
+   geom_line(aes(color = smoothed_beta, group = 1),
+             size = 2)+
+   geom_segment(x = 7.5*sr, xend = 9.5*sr, y = 0, color = 'skyblue',size = 2)+
+  annotate("text",x = 1*sr, y = 0.05,label = "cue",angle = -90)+
+  annotate("text",x = 3*sr, y = 0.05,label = "fixation",angle = -90)+
+  annotate("text",x = 5*sr, y = 0.05,label = "target",angle = -90)+
+  annotate("text",x = 7*sr, y = 0.05,label = "outcome",angle = -90)+
+  annotate("text",x = 9*sr, y = 0.05,label = "rating",angle = -90)+
+  theme_blank()+
+  ylim(-0.05,0.3)
+
+pp1+pp2
+ggsave("../../figures/study3_corrpeaks.png",width = 10, height = 4, units = "in",dpi = 300)
+```
+
+
+#get the peak of the phasic signal
+```{r}
+regression_coefs_out_bc_smoothed <- regression_coefs_out_bc %>% 
+  mutate(smoothed_tval = zoo::rollmean(`t value`, k = sr, fill = NA))
+
+ggplot(regression_coefs_out_bc_smoothed, aes(x = sample_point,y = smoothed_tval))+
+  geom_point(aes(color = (`Pr(>|t|)` < 1/(sr*20))),
+             size = 1)+
+  annotate("rect", xmin = 5.5*sr, xmax = 7.5*sr, ymin = 1, ymax = 5,
+           alpha = .2, color = "orange", fill = NA, linetype = "dashed")+
+    annotate("rect", xmin =7.5*sr, xmax = 9.5*sr, ymin = 1, ymax = 5,
+           alpha = .2, color = "violet", fill = NA, linetype = "dashed")+
+  annotate("rect", xmin =9.5*sr, xmax = 11.5*sr, ymin = 1, ymax = 5,
+           alpha = .2, color = "blue", fill = NA, linetype = "dashed")+
+  scale_x_continuous(breaks = seq(0,(sr*20),sr), labels =  0:20)+
+  labs(x = "time (sec)",
+       y =  "Correlation strength (t value)",
+       title = "Phasic")+
+  scale_color_brewer(palette = "Set1")+
+  theme(legend.position = "none")
+```
+
+```{r warning = F, message=F}
+# Define your data: t-values and beta estimates for each time point
+t_values <- regression_coefs_out_nobc$`t value`
+time <- regression_coefs_out_nobc$sample_point
+beta_estimates <- regression_coefs_out_nobc$Estimate
+
+# Define your cluster-forming threshold (e.g. t-value of 2.0)
+threshold <- 2.096
+
+# Define your cluster extent threshold (e.g. minimum number of adjacent time points)
+cluster_extent_threshold <- sr*2
+
+# Get the adjacency matrix based on cluster-forming threshold
+adjacency_matrix <- abs(t_values) < threshold
+
+  # View(cbind(cluster_indices,time,adjacency_matrix))
+
+orig_cluster <- get_cluster_sizes(adjacency_matrix,time)
+orig_cluster_size <- orig_cluster$cluster
+
+num_permutations <- 10000
+cluster_threshold <- 0.05
+
+cluster_p_values <- get_cluster_p_values(orig_cluster_size, 
+                                         num_permutations, 
+                                         t_values)
+
+orig_cluster$start_time/sr
+
+for (c in 1:length(orig_cluster$cluster)) {
+  start_time <- orig_cluster$start_time[c]
+  end_time <- orig_cluster$end_time[c]
+  cluster_size <- orig_cluster$cluster[c]
+  print(paste("Cluster from", round(start_time/sr,2), "s to", round(end_time/sr,2), "s (", cluster_size, "time points) with p-value", cluster_p_values[c]))
+}
+
+d2a <- as.data.frame(cbind(orig_cluster$start_time,orig_cluster$end_time,cluster_p_values))
+names(d2a)[1:2] <- c("Start","End")
+d2a
+d2a$Start/sr
+d2a$End/sr
+```
+
+
+```{r warning = F, message=F}
+# Define your data: t-values and beta estimates for each time point
+t_values <- regression_coefs_out_bc$`t value`
+time <- regression_coefs_out_bc$sample_point
+beta_estimates <- regression_coefs_out_bc$Estimate
+
+# Define your cluster-forming threshold (e.g. t-value of 2.0)
+threshold <- 2.096
+
+# Define your cluster extent threshold (e.g. minimum number of adjacent time points)
+cluster_extent_threshold <- sr*2
+
+# Get the adjacency matrix based on cluster-forming threshold
+adjacency_matrix <- abs(t_values) < threshold
+
+  # View(cbind(cluster_indices,time,adjacency_matrix))
+
+orig_cluster <- get_cluster_sizes(adjacency_matrix,time)
+orig_cluster_size <- orig_cluster$cluster
+
+num_permutations <- 10000
+cluster_threshold <- 0.05
+
+cluster_p_values <- get_cluster_p_values(orig_cluster_size, 
+                                         num_permutations, 
+                                         t_values)
+
+orig_cluster$start_time/sr
+
+for (c in 1:length(orig_cluster$cluster)) {
+  start_time <- orig_cluster$start_time[c]
+  end_time <- orig_cluster$end_time[c]
+  cluster_size <- orig_cluster$cluster[c]
+  print(paste("Cluster from", round(start_time/sr,2), "s to", round(end_time/sr,2), "s (", cluster_size, "time points) with p-value", cluster_p_values[c]))
+}
+
+d2b <- as.data.frame(cbind(orig_cluster$start_time,orig_cluster$end_time,cluster_p_values))
+names(d2b)[1:2] <- c("Start","End")
+d2b
+d2b$Start/sr
+d2b$End/sr
+```
+
+```{r}
+regression_coefs_out_nobc <- regression_coefs_out_nobc%>%
+  mutate(significant_cluster = ifelse((sample_point >= d2a[1,1] & sample_point <= d2a[1,2]),"sig","ns"))
+
+regression_coefs_out_bc <- regression_coefs_out_bc%>%
+  mutate(significant_cluster = ifelse((sample_point >= d2b[1,1] & sample_point <= d2b[1,2]),"sig","ns"))
+
+ggplot(regression_coefs_out_nobc, aes(x = sample_point, y = `t value`))+
+  geom_point(aes(color = significant_cluster))+
+  scale_x_continuous(breaks = c(0,5*sr,10*sr,15*sr,20*sr),
+                     labels = c(0,5,10,15,20))+
+  labs(x = "sec",
+       color = "sig. cluster",
+       title = "Outcome probe")+
+  geom_hline(yintercept = 2.096, color = "blue", linetype = "dashed")+
+  ylim(-1,8)+
+ggplot(regression_coefs_out_bc, aes(x = sample_point, y = `t value`))+
+  geom_point(aes(color = significant_cluster))+
+  scale_x_continuous(breaks = c(0,5*sr,10*sr,15*sr,20*sr),
+                     labels = c(0,5,10,15,20))+
+  labs(x = "sec",
+       color = "sig. cluster",
+       title = "Outcome probe")+
+  geom_hline(yintercept = 2.096, color = "blue", linetype = "dashed")+
+  ylim(-1,8)
+```
+
+```{r}
+df.pupil_summary_outcome_collapse_r<- df.pupil%>%
+  ungroup()%>%
+  filter(probe == 2,sample_in_trial_n <= 20*sr)%>%
+  group_by(sample_in_trial_n,sample_in_trial_t)%>%
+  summarise(mean = mean(pupilDiameter_scaled, na.rm = T),
+            lower = mean(pupilDiameter_scaled, na.rm = T) - qt(0.975, df = n() - 1) * sd(pupilDiameter_scaled, na.rm = T) / sqrt(n()),
+            upper = mean(pupilDiameter_scaled, na.rm = T) + qt(0.975, df = n() - 1) * sd(pupilDiameter_scaled, na.rm = T) / sqrt(n()))%>%
+  mutate(significant_cluster = ifelse((sample_in_trial_n >= d2a[1,1] & sample_in_trial_n <= d2a[1,2]),"sig","ns"))
+
+p2a <- ggplot(df.pupil_summary_outcome_collapse_r%>%
+         filter(sample_in_trial_t <= 20, sample_in_trial_t >0), aes(x = sample_in_trial_t,
+                       y = mean))+
+  geom_point(aes(color = significant_cluster),
+             size = 0.5)+
+  geom_ribbon(aes(x = sample_in_trial_t,
+                  ymin = lower, 
+                  ymax = upper), 
+              alpha = 0.2)+
+  scale_color_viridis_d()+
+  annotate("rect", xmin =0.1, xmax = 2, ymin = -1.5, ymax = 1.5,
+           alpha = .2, color = "lightseagreen", fill = NA)+
+  annotate("text", x = 1,y = 1.2, label = "c",
+          color = "lightseagreen")+
+  annotate("rect", xmin =2.1, xmax = 4, ymin = -1.5, ymax = 1.5,
+           alpha = .2, color = "lightskyblue1", fill = NA)+
+  annotate("text", x = 3,y = 1.2, label = "f",
+          color = "lightskyblue1")+
+  annotate("rect", xmin = 4.1, xmax = 6, ymin = -1.5, ymax = 1.5,
+           alpha = .2, color = "lightskyblue3", fill = NA)+
+  annotate("text", x = 5,y = 1.2, label = "t",
+          color = "lightskyblue3")+
+  annotate("rect", xmin = 6.1, xmax = 8, ymin = -1.5, ymax = 1.5,
+           alpha = .2, color = "lightskyblue4", fill = NA)+
+  # annotate("rect", xmin = 9.5, xmax = 11.5, ymin = -0.5, ymax = 0.5,
+  #          color = "red", fill = "red", alpha = 0.1)+
+  annotate("text", x = 7,y = 1.2, label = "o",
+          color = "lightskyblue4")+
+  labs(title = "Outcome probe",
+       subtitle = "significant cluster overlayed on raw pupil",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  theme(legend.position = "none")+
+  geom_segment(aes(x = 12, y = 1, xend = 12, yend = 0.7),
+                  arrow = arrow(length = unit(0.03, "npc")))+
+  annotate("text",x = 12,y=1.2,label = "arousal report")
+
+p2a
+```
+
+```{r}
+df.pupil_summary_outcome_collapse_p <- df.pupil%>%
+  ungroup()%>%
+  filter(probe == 2,sample_in_trial_n <= 20*sr)%>%
+  group_by(sample_in_trial_n,sample_in_trial_t)%>%
+  summarise(mean = mean(pupilDiameter_bc_scaled, na.rm = T),
+            lower = mean(pupilDiameter_bc_scaled, na.rm = T) - qt(0.975, df = n() - 1) * sd(pupilDiameter_bc_scaled, na.rm = T) / sqrt(n()),
+            upper = mean(pupilDiameter_bc_scaled, na.rm = T) + qt(0.975, df = n() - 1) * sd(pupilDiameter_bc_scaled, na.rm = T) / sqrt(n()))%>%
+  mutate(significant_cluster = ifelse((sample_in_trial_n >= d2b[1,1] & sample_in_trial_n <= d2b[1,2]),"sig","ns"))
+
+p2b <- ggplot(df.pupil_summary_outcome_collapse_p%>%
+         filter(sample_in_trial_t <= 20,sample_in_trial_t>0), aes(x = sample_in_trial_t,
+                       y = mean))+
+  geom_point(aes(color = significant_cluster),
+             size = 0.5)+
+  geom_ribbon(aes(x = sample_in_trial_t,
+                  ymin = lower, 
+                  ymax = upper), 
+              alpha = 0.2)+
+  scale_color_viridis_d()+
+ annotate("rect", xmin =0.1, xmax = 2, ymin = -1.5, ymax = 1.5,
+           alpha = .2, color = "lightseagreen", fill = NA)+
+  annotate("text", x = 1,y = 1.2, label = "c",
+          color = "lightseagreen")+
+  annotate("rect", xmin =2.1, xmax = 4, ymin = -1.5, ymax = 1.5,
+           alpha = .2, color = "lightskyblue1", fill = NA)+
+  annotate("text", x = 3,y = 1.2, label = "f",
+          color = "lightskyblue1")+
+  annotate("rect", xmin = 4.1, xmax = 6, ymin = -1.5, ymax = 1.5,
+           alpha = .2, color = "lightskyblue3", fill = NA)+
+  annotate("text", x = 5,y = 1.2, label = "t",
+          color = "lightskyblue3")+
+  annotate("rect", xmin = 6.1, xmax = 8, ymin = -1.5, ymax = 1.5,
+           alpha = .2, color = "lightskyblue4", fill = NA)+
+  # annotate("rect", xmin = 9.5, xmax = 11.5, ymin = -0.5, ymax = 0.5,
+  #          color = "red", fill = "red", alpha = 0.1)+
+  annotate("text", x = 7,y = 1.2, label = "o",
+          color = "lightskyblue4")+
+  labs(title = "Outcome probe",
+       subtitle = "significant cluster overlayed on phasic pupil",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  theme(legend.position = "none")+
+  geom_segment(aes(x = 12, y = 1, xend = 12, yend = 0.7),
+                  arrow = arrow(length = unit(0.03, "npc")))+
+  annotate("text",x = 12,y=1.2,label = "arousal report")
+
+p2b
+```
+
+
+```{r}
+p1a
+ggsave("../../../VRMID-analysis/figures/study3_window_raw_ant.png",width = 6, height = 4, units = "in",dpi = 300)
+p1b
+ggsave("../../../VRMID-analysis/figures/study3_window_phasic_ant.png",width = 6, height = 4, units = "in",dpi = 300)
+p2a
+ggsave("../../../VRMID-analysis/figures/study3_window_raw_out.png",width = 6, height = 4, units = "in",dpi = 300)
+p2b
+ggsave("../../../VRMID-analysis/figures/study3_window_phasic_out.png",width = 6, height = 4, units = "in",dpi = 300)
+```
+
+
+```{r}
+(p1a + p1b) / (p2a + p2b)
+ggsave("../../../VRMID-analysis/figures/study3_cluster.png",width = 12, height = 10, units = "in",dpi = 300)
+```
+
+```{r}
+df.pupil_summary_anticipation_collapse_r2 <- df.pupil%>%
+  ungroup()%>%
+  filter(probe == 1,sample_in_trial_n <= 20*sr)%>%
+  group_by(sample_in_trial_n,sample_in_trial_t)%>%
+  summarise(mean = mean(pupilDiameter_scaled, na.rm = T))
+
+df.pupil_summary_anticipation_collapse_all <- left_join(df.pupil_summary_anticipation_collapse_r2,
+                                                     regression_coefs_ant_nobc %>% 
+                                                       rowwise() %>% 
+                                                       mutate(sample_in_trial_t = round(
+                                                         ((Time_sec - 1)*sr + sample_in_sec)/sr,4)) %>% 
+                                                       select(sample_in_trial_t,`t value`),
+                                                     by = "sample_in_trial_t")
+
+ggplot(df.pupil_summary_anticipation_collapse_all%>%
+         filter(sample_in_trial_t <= 20, sample_in_trial_t >= 0), aes(x = sample_in_trial_t,
+                       y = mean))+
+  geom_point(aes(color = `t value`),
+             size = 2)+
+  theme(legend.position = "right")+
+  scale_color_viridis_c()+
+  annotate("rect", xmin =0.1, xmax = 2, ymin = -1.5, ymax = 1.5,
+           color = "lightseagreen", fill = NA)+
+  annotate("text", x = 1,y = 1.2, label = "c",
+          color = "lightseagreen")+
+  annotate("rect", xmin =2.1, xmax = 4, ymin = -1.5, ymax = 1.5,
+          color = "lightskyblue1", fill = NA)+
+  annotate("text", x = 3,y = 1.2, label = "f",
+          color = "lightskyblue1")+
+  annotate("rect", xmin =12.1, xmax = 14, ymin = -1.5, ymax = 1.5,
+          color = "lightskyblue1", fill = NA)+
+  annotate("text", x = 13,y = 1.2, label = "f",
+          color = "lightskyblue1")+
+  annotate("rect", xmin =14.1, xmax = 16, ymin = -1.5, ymax = 1.5,
+           color = "lightskyblue3", fill = NA)+
+  annotate("text", x = 15,y = 1.2, label = "t",
+          color = "lightskyblue3")+
+  annotate("rect", xmin = 16.1, xmax = 18, ymin = -1.5, ymax = 1.5,
+           color = "lightskyblue4", fill = NA)+
+  annotate("text", x = 17,y = 1.2, label = "o",
+          color = "lightskyblue4")+
+  geom_segment(aes(x = d1a[1,1]/sr,xend = d1a[1,2]/sr,y = -1,yend = -1), color = "red")+
+  annotate("text", x = (d1a[1,1]+ d1a[1,2])/(sr*2), y = -1.1, label = "***", color = "red")+
+  geom_segment(aes(x = d1a[2,1]/sr,xend = d1a[2,2]/sr,y = -1,yend = -1), color = "red")+
+    annotate("text", x = (d1a[2,1]+ d1a[2,2])/(sr*2), y = -1.1, label = "***", color = "red")+
+  labs(title = "anticipation probe",
+       subtitle = "significant cluster overlayed on raw pupil",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  geom_segment(aes(x = 8, y = 1, xend = 8, yend = 0.7),
+                  arrow = arrow(length = unit(0.03, "npc")))+
+  annotate("text",x = 8,y=1.2,label = "arousal report")
+
+ggsave("../../../VRMID-analysis/figures/study3_window_all_ant.png",width = 6, height = 4, units = "in",dpi = 300)
+
+df.pupil_summary_outcome_collapse_r2 <- df.pupil%>%
+  ungroup()%>%
+  filter(probe == 2,sample_in_trial_n <= 20*sr)%>%
+  group_by(sample_in_trial_n,sample_in_trial_t)%>%
+  summarise(mean = mean(pupilDiameter_scaled, na.rm = T))
+
+df.pupil_summary_outcome_collapse_all <- left_join(df.pupil_summary_outcome_collapse_r2,
+                                                     regression_coefs_out_nobc %>% 
+                                                       rowwise() %>% 
+                                                       mutate(sample_in_trial_t = round(
+                                                         ((Time_sec - 1)*sr + sample_in_sec)/sr,4)) %>% 
+                                                       select(sample_in_trial_t,`t value`),
+                                                     by = "sample_in_trial_t")
+
+ggplot(df.pupil_summary_outcome_collapse_all%>%
+         filter(sample_in_trial_t <= 20, sample_in_trial_t >= 0), aes(x = sample_in_trial_t,
+                       y = mean))+
+  geom_point(aes(color = `t value`),
+             size = 2)+
+  scale_color_viridis_c()+
+  annotate("rect", xmin =0.1, xmax = 2, ymin = -1.5, ymax = 1.5,
+           alpha = .2, color = "lightseagreen", fill = NA)+
+  annotate("rect", xmin =2.1, xmax = 4, ymin = -1.5, ymax = 1.5,
+           alpha = .2, color = "lightskyblue1", fill = NA)+
+  annotate("rect", xmin = 4.1, xmax = 6, ymin = -1.5, ymax = 1.5,
+           alpha = .2, color = "lightskyblue3", fill = NA)+
+  annotate("rect", xmin = 6.1, xmax = 8, ymin = -1.5, ymax = 1.5,
+           alpha = .2, color = "lightskyblue4", fill = NA)+
+    geom_segment(aes(x = d2a[1,1]/sr,xend = d2a[1,2]/sr,y = -1,yend = -1), color = "red")+
+  annotate("text", x = (d2a[1,1]+ d1a[1,2])/(sr*2), y = -1.1, label = "***", color = "red")+
+  labs(title = "Outcome probe",
+       subtitle = "significant cluster overlayed on phasic pupil",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  theme(legend.position = "right")+
+  
+  geom_segment(aes(x = 12, y = 1, xend = 12, yend = 0.7),
+                  arrow = arrow(length = unit(0.03, "npc")))+
+  annotate("text",x = 12,y=1.2,label = "arousal report")
+ 
+ggsave("../../../VRMID-analysis/figures/study3_window_all_out.png",width = 6, height = 4, units = "in",dpi = 300)
+```
+
+```{r}
+df.pupil_summary_anticipation_collapse_r2 <- df.pupil%>%
+  ungroup()%>%
+  filter(probe == 1,sample_in_trial_n <= 20*sr)%>%
+  group_by(sample_in_trial_n,sample_in_trial_t)%>%
+  summarise(mean = mean(pupilDiameter_bc_scaled, na.rm = T))
+
+df.pupil_summary_anticipation_collapse_all <- left_join(df.pupil_summary_anticipation_collapse_r2,
+                                                     regression_coefs_ant_bc %>% 
+                                                       rowwise() %>% 
+                                                       mutate(sample_in_trial_t = round(
+                                                         ((Time_sec - 1)*sr + sample_in_sec)/sr,4)) %>% 
+                                                       select(sample_in_trial_t,`t value`),
+                                                     by = "sample_in_trial_t")
+
+ggplot(df.pupil_summary_anticipation_collapse_all%>%
+         filter(sample_in_trial_t <= 20, sample_in_trial_t >= 0), aes(x = sample_in_trial_t,
+                       y = mean))+
+  geom_point(aes(color = `t value`),
+             size = 2)+
+  theme(legend.position = "right")+
+  scale_color_viridis_c()+
+  annotate("rect", xmin =0.1, xmax = 2, ymin = -1.5, ymax = 1.5,
+           color = "lightseagreen", fill = NA)+
+  annotate("text", x = 1,y = 1.2, label = "c",
+          color = "lightseagreen")+
+  annotate("rect", xmin =2.1, xmax = 4, ymin = -1.5, ymax = 1.5,
+          color = "lightskyblue1", fill = NA)+
+  annotate("text", x = 3,y = 1.2, label = "f",
+          color = "lightskyblue1")+
+  annotate("rect", xmin =12.1, xmax = 14, ymin = -1.5, ymax = 1.5,
+          color = "lightskyblue1", fill = NA)+
+  annotate("text", x = 13,y = 1.2, label = "f",
+          color = "lightskyblue1")+
+  annotate("rect", xmin =14.1, xmax = 16, ymin = -1.5, ymax = 1.5,
+           color = "lightskyblue3", fill = NA)+
+  annotate("text", x = 15,y = 1.2, label = "t",
+          color = "lightskyblue3")+
+  annotate("rect", xmin = 16.1, xmax = 18, ymin = -1.5, ymax = 1.5,
+           color = "lightskyblue4", fill = NA)+
+  annotate("text", x = 17,y = 1.2, label = "o",
+          color = "lightskyblue4")+
+  geom_segment(aes(x = d1b[1,1]/sr,xend = d1b[1,2]/sr,y = -1,yend = -1), color = "red")+
+  annotate("text", x = (d1b[1,1]+ d1b[1,2])/(sr*2), y = -1.1, label = "***", color = "red")+
+  geom_segment(aes(x = d1b[2,1]/sr,xend = d1b[2,2]/sr,y = -1,yend = -1), color = "red")+
+    annotate("text", x = (d1b[2,1]+ d1b[2,2])/(sr*2), y = -1.1, label = "***", color = "red")+
+  geom_segment(aes(x = d1b[3,1]/sr,xend = d1b[3,2]/sr,y = -1,yend = -1), color = "red")+
+    annotate("text", x = (d1b[3,1]+ d1b[3,2])/(sr*2), y = -1.1, label = "***", color = "red")+
+  labs(title = "anticipation probe",
+       subtitle = "significant cluster overlayed on phasic pupil",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  geom_segment(aes(x = 8, y = 1, xend = 8, yend = 0.7),
+                  arrow = arrow(length = unit(0.03, "npc")))+
+  annotate("text",x = 8,y=1.2,label = "arousal report")
+
+ggsave("../../../VRMID-analysis/figures/study3_window_phasic_ant.png",width = 6, height = 4, units = "in",dpi = 300)
+
+df.pupil_summary_outcome_collapse_r2 <- df.pupil%>%
+  ungroup()%>%
+  filter(probe == 2,sample_in_trial_n <= 20*sr)%>%
+  group_by(sample_in_trial_n,sample_in_trial_t)%>%
+  summarise(mean = mean(pupilDiameter_bc_scaled, na.rm = T))
+
+df.pupil_summary_outcome_collapse_all <- left_join(df.pupil_summary_outcome_collapse_r2,
+                                                     regression_coefs_out_nobc %>% 
+                                                       rowwise() %>% 
+                                                       mutate(sample_in_trial_t = round(
+                                                         ((Time_sec - 1)*sr + sample_in_sec)/sr,4)) %>% 
+                                                       select(sample_in_trial_t,`t value`),
+                                                     by = "sample_in_trial_t")
+
+ggplot(df.pupil_summary_outcome_collapse_all%>%
+         filter(sample_in_trial_t <= 20, sample_in_trial_t >= 0), aes(x = sample_in_trial_t,
+                       y = mean))+
+  geom_point(aes(color = `t value`),
+             size = 2)+
+  scale_color_viridis_c()+
+  annotate("rect", xmin =0.1, xmax = 2, ymin = -1.5, ymax = 1.5,
+           alpha = .2, color = "lightseagreen", fill = NA)+
+  annotate("rect", xmin =2.1, xmax = 4, ymin = -1.5, ymax = 1.5,
+           alpha = .2, color = "lightskyblue1", fill = NA)+
+  annotate("rect", xmin = 4.1, xmax = 6, ymin = -1.5, ymax = 1.5,
+           alpha = .2, color = "lightskyblue3", fill = NA)+
+  annotate("rect", xmin = 6.1, xmax = 8, ymin = -1.5, ymax = 1.5,
+           alpha = .2, color = "lightskyblue4", fill = NA)+
+    geom_segment(aes(x = d2b[1,1]/sr,xend = d2a[1,2]/sr,y = -1,yend = -1), color = "red")+
+  annotate("text", x = (d2b[1,1]+ d2b[1,2])/(sr*2), y = -1.1, label = "***", color = "red")+
+  labs(title = "Outcome probe",
+       subtitle = "significant cluster overlayed on phasic pupil",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  theme(legend.position = "right")+
+  
+  geom_segment(aes(x = 12, y = 1, xend = 12, yend = 0.7),
+                  arrow = arrow(length = unit(0.03, "npc")))+
+  annotate("text",x = 12,y=1.2,label = "arousal report")
+ 
+ggsave("../../../VRMID-analysis/figures/study3_window_phasic_out.png",width = 6, height = 4, units = "in",dpi = 300)
+```
+
+# blinks
+```{r}
+all_subjs_blinks <- read_csv("./derivatives/all_subjs_blinks.csv") %>% 
+  mutate(log_duration = log(dur))
+
+ggplot(all_subjs_blinks, aes(x = log_duration, y = stat(density)))+
+  geom_histogram()+
+  scale_x_continuous(breaks = -7:5, labels = round(exp(-7:5),3))+
+  labs(x = "blink duration")
+
+ggplot(all_subjs_blinks, aes(x = log_duration, y = stat(density)))+
+  geom_histogram()+
+  scale_x_continuous(breaks = -7:5, labels = round(exp(-7:5),3))+
+  labs(x = "blink duration")+
+  facet_wrap(~subject)
+```
+
+```{r}
+df.blinks.hitmiss <- df.pupil %>% 
+         filter(sample_in_trial_t >= 0, sample_in_trial_t < 18) %>% 
+         group_by(probe,hit,sample_in_trial_t,subject) %>% 
+        summarise(blink_ratio = mean(blink, na.rm = T)) %>% 
+        group_by(probe,hit,sample_in_trial_t) %>% 
+  summarise(blink_ratio = mean(blink_ratio, na.rm = T)) 
+
+ggplot(df.blinks.hitmiss %>% filter(probe == 1))+
+  geom_line(aes(x = sample_in_trial_t, y = blink_ratio,
+                 color = as.factor(hit), group = hit),size = 1)+
+    annotate("rect", xmin =0.1, xmax = 2, ymin = 0, ymax = 0.5,
+           color = "lightseagreen", fill = NA)+
+    annotate("rect", xmin = 2.1, xmax = 4, ymin = 0, ymax = 0.5,
+          color = "lightskyblue1", fill = NA)+
+  annotate("rect", xmin =14.1, xmax = 16, ymin = 0, ymax = 0.5,
+           color = "lightskyblue3", fill = NA)+
+  annotate("rect", xmin = 16.1, xmax = 18, ymin = 0, ymax = 0.5,
+           color = "lightskyblue4", fill = NA)+
+  labs(title = "anticipation probe")+
+
+ggplot(df.blinks.hitmiss %>% filter(probe == 2))+
+  geom_line(aes(x = sample_in_trial_t, y = blink_ratio,
+                 color = as.factor(hit), group = hit),size = 1)+
+  annotate("rect", xmin =0.1, xmax = 2, ymin = 0, ymax = 0.5,
+           alpha = .2, color = "lightseagreen", fill = NA)+
+  annotate("rect", xmin =2.1, xmax = 4, ymin = 0, ymax = 0.5,
+           alpha = .2, color = "lightskyblue1", fill = NA)+
+  annotate("rect", xmin = 4.1, xmax = 6, ymin = 0, ymax = 0.5,
+           alpha = .2, color = "lightskyblue3", fill = NA)+
+  annotate("rect", xmin = 6.1, xmax = 8, ymin = 0, ymax = 0.5,
+           alpha = .2, color = "lightskyblue4", fill = NA)+
+  labs(title = "outcome probe")+
+
+plot_layout(nrow = 2)
+```
+```{r}
+df.blinks.cueval <- df.pupil %>% 
+         filter(sample_in_trial_t >= 0, sample_in_trial_t < 18) %>% 
+         group_by(probe,cue_value,sample_in_trial_t,subject) %>% 
+          summarise(blink_ratio = mean(blink, na.rm = T)) %>% 
+        group_by(probe,cue_value,sample_in_trial_t) %>% 
+        summarise(blink_ratio = mean(blink_ratio, na.rm = T))
+
+ggplot(df.blinks.cueval %>% filter(probe == 1))+
+  geom_line(aes(x = sample_in_trial_t, y = blink_ratio,
+                 color = cue_value, group = cue_value),size = 1)+
+    annotate("rect", xmin =0.1, xmax = 2, ymin = 0, ymax = 0.5,
+           color = "lightseagreen", fill = NA)+
+    annotate("rect", xmin = 2.1, xmax = 4, ymin = 0, ymax = 0.5,
+          color = "lightskyblue1", fill = NA)+
+  annotate("rect", xmin =14.1, xmax = 16, ymin = 0, ymax = 0.5,
+           color = "lightskyblue3", fill = NA)+
+  annotate("rect", xmin = 16.1, xmax = 18, ymin = 0, ymax = 0.5,
+           color = "lightskyblue4", fill = NA)+
+  labs(title = "anticipation probe")+
+  scale_color_manual(values = purpleOrange_palette6)+
+
+ggplot(df.blinks.cueval %>% filter(probe == 2))+
+  geom_line(aes(x = sample_in_trial_t, y = blink_ratio,
+                 color = cue_value, group = cue_value),size = 1)+
+  annotate("rect", xmin =0.1, xmax = 2, ymin = 0, ymax = 0.5,
+           alpha = .2, color = "lightseagreen", fill = NA)+
+  annotate("rect", xmin =2.1, xmax = 4, ymin = 0, ymax = 0.5,
+           alpha = .2, color = "lightskyblue1", fill = NA)+
+  annotate("rect", xmin = 4.1, xmax = 6, ymin = 0, ymax = 0.5,
+           alpha = .2, color = "lightskyblue3", fill = NA)+
+  annotate("rect", xmin = 6.1, xmax = 8, ymin = 0, ymax = 0.5,
+           alpha = .2, color = "lightskyblue4", fill = NA)+
+  labs(title = "outcome probe")+
+  scale_color_manual(values = purpleOrange_palette6)+
+
+plot_layout(nrow = 2)
+```
+
+# is arousal and valence predicted by blinking frequency?
+```{r}
+df.blinks.lm <- df.pupil %>% 
+         filter(sample_in_trial_t >= 0, sample_in_trial_t < 18) %>% 
+         group_by(subject,trial,Time_sec) %>% 
+         summarise(blink_ratio = mean(blink, na.rm = T))
+
+df.blinks.lm <- left_join(df.beh,df.blinks.lm, by = c("subject","trial"))
+
+ggplot(df.blinks.lm, aes(x = Time_sec, y = blink_ratio, color = cue_value))+
+  stat_summary(geom = "line")+
+  facet_wrap(~probe, nrow = 2)+
+  scale_color_manual(values = purpleOrange_palette6)
+
+df.blinks.lm2 <- df.pupil %>% 
+         filter(sample_in_trial_t >= 2, sample_in_trial_t <= 4) %>% 
+         group_by(subject,trial) %>% 
+         summarise(blink_ratio = mean(blink, na.rm = T))
+
+df.blinks.lm2 <- left_join(df.beh,df.blinks.lm2, by = c("subject","trial"))
+
+l1 <- lmer(blink_ratio ~ arating + (1|subject),df.blinks.lm2 %>% filter(probe == 1))
+summary(l1)
+
+l2 <- lmer(blink_ratio ~ vrating + (1|subject),df.blinks.lm2 %>% filter(probe == 1))
+summary(l2)
+
+l3 <- lmer(blink_ratio ~ cue_value + (1|subject),df.blinks.lm2)
+anova(l3)
+plot_model(l3,type = "pred", terms = "cue_value")
+```
+
+```{r}
+df.blinks.lm3 <- df.pupil %>% 
+         filter(probe == 2,sample_in_trial_t >= 6, sample_in_trial_t <= 8) %>% 
+         group_by(subject,trial) %>% 
+         summarise(blink_ratio = mean(blink, na.rm = T))
+
+df.blinks.lm3 <- left_join(df.beh %>% 
+                             mutate(hit = as.factor(rt != -1)),df.blinks.lm3, by = c("subject","trial"))
+
+l1 <- lmer(blink_ratio ~ arating + (1|subject),df.blinks.lm3 %>% filter(probe == 2))
+summary(l1)
+
+l2 <- lmer(blink_ratio ~ vrating + (1|subject),df.blinks.lm3 %>% filter(probe == 2))
+summary(l2)
+
+l3 <- lmer(blink_ratio ~ hit + (1|subject),df.blinks.lm3)
+anova(l3)
+plot_model(l3,type = "pred", terms = "hit")
+```
+
+```{r}
+all_subjs_blinks %>% 
+  filter(stime >= 6, etime <= 8)
+```
+
+
+## fatigue: visualise tonic activity over time
+```{r}
+data_pupil_tonic <- df.pupil%>%
+  filter(Time_sec >= anticipation_window[1], Time_sec <= anticipation_window[2])%>% 
+  select(subject,probe,trial,pupilDiameter_baseline_scaled,pupilDiameter_bc_scaled,
+         hit,last_iti,
+         cue_size)%>%
+  group_by(subject,trial,hit,
+         cue_size)%>%
+  filter(last_iti != 0) %>% 
+  summarise(pupilDiameter_baseline_scaled = mean(pupilDiameter_baseline_scaled,na.rm = T),
+                   pupilDiameter_bc_scaled = mean(pupilDiameter_bc_scaled,na.rm=T)) %>% 
+  group_by(subject) %>% 
+  mutate(pupilDiameter_baseline_scaled = as.numeric(scale(pupilDiameter_baseline_scaled)),
+         pupilDiameter_bc_scaled = as.numeric(scale(pupilDiameter_bc_scaled)))%>%
+  ungroup()%>%
+  group_by(subject,trial,hit,
+         cue_size)%>%
+  dplyr::summarise(pupilDiameter_baseline_scaled = mean(pupilDiameter_baseline_scaled,na.rm = T),
+                   pupilDiameter_bc_scaled = mean(pupilDiameter_bc_scaled,na.rm=T))%>%
+  mutate(half = ifelse(trial >= 48,"second","first"))
+
+summary(lmer(scale(pupilDiameter_baseline_scaled) ~ half + (1|subject),data_pupil_tonic))
+EMAtools::lme.dscore(lmer(scale(pupilDiameter_baseline_scaled) ~ half + (1|subject),data_pupil_tonic),
+                     data_pupil_tonic,
+                     type = "lme4")
+
+pt1 <- ggplot(data_pupil_tonic, aes(x = trial, y = pupilDiameter_baseline_scaled))+
+  geom_line(aes(group = subject), alpha = 0.1)+
+  stat_summary(geom = "line")+
+  labs(y = "mean pupil dilation",
+       title = "Experiment time course")
+
+pt2 <- ggplot(data_pupil_tonic)+
+  stat_summary(aes(group = subject, x = half, y = pupilDiameter_baseline_scaled),geom = "line",size = 0.5, alpha = 0.3,
+            color = "navy")+
+  stat_summary(aes(x = half, y = pupilDiameter_baseline_scaled),fun.data = "mean_cl_boot",geom = "pointrange",
+               size = 0.2)+
+  annotate("text",x = 1.8, y = 0.5, color = "red",
+           label = "t = -8.179 ***")+
+  labs(y = "mean pupil dilation",
+       title = "Tonic")
+
+pt3 <- ggplot(data_pupil_tonic)+
+  stat_summary(aes(group = subject, x = half, y = pupilDiameter_bc_scaled),geom = "line",size = 0.5, alpha = 0.3,
+            color = "gold")+
+  stat_summary(aes(x = half, y = pupilDiameter_bc_scaled),fun.data = "mean_cl_boot",geom = "pointrange",
+               size = 0.2)+
+    annotate("text",x = 1.7, y = 0, color = "red",
+           label = "t = 0.145 (n.s.)")+
+  labs(y = "mean pupil dilation",
+       title = "Phasic anticipatory")
+
+pt2+pt3
+ggsave("./fig5.png",width = 4, height = 2, units = "in",dpi = 300)
+ggsave("./study3_fatigue.png",width = 6, height = 3, units = "in",dpi = 300)
+
+View(data_pupil_tonic %>% 
+  group_by(subject,half) %>% 
+  summarise(tonic_pupil = mean(pupilDiameter_baseline_scaled,na.rm = T),
+  phasic_pupil = mean(pupilDiameter_bc_scaled,na.rm = T)))
+
+df.beh <- df.beh %>% mutate(half = ifelse(trial >= 48,"second","first"))
+
+summary(lmer(arousal_scaled ~ half + (1|subject),df.beh))
+summary(lmer(valence_scaled ~ half + (1|subject),df.beh))
+
+pt4 <- ggplot(df.beh)+
+  stat_summary(aes(group = subject, x = half, y = arousal_scaled),geom = "line",size = 0.5, alpha = 0.3,
+            color = "black")+
+  stat_summary(aes(x = half, y = arousal_scaled),fun.data = "mean_cl_boot",geom = "pointrange",
+               size = 0.2)+
+  annotate("text",x = 1.8, y = 1, color = "red",
+           label = "t = -3.318 **")+
+  labs(y = "arousal",
+       title = "arousal")
+
+pt5 <- ggplot(df.beh)+
+  stat_summary(aes(group = subject, x = half, y = valence_scaled),geom = "line",size = 0.5, alpha = 0.3,
+            color = "black")+
+  stat_summary(aes(x = half, y = valence_scaled),fun.data = "mean_cl_boot",geom = "pointrange",
+               size = 0.2)+
+  annotate("text",x = 1.8, y = 1, color = "red",
+           label = "t = 0.099 (n.s.)")+
+  labs(y = "arousal",
+       title = "valence")
+
+pt4+pt5
+ggsave("./study3_rating.png",width = 6, height = 3, units = "in",dpi = 300)
+```
+
+

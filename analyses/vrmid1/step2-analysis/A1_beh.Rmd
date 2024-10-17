@@ -1,0 +1,60 @@
+---
+title: "A1_beh"
+author: "Ryan Yan"
+date: "2024-02-28"
+output: html_document
+---
+```{r}
+data_beh <- read_csv("/Users/rh/Desktop/VRMID-analysis/vrmid-pupillometry/data/study1/per_second_data.csv") %>% 
+  filter(Time_sec == 1) %>% 
+  select(-Time,-Time_sec)
+
+data_beh$trial.type <- factor(data_beh$trial.type, levels = c("-$5","-$1","-$0","+$0","+$1","+$5"))
+```
+
+```{r}
+rt_sum <- data_beh %>% 
+  group_by(Subject) %>% 
+  mutate(reaction_time = as.numeric(scale(as.numeric(reaction_time)))) %>% 
+  group_by(Subject,trial.type,probe) %>% 
+  summarise(mean_rt = mean(reaction_time, na.rm = T))
+
+ggplot(rt_sum, aes(x = trial.type, y = mean_rt))+
+  geom_line(aes(group = Subject),alpha = 0.1)+
+  stat_summary()+
+  facet_wrap(~probe)
+
+rt_sum2 <- data_beh %>% 
+  group_by(Subject) %>% 
+  mutate(reaction_time = as.numeric(scale(as.numeric(reaction_time)))) %>% 
+  group_by(Subject,probe) %>% 
+  summarise(mean_rt = mean(reaction_time, na.rm = T))
+
+ggplot(rt_sum2, aes(x = probe, y = mean_rt))+
+  geom_line(aes(group = Subject),alpha = 0.1)+
+  stat_summary()
+```
+
+#hit rate
+```{r}
+hit_sum <- data_beh %>% 
+  group_by(Subject,probe) %>% 
+  mutate(reaction_outcome = as.numeric(reaction_outcome == "Hit")) %>% 
+  summarise(reaction_outcome = mean(reaction_outcome, na.rm = T))
+
+ggplot(hit_sum, aes(x = probe, y =reaction_outcome, color = probe))+
+  stat_summary()
+```
+#missing ratings
+```{r}
+rate_sum <- data_beh %>% 
+  group_by(Subject,probe) %>% 
+  summarise(arousal_perc = mean(!is.na(arousal)),
+            valence_perc = mean(!is.na(valence))) %>% 
+  pivot_longer(arousal_perc:valence_perc, names_to = "rating_type", values_to = "percentage")
+
+ggplot(rate_sum, aes(x = probe, y =percentage, color = rating_type))+
+  geom_jitter(alpha = 0.3, size = 1)+
+  stat_summary()
+```
+

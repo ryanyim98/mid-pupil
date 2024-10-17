@@ -1,0 +1,812 @@
+---
+title: "S2_recent_win_modulation_of_pupil"
+author: "Ryan Yan"
+date: "2023-04-07"
+output: html_document
+---
+
+```{r}
+source(here::here("load_libraries.R"))
+theme_set(theme_bw() + #set the theme 
+            theme(text = element_text(family = "Helvetica",size = 12))) #set the default text size
+
+purpleOrange_palette6 = c("purple4","purple2","plum3","khaki","gold","goldenrod4")
+purpleOrange_palette2 = c("purple4","gold")
+```
+
+# reward history
+## anticipation
+### pupil
+
+```{r}
+data_pupil <- read_csv("/Users/rh/Desktop/VRMID-analysis/data/pupillometry_lowpass_baselineCorrected.csv")%>%
+  filter(!Subject %in% c("cn221206","vx220916"))%>% #bad participants
+  # filter(condition %in% c("small","large"))%>%
+  group_by(Subject)%>%
+  mutate(arousal_scaled = as.numeric(scale(arousal)),
+         valence_scaled = as.numeric(scale(valence)))%>%
+  ungroup()
+
+data_pupil$trial_type <- factor(data_pupil$trial_type, levels = c("-$5","-$1","-$0","+$0","+$1","+$5"))
+
+data_pupil <- data_pupil%>%
+  group_by(Subject)%>%
+  mutate_at(vars(pupil_L,pupil_R,pupil_Avg,pupil_L_bc,pupil_R_bc,pupil_Avg_bc), 
+            list(scale = scale))
+
+#z-scoring
+
+# names(data_pupil)
+data_pupil <- data_pupil%>%
+  mutate(sample_in_trial_t = round(sample_in_trial_t,4))
+```
+
+
+```{r}
+data_lm_anti_reward_history <- data_pupil%>%
+  filter(sample_in_trial_t > 5.5 & sample_in_trial_t <= 7.5)%>%
+  ungroup()%>%
+  group_by(probe,Subject,trial,trial_type,
+           PosA_scaled,NegA_scaled,
+           arousal_scaled,valence_scaled,
+           condition,current_stimulus,
+           reaction_outcome)%>%
+  summarise(mean_pupil = mean(pupil_Avg_scale, na.rm = T),
+            mean_tonic_pupil = mean(pupil_Avg_baseline, na.rm = T))%>%
+  ungroup()%>%
+  group_by(Subject)%>%
+  mutate(hit = as.numeric(reaction_outcome == "Hit"))%>%
+  mutate(recent_avg_winpercent1 = lag(rollmean(hit, 1, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent2 = lag(rollmean(hit, 2, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent3 = lag(rollmean(hit, 3, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent4 = lag(rollmean(hit, 4, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent5 = lag(rollmean(hit, 5, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent6 = lag(rollmean(hit, 6, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent7 = lag(rollmean(hit, 7, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent8 = lag(rollmean(hit, 8, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent9 = lag(rollmean(hit, 9, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent10 = lag(rollmean(hit, 10, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent11 = lag(rollmean(hit, 11, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent12 = lag(rollmean(hit, 12, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent13 = lag(rollmean(hit, 13, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent14 = lag(rollmean(hit, 14, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent15 = lag(rollmean(hit, 15, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent16 = lag(rollmean(hit, 16, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent17 = lag(rollmean(hit, 17, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent18 = lag(rollmean(hit, 18, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent19 = lag(rollmean(hit, 19, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent20 = lag(rollmean(hit, 20, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent21 = lag(rollmean(hit, 21, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent22 = lag(rollmean(hit, 22, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent23 = lag(rollmean(hit, 23, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent24 = lag(rollmean(hit, 24, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent25 = lag(rollmean(hit, 25, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent26 = lag(rollmean(hit, 26, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent27 = lag(rollmean(hit, 27, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent28 = lag(rollmean(hit, 28, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent29 = lag(rollmean(hit, 29, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent30 = lag(rollmean(hit, 30, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent31 = lag(rollmean(hit, 31, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent32 = lag(rollmean(hit, 32, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent33 = lag(rollmean(hit, 33, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent34 = lag(rollmean(hit, 34, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent35 = lag(rollmean(hit, 35, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent36 = lag(rollmean(hit, 36, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent37 = lag(rollmean(hit, 37, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent38 = lag(rollmean(hit, 38, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent39 = lag(rollmean(hit, 39, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent40 = lag(rollmean(hit, 40, na.pad = TRUE, align = "right"),1))
+  # mutate_at(vars(recent_avg_winpercent1:recent_avg_winpercent33),
+  #           ~scale(.x))
+
+data_lm_anti_reward_history$hit <- as.factor(data_lm_anti_reward_history$hit)
+
+ggplot(data_lm_anti_reward_history%>%filter(Subject == "ah230203"), aes(x = trial))+
+  stat_summary(aes(y = recent_avg_winpercent1), color = "grey", geom = "line",size=2)+
+  stat_summary(aes(y = recent_avg_winpercent30), color = "gold", geom = "line",size=2)+
+  stat_summary(aes(y = recent_avg_winpercent17), color = "orange", geom = "line",size=2)+
+  stat_summary(aes(y = recent_avg_winpercent10), color = "red", geom = "line",size=2)+
+  stat_summary(aes(y = recent_avg_winpercent5), color = "red3", geom = "line",size=2)+
+  stat_summary(aes(y = recent_avg_winpercent3), color = "brown4", geom = "line",size=2)
+```
+```{r warning=FALSE, message = FALSE}
+lmer_out_tonic <- {}
+for (i in 1:40) {
+  my.formula <- as.formula(paste0("scale(mean_tonic_pupil) ~ scale(recent_avg_winpercent",i, ") +(1|Subject) + (1|condition)"))
+  lm_temp <- lmer(my.formula,data_lm_anti_reward_history)
+  lmer_out_tonic <- rbind(lmer_out_tonic, summary(lm_temp)$coefficients[2,])
+}
+
+lmer_out_tonic <- as.data.frame(lmer_out_tonic)
+lmer_out_tonic$coef <- names(data_lm_anti_reward_history)[15:(14+nrow(lmer_out_tonic))]
+lmer_out2 <- lmer_out_tonic%>%
+  relocate(coef)%>%
+  rowwise()%>%
+  mutate(coef = strsplit(coef,"percent")[[1]][2])
+
+lmer_out2$coef <- factor(lmer_out2$coef, levels = c(1:40))
+lmer_out2$p_val <- (lmer_out2$`Pr(>|t|)` < 0.001)
+
+pt4 <- ggplot(lmer_out2%>%
+                filter(as.numeric(coef) <= 20), aes(x = coef, y = `t value`))+
+  geom_line(aes(group = 1), color = "black")+
+  # geom_point(aes(shape = p_val, color = p_val))+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  geom_hline(yintercept = -2.096, linetype = "dashed",color = "grey")+
+  geom_text(aes(group = 1,x = 17, y = -1.9, label = "t = -2.096"))+
+  labs(title = "Tonic pupil size ~ recent task difficulty",
+       x = "X-trials-average task difficulty")
+
+l1 <- lmer(scale(mean_tonic_pupil) ~ scale(recent_avg_winpercent4) + (1 | 
+    Subject) + (1 | condition), data_lm_anti_reward_history)
+summary(l1)
+plot_model(l1, type = "pred", terms = c("recent_avg_winpercent4"))
+```
+
+```{r warning=FALSE, message = FALSE}
+lmer_out <- {}
+for (i in 1:33) {
+  my.formula <- as.formula(paste0("scale(mean_pupil) ~ scale(recent_avg_winpercent",i, ") +(1|Subject) + (1|condition)"))
+  lm_temp <- lmer(my.formula,data_lm_anti_reward_history)
+  lmer_out <- rbind(lmer_out, summary(lm_temp)$coefficients[2,])
+}
+
+lmer_out <- as.data.frame(lmer_out)
+lmer_out$coef <- names(data_lm_anti_reward_history)[14:(13+nrow(lmer_out))]
+lmer_out2 <- lmer_out%>%
+  relocate(coef)%>%
+  rowwise()%>%
+  mutate(coef = strsplit(coef,"percent")[[1]][2])
+
+lmer_out2$coef <- factor(lmer_out2$coef, levels = c(1:33))
+lmer_out2$p_val <- (lmer_out2$`Pr(>|t|)` < 0.001)
+
+ggplot(lmer_out2, aes(x = coef, y = Estimate))+
+  geom_point(aes(shape = p_val, color = p_val))+
+  # geom_line(aes(group = 1), color = "black")+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  scale_color_manual(values = purpleOrange_palette2)+
+  labs(title = "Pupil size to anticipation (not habituating)",
+       size = "p < .001",
+       shape = "p < .001")
+```
+
+### self-report
+```{r}
+data_lm_anti_reward_history_selfReport <- data_pupil%>%
+  filter(sample_in_trial_t == 1)%>%
+  ungroup()%>%
+  filter(probe == "anti")%>%
+  group_by(Subject)%>%
+  mutate(hit = as.numeric(reaction_outcome == "Hit"))%>%
+  mutate(recent_avg_winpercent1 = lag(rollmean(hit, 1, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent2 = lag(rollmean(hit, 2, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent3 = lag(rollmean(hit, 3, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent4 = lag(rollmean(hit, 4, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent5 = lag(rollmean(hit, 5, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent6 = lag(rollmean(hit, 6, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent7 = lag(rollmean(hit, 7, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent8 = lag(rollmean(hit, 8, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent9 = lag(rollmean(hit, 9, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent10 = lag(rollmean(hit, 10, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent11 = lag(rollmean(hit, 11, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent12 = lag(rollmean(hit, 12, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent13 = lag(rollmean(hit, 13, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent14 = lag(rollmean(hit, 14, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent15 = lag(rollmean(hit, 15, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent16 = lag(rollmean(hit, 16, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent17 = lag(rollmean(hit, 17, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent18 = lag(rollmean(hit, 18, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent19 = lag(rollmean(hit, 19, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent20 = lag(rollmean(hit, 20, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent21 = lag(rollmean(hit, 21, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent22 = lag(rollmean(hit, 22, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent23 = lag(rollmean(hit, 23, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent24 = lag(rollmean(hit, 24, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent25 = lag(rollmean(hit, 25, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent26 = lag(rollmean(hit, 26, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent27 = lag(rollmean(hit, 27, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent28 = lag(rollmean(hit, 28, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent29 = lag(rollmean(hit, 29, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent30 = lag(rollmean(hit, 30, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent31 = lag(rollmean(hit, 31, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent32 = lag(rollmean(hit, 32, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent33 = lag(rollmean(hit, 33, na.pad = TRUE, align = "right"),1))
+  # mutate_at(vars(recent_avg_winpercent1:recent_avg_winpercent33),
+  #           ~scale(.x))
+
+data_lm_anti_reward_history_selfReport$hit <- as.factor(data_lm_anti_reward_history_selfReport$hit)
+```
+
+```{r warning=FALSE, message = FALSE}
+lmer_out <- {}
+for (i in 1:33) {
+  my.formula <- as.formula(paste0("scale(arousal_scaled) ~ scale(recent_avg_winpercent",i, ") +(1|Subject)  + (1|condition)"))
+  lm_temp <- lmer(my.formula,data_lm_anti_reward_history_selfReport)
+  lmer_out <- rbind(lmer_out, summary(lm_temp)$coefficients[2,])
+}
+
+lmer_out <- as.data.frame(lmer_out)
+lmer_out$coef <- names(data_lm_anti_reward_history_selfReport)[45:(44+nrow(lmer_out))]
+lmer_out2 <- lmer_out%>%
+  relocate(coef)%>%
+  rowwise()%>%
+  mutate(coef = strsplit(coef,"percent")[[1]][2])
+
+lmer_out2$coef <- factor(lmer_out2$coef, levels = c(1:33))
+lmer_out2$p_val <- (lmer_out2$`Pr(>|t|)` < 0.001)
+
+ggplot(lmer_out2, aes(x = coef, y = Estimate))+
+  geom_point(aes(color = p_val))+
+  geom_line(aes(group = 1), color = "black")+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  scale_color_manual(values = purpleOrange_palette2)+
+  labs(title = "arousal to anticipation",
+       size = "p < .001",
+       shape = "p < .001")
+```
+```{r warning=FALSE, message = FALSE}
+lmer_out <- {}
+for (i in 1:33) {
+  my.formula <- as.formula(paste0("scale(valence_scaled) ~ scale(recent_avg_winpercent",i, ") +(1|Subject) + (1|condition)"))
+  lm_temp <- lmer(my.formula,data_lm_anti_reward_history_selfReport)
+  lmer_out <- rbind(lmer_out, summary(lm_temp)$coefficients[2,])
+}
+
+lmer_out <- as.data.frame(lmer_out)
+lmer_out$coef <- names(data_lm_anti_reward_history_selfReport)[42:(41+nrow(lmer_out))]
+lmer_out2 <- lmer_out%>%
+  relocate(coef)%>%
+  rowwise()%>%
+  mutate(coef = strsplit(coef,"percent")[[1]][2])
+
+lmer_out2$coef <- factor(lmer_out2$coef, levels = c(1:33))
+lmer_out2$p_val <- (lmer_out2$`Pr(>|t|)` < 0.001)
+
+ggplot(lmer_out2, aes(x = coef, y = Estimate))+
+  geom_point(aes(color = p_val))+
+  geom_smooth(aes(group = 1), color = "black", se = F)+
+  geom_line(aes(group = 1), color = "black")+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  scale_color_manual(values = purpleOrange_palette2)+
+  labs(title = "valence to anticipation",
+       size = "p < .001",
+       shape = "p < .001")
+```
+
+```{r}
+plot_model(lmer(scale(arousal_scaled) ~ scale(recent_avg_winpercent5) + 
+    (1 | Subject) + (1|trial_type) + (1 | condition), data_lm_anti_reward_history_selfReport),
+    type = "pred", terms = c("recent_avg_winpercent5"))
+
+plot_model(lmer(scale(valence_scaled) ~ scale(recent_avg_winpercent5) + (1 | 
+    Subject) + (1 | trial_type) + (1 | condition), data_lm_anti_reward_history_selfReport),
+    type = "pred", terms = c("recent_avg_winpercent5"))
+```
+
+## outcome
+### pupil
+```{r}
+data_lm_outcome_reward_history <- data_pupil%>%
+  filter(probe == "out")%>%
+  filter(sample_in_trial_t <= 8 + 3.5 & sample_in_trial_t > 8 + 1.5)%>%
+  ungroup()%>%
+  group_by(probe,Subject,trial,trial_type,
+           PosA_scaled,NegA_scaled,
+           arousal_scaled,valence_scaled,
+           condition,
+           reaction_outcome)%>%
+  summarise(mean_pupil = mean(pupil_Avg_scale, na.rm = T))%>%
+  group_by(Subject)%>%
+  mutate(hit = as.numeric(reaction_outcome == "Hit"))%>%
+  mutate(recent_avg_winpercent1 = lag(rollmean(hit, 1, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent2 = lag(rollmean(hit, 2, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent3 = lag(rollmean(hit, 3, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent4 = lag(rollmean(hit, 4, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent5 = lag(rollmean(hit, 5, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent6 = lag(rollmean(hit, 6, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent7 = lag(rollmean(hit, 7, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent8 = lag(rollmean(hit, 8, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent9 = lag(rollmean(hit, 9, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent10 = lag(rollmean(hit, 10, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent11 = lag(rollmean(hit, 11, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent12 = lag(rollmean(hit, 12, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent13 = lag(rollmean(hit, 13, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent14 = lag(rollmean(hit, 14, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent15 = lag(rollmean(hit, 15, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent16 = lag(rollmean(hit, 16, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent17 = lag(rollmean(hit, 17, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent18 = lag(rollmean(hit, 18, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent19 = lag(rollmean(hit, 19, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent20 = lag(rollmean(hit, 20, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent21 = lag(rollmean(hit, 21, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent22 = lag(rollmean(hit, 22, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent23 = lag(rollmean(hit, 23, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent24 = lag(rollmean(hit, 24, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent25 = lag(rollmean(hit, 25, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent26 = lag(rollmean(hit, 26, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent27 = lag(rollmean(hit, 27, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent28 = lag(rollmean(hit, 28, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent29 = lag(rollmean(hit, 29, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent30 = lag(rollmean(hit, 30, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent31 = lag(rollmean(hit, 31, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent32 = lag(rollmean(hit, 32, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent33 = lag(rollmean(hit, 33, na.pad = TRUE, align = "right"),1))%>%
+  mutate_at(vars(recent_avg_winpercent1:recent_avg_winpercent33),
+            ~scale(.x))
+
+data_lm_outcome_reward_history$hit <- as.factor(data_lm_outcome_reward_history$hit)
+
+ggplot(data_lm_outcome_reward_history%>%filter(Subject == "ah230203"), aes(x = trial))+
+  stat_summary(aes(y = recent_avg_winpercent1), color = "grey", geom = "line",size=2)+
+  stat_summary(aes(y = recent_avg_winpercent30), color = "gold", geom = "line",size=2)+
+  stat_summary(aes(y = recent_avg_winpercent17), color = "orange", geom = "line",size=2)+
+  stat_summary(aes(y = recent_avg_winpercent10), color = "red", geom = "line",size=2)+
+  stat_summary(aes(y = recent_avg_winpercent5), color = "red3", geom = "line",size=2)+
+  stat_summary(aes(y = recent_avg_winpercent3), color = "brown4", geom = "line",size=2)
+```
+
+```{r warning=FALSE, message = FALSE}
+data_lm_outcome_reward_history$hit <- factor(data_lm_outcome_reward_history$hit, levels = c(1,0))
+lmer_outA <- {}
+for (i in 1:33) {
+    my.formula <- as.formula(paste0("scale(mean_pupil) ~ scale(recent_avg_winpercent",i, ") * hit +(1|Subject) + (1|condition)"))
+  lm_temp <- lmer(my.formula,data_lm_outcome_reward_history)
+  lmer_outA <- rbind(lmer_outA, summary(lm_temp)$coefficients[2,])
+}
+
+data_lm_outcome_reward_history$hit <- factor(data_lm_outcome_reward_history$hit, levels = c(0,1))
+lmer_outB <- {}
+for (i in 1:33) {
+  my.formula <- as.formula(paste0("scale(mean_pupil) ~ scale(recent_avg_winpercent",i, ") *hit +(1|Subject) + (1|condition)"))
+  lm_temp <- lmer(my.formula,data_lm_outcome_reward_history)
+  lmer_outB <- rbind(lmer_outB, summary(lm_temp)$coefficients[2,])
+}
+
+lmer_outA <- as.data.frame(lmer_outA)%>%
+  mutate(hit = 1)
+
+lmer_outB <- as.data.frame(lmer_outB)%>%
+  mutate(hit = 0)
+
+lmer_out <- rbind(lmer_outA,lmer_outB)
+
+lmer_out$back_num <- rep(c(1:33),2)
+
+lmer_out$p_val <- (lmer_out$`Pr(>|t|)` < 0.05)
+
+p1 <- ggplot(lmer_out, aes(x = back_num, y = Estimate))+
+  scale_color_brewer(palette = "Set1")+
+  geom_line(aes(group = hit, color = as.factor(hit)))+
+  labs(title = "Pupil size to outcome",
+       color = "Hit current trial?",
+       x = "Hit rate window (num. trials)",
+       y = "Beta coefficients (pupil size ~ win rate)")+
+  geom_hline(yintercept = 0)
+
+p1
+```
+
+### bootstrapping 
+
+```{r warning=FALSE, message=FALSE, eval = T}
+bootstrap_times = 500
+sample_size = 28
+
+draw_sample = function(sample_size, original_set){
+  x = sample(original_set,
+             size = sample_size,
+             replace = T)
+  return(x)
+}
+
+fit_lmer_to_bootstrapped_sample = function(formula,original_df,bootstrapped_sample,hit_levels){
+  lmer_out <- {}
+  this_data = {}
+  for (p in 1:length(bootstrapped_sample)){
+    this_data = rbind(this_data, original_df%>%
+                        filter(Subject == bootstrapped_sample[p])%>%
+                        mutate(NewID = paste0("sample",p)))
+  }
+  this_data$hit <- factor(this_data$hit, levels = hit_levels)
+  lm_temp <- lmer(formula,this_data)
+  lmer_out <- rbind(lmer_out, summary(lm_temp)$coefficients[2,])
+  return(lmer_out)
+}
+```
+
+```{r}
+set.seed(19950803)
+
+data_lm_outcome_reward_history$hit <- factor(data_lm_outcome_reward_history$hit, levels = c(1,0))
+df_boot_pupil_hit <- {}
+for (i in 1:33){
+  print(i)
+  my.formula = as.formula(paste0("scale(mean_pupil) ~ scale(recent_avg_winpercent",i, ") * hit +(1|Subject) + (1|condition)"))
+  samples = replicate(n = bootstrap_times, draw_sample(sample_size,data_lm_outcome_reward_history$Subject)) #dim(samples)
+  lmer_out <- {}
+  
+  for (d in 1:bootstrap_times){
+  lmer_out <- rbind(lmer_out,fit_lmer_to_bootstrapped_sample(my.formula,data_lm_outcome_reward_history,samples[,d],c(1,0)))
+  }
+  lmer_out <- as.data.frame(lmer_out)
+  lmer_out$window_size = paste0(i,"_back")
+  df_boot_pupil_hit <- rbind(df_boot_pupil_hit,lmer_out)
+}
+
+df_boot_pupil_hit$window_size <- factor(df_boot_pupil_hit$window_size, levels = paste0(1:33,"_back"))
+
+write.csv(df_boot_pupil_hit,"/Users/rh/Desktop/VRMID-analysis/data/df_boot_pupil_hit.csv")
+```
+
+```{r fig.width=8,fig.height=4, eval = FALSE}
+df_boot_pupil_hit <- read_csv("/Users/rh/Desktop/VRMID-analysis/data/df_boot_pupil_hit.csv")
+p_vals <- left_join( data.frame(window_size= unique(df_boot_pupil_hit$window_size)),count(df_boot_pupil_hit%>%
+  group_by(window_size,Estimate <= 0)%>%
+  filter(`Estimate <= 0` == TRUE))%>%
+    ungroup()%>%
+  mutate(p_val = ifelse(is.na(n) == TRUE,0,n/bootstrap_times)))
+
+df_boot_pupil_hit$window_size <- factor(df_boot_pupil_hit$window_size, levels = paste0(1:33,"_back"))
+
+p_vals$p_val[is.na(p_vals$p_val)] <- 0
+
+ggplot(df_boot_pupil_hit, aes(x = window_size, y = Estimate, color = window_size))+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  geom_violindot(binwidth = 0.005, size_dots = 0.2) +
+  stat_summary(geom = "pointrange", color = "black",size=0.3)+
+  scale_x_discrete(labels=c(1:33))+
+  theme(legend.position = "none")+
+  scale_color_bluebrown_d()+
+  geom_text(data = p_vals, aes(x = window_size, y = -0.1, label = p_vals$p_val))
+```
+
+```{r warning = F, message = F}
+set.seed(19950803)
+data_lm_outcome_reward_history$hit <- factor(data_lm_outcome_reward_history$hit, levels = c(0,1))
+df_boot_pupil_miss <- {}
+for (i in 1:33){
+  print(i)
+  my.formula = as.formula(paste0("scale(mean_pupil) ~ scale(recent_avg_winpercent",i, ") * hit +(1|Subject) + (1|condition)"))
+  samples = replicate(n = bootstrap_times, draw_sample(sample_size,data_lm_outcome_reward_history$Subject)) #dim(samples)
+  lmer_out <- {}
+  
+  for (d in 1:bootstrap_times){
+  lmer_out <- rbind(lmer_out,fit_lmer_to_bootstrapped_sample(my.formula,data_lm_outcome_reward_history,samples[,d],c(0,1)))
+  }
+  lmer_out <- as.data.frame(lmer_out)
+  lmer_out$window_size = paste0(i,"_back")
+  df_boot_pupil_miss <- rbind(df_boot_pupil_miss,lmer_out)
+}
+
+df_boot_pupil_miss$window_size <- factor(df_boot_pupil_miss$window_size, levels = paste0(1:33,"_back"))
+
+write.csv(df_boot_pupil_miss,"/Users/rh/Desktop/VRMID-analysis/data/df_boot_pupil_miss.csv")
+```
+
+```{r fig.width=8,fig.height=4, eval = FALSE}
+df_boot_pupil_miss <- read_csv("/Users/rh/Desktop/VRMID-analysis/data/df_boot_pupil_miss.csv")
+df_boot_pupil_miss$window_size <- factor(df_boot_pupil_miss$window_size, levels = paste0(1:33,"_back"))
+
+p_vals <- left_join( data.frame(window_size= unique(df_boot_pupil_miss$window_size)),count(df_boot_pupil_miss%>%
+  group_by(window_size,Estimate <= 0)%>%
+  filter(`Estimate <= 0` == TRUE))%>%
+    ungroup()%>%
+  mutate(p_val = ifelse(is.na(n) == TRUE,0,n/bootstrap_times)))
+
+p_vals$p_val[is.na(p_vals$p_val)] <- 0
+
+ggplot(df_boot_pupil_miss, aes(x = window_size, y = Estimate, color = window_size))+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  geom_violindot(binwidth = 0.005, size_dots = 0.2) +
+  stat_summary(geom = "pointrange", color = "black",size=0.3)+
+  scale_x_discrete(labels=c(1:33))+
+  theme(legend.position = "none")+
+  scale_color_bluebrown_d()+
+  geom_text(data = p_vals, aes(x = window_size, y = -0.1, label = p_val))
+
+df_boot_pupil_miss_summary <- df_boot_pupil_miss%>%
+  group_by(window_size)%>%
+  summarise(Estimate_mean = mean(Estimate),
+            Estimate_sd = sd(Estimate))
+
+df_boot_pupil_hit_summary <- df_boot_pupil_hit%>%
+  group_by(window_size)%>%
+  summarise(Estimate_mean = mean(Estimate),
+            Estimate_sd = sd(Estimate))
+
+ggplot()+
+  geom_point(data = df_boot_pupil_miss_summary, aes(x = window_size, y = Estimate_mean,
+                                      color = "miss"))+
+  geom_errorbar(data = df_boot_pupil_miss_summary,aes(x = window_size,ymin = Estimate_mean - Estimate_sd, 
+                    ymax = Estimate_mean + Estimate_sd, color = "miss"))+
+  geom_point(data = df_boot_pupil_hit_summary, aes(x = window_size, y = Estimate_mean,
+                                      color = "hit"))+
+  geom_errorbar(data = df_boot_pupil_hit_summary,aes(x = window_size,ymin = Estimate_mean - Estimate_sd, 
+                    ymax = Estimate_mean + Estimate_sd, color = "hit"))+
+  scale_x_discrete(labels=c(1:33))+
+  geom_hline(yintercept = 0)+
+  geom_text(data = p_vals[p_vals$p_val < 0.05,], 
+            aes(x = window_size, y = 0.1, label = p_val),
+            size = 2)+
+  scale_color_brewer(palette = "Set1", direction = -1)
+```
+
+```{r}
+summary(lmer(mean_pupil ~ recent_avg_winpercent33 * hit + (1|Subject),data_lm_outcome_reward_history%>%
+               mutate(hit = relevel(hit, ref = 1))))
+
+summary(lmer(mean_pupil ~ recent_avg_winpercent33 * hit + (1|Subject),data_lm_outcome_reward_history%>%
+               mutate(hit = factor(hit, levels = c(0,1)))))
+```
+
+```{r}
+lm1 <- lmer(mean_pupil ~ recent_avg_winpercent14 * hit + (1|Subject),data_lm_outcome_reward_history)
+plot_model(lm1, type = "pred",
+           terms = c("recent_avg_winpercent14","hit"))+
+  labs(x = "past 14 trials hit rate")
+```
+
+### self-reports
+```{r}
+data_lm_outcome_reward_history_selfReport <- data_pupil%>%
+  filter(sample_in_trial_t == 1)%>%
+  ungroup()%>%
+  filter(probe == "out")%>%
+  group_by(Subject)%>%
+  mutate(hit = as.numeric(reaction_outcome == "Hit"))%>%
+  mutate(recent_avg_winpercent1 = lag(rollmean(hit, 1, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent2 = lag(rollmean(hit, 2, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent3 = lag(rollmean(hit, 3, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent4 = lag(rollmean(hit, 4, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent5 = lag(rollmean(hit, 5, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent6 = lag(rollmean(hit, 6, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent7 = lag(rollmean(hit, 7, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent8 = lag(rollmean(hit, 8, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent9 = lag(rollmean(hit, 9, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent10 = lag(rollmean(hit, 10, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent11 = lag(rollmean(hit, 11, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent12 = lag(rollmean(hit, 12, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent13 = lag(rollmean(hit, 13, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent14 = lag(rollmean(hit, 14, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent15 = lag(rollmean(hit, 15, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent16 = lag(rollmean(hit, 16, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent17 = lag(rollmean(hit, 17, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent18 = lag(rollmean(hit, 18, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent19 = lag(rollmean(hit, 19, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent20 = lag(rollmean(hit, 20, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent21 = lag(rollmean(hit, 21, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent22 = lag(rollmean(hit, 22, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent23 = lag(rollmean(hit, 23, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent24 = lag(rollmean(hit, 24, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent25 = lag(rollmean(hit, 25, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent26 = lag(rollmean(hit, 26, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent27 = lag(rollmean(hit, 27, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent28 = lag(rollmean(hit, 28, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent29 = lag(rollmean(hit, 29, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent30 = lag(rollmean(hit, 30, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent31 = lag(rollmean(hit, 31, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent32 = lag(rollmean(hit, 32, na.pad = TRUE, align = "right"),1),
+         recent_avg_winpercent33 = lag(rollmean(hit, 33, na.pad = TRUE, align = "right"),1))
+  # mutate_at(vars(recent_avg_winpercent1:recent_avg_winpercent33),
+  #           ~scale(.x))
+
+data_lm_outcome_reward_history_selfReport$hit <- as.factor(data_lm_outcome_reward_history_selfReport$hit)
+```
+
+```{r warning=FALSE, message = FALSE}
+data_lm_outcome_reward_history_selfReport$hit <- factor(data_lm_outcome_reward_history_selfReport$hit, levels = c(1,0))
+lmer_outAa <- {}
+for (i in 1:33) {
+    my.formula <- as.formula(paste0("scale(PosA_scaled) ~ scale(recent_avg_winpercent",i, ") * hit +(1|Subject) + (1|condition)"))
+  lm_temp <- lmer(my.formula,data_lm_outcome_reward_history_selfReport)
+  lmer_outAa <- rbind(lmer_outAa, summary(lm_temp)$coefficients[2,])
+}
+
+lmer_outAa <- as.data.frame(lmer_outAa)%>%
+  mutate(hit = 1)
+
+lmer_outAa$back_num <- c(1:33)
+
+lmer_outAa$p_val <- (lmer_outAa$`Pr(>|t|)` < 0.05)
+
+data_lm_outcome_reward_history_selfReport$hit <- factor(data_lm_outcome_reward_history_selfReport$hit, levels = c(0,1))
+lmer_outAb <- {}
+for (i in 1:33) {
+    my.formula <- as.formula(paste0("scale(PosA_scaled) ~ scale(recent_avg_winpercent",i, ") * hit +(1|Subject) + (1|condition)"))
+  lm_temp <- lmer(my.formula,data_lm_outcome_reward_history_selfReport)
+  lmer_outAb <- rbind(lmer_outAb, summary(lm_temp)$coefficients[2,])
+}
+
+lmer_outAb <- as.data.frame(lmer_outAb)%>%
+  mutate(hit = 0)
+
+lmer_outAb$back_num <- c(1:33)
+
+lmer_outAb$p_val <- (lmer_outAb$`Pr(>|t|)` < 0.05)
+
+lmer_outA <- rbind(lmer_outAa,lmer_outAb)
+
+ggplot(lmer_outA, aes(x = back_num, y = Estimate))+
+  geom_point(aes(shape = p_val, color = p_val))+
+  scale_color_manual(values = purpleOrange_palette2)+
+  geom_line(aes(group = hit, linetype = as.factor(hit)))+
+  labs(title = "PosA to Hit",
+       color = "p < .05", shape = "p < .05")+
+  geom_hline(yintercept = 0)
+
+```
+
+```{r warning=FALSE, message = FALSE}
+data_lm_outcome_reward_history_selfReport$hit <- factor(data_lm_outcome_reward_history_selfReport$hit, levels = c(0,1))
+lmer_outBa <- {}
+for (i in 1:33) {
+  my.formula <- as.formula(paste0("scale(NegA_scaled) ~ scale(recent_avg_winpercent",i, ") *hit +(1|Subject) + (1|condition)"))
+  lm_temp <- lmer(my.formula,data_lm_outcome_reward_history_selfReport)
+  lmer_outBa <- rbind(lmer_outBa, summary(lm_temp)$coefficients[2,])
+}
+
+lmer_outBa <- as.data.frame(lmer_outBa)%>%
+  mutate(hit = 0)
+
+lmer_outBa$back_num <-c(1:33)
+
+lmer_outBa$p_val <- (lmer_outBa$`Pr(>|t|)` < 0.05)
+
+data_lm_outcome_reward_history_selfReport$hit <- factor(data_lm_outcome_reward_history_selfReport$hit, levels = c(1,0))
+lmer_outBb <- {}
+for (i in 1:33) {
+  my.formula <- as.formula(paste0("scale(NegA_scaled) ~ scale(recent_avg_winpercent",i, ") *hit +(1|Subject) + (1|condition)"))
+  lm_temp <- lmer(my.formula,data_lm_outcome_reward_history_selfReport)
+  lmer_outBb <- rbind(lmer_outBb, summary(lm_temp)$coefficients[2,])
+}
+
+lmer_outBb <- as.data.frame(lmer_outBb)%>%
+  mutate(hit = 1)
+
+lmer_outBb$back_num <-c(1:33)
+
+lmer_outBb$p_val <- (lmer_outBb$`Pr(>|t|)` < 0.05)
+
+lmer_outB <- rbind(lmer_outBa,lmer_outBb)
+
+ggplot(lmer_outB, aes(x = back_num, y = Estimate))+
+  geom_point(aes(shape = p_val, color = p_val))+
+  scale_color_manual(values = purpleOrange_palette2)+
+  geom_line(aes(group = hit, linetype = as.factor(hit)))+
+  labs(title = "NegA to Miss",
+       color = "p < .05", shape = "p < .05")+
+  geom_hline(yintercept = 0)
+
+
+```
+
+```{r}
+p2 <- ggplot()+
+  geom_line(data = lmer_outA, aes(x = back_num, y = `t value`, linetype = as.factor(hit),
+                                  color = "PosA"))+
+  geom_text(aes(x = 30, y = -3, label = "Neg Arous"))+
+  geom_line(data = lmer_outB, aes(x = back_num, y = `t value`, linetype = as.factor(hit),
+                                  color = "NegA"))+
+  geom_text(aes(x = 30, y = 3, label = "Pos Arous"))+
+  annotate("rect", xmin = 0, xmax = 35, ymin = -2, ymax = 2,
+           fill = "grey",alpha = 0.5)+
+  labs(color = "Affect dimension",
+       linetype = "Hit current trial?",
+       x = "Hit rate window (num. trials)",
+       y = "Beta coefficients (affect ~ win history)",
+       title = "Affect to outcome")+
+  scale_color_brewer(palette = "Set1")+
+  geom_hline(yintercept = 0)
+
+p2
+```
+
+```{r}
+p1+p2
+```
+
+```{r}
+plot_model(lmer(scale(PosA_scaled) ~ scale(recent_avg_winpercent30) * hit + 
+    (1 | Subject) + (1 | condition), data_lm_outcome_reward_history_selfReport),
+    type = "pred", terms = c("recent_avg_winpercent30","hit"),
+    show.data = T)
+
+plot_model(lmer(scale(NegA_scaled) ~ scale(recent_avg_winpercent30) * hit + 
+    (1 | Subject)  + (1 | condition), data_lm_outcome_reward_history_selfReport),
+    type = "pred", terms = c("recent_avg_winpercent30","hit"),
+    show.data = T)
+```
+# bootstrapping
+```{r warning=FALSE, message=FALSE, eval = T}
+set.seed(19950803)
+
+bootstrap_times = 500
+sample_size = 28
+
+data_lm_outcome_reward_history_selfReport$hit <- factor(data_lm_outcome_reward_history_selfReport$hit, levels = c(1,0))
+df_boot_PosA_hit <- {}
+for (i in 1:33){
+  print(i)
+  my.formula = as.formula(paste0("scale(PosA_scaled) ~ scale(recent_avg_winpercent",i, ") * hit +(1|Subject) + (1|condition)"))
+  samples = replicate(n = bootstrap_times, draw_sample(sample_size,data_lm_outcome_reward_history_selfReport$Subject)) #dim(samples)
+  lmer_out <- {}
+  
+  for (d in 1:bootstrap_times){
+  lmer_out <- rbind(lmer_out,fit_lmer_to_bootstrapped_sample(my.formula,data_lm_outcome_reward_history_selfReport,samples[,d],c(1,0)))
+  }
+  lmer_out <- as.data.frame(lmer_out)
+  lmer_out$window_size = paste0(i,"_back")
+  df_boot_PosA_hit <- rbind(df_boot_PosA_hit,lmer_out)
+}
+
+df_boot_PosA_hit$window_size <- factor(df_boot_PosA_hit$window_size, levels = paste0(1:33,"_back"))
+
+write.csv(df_boot_PosA_hit,"/Users/rh/Desktop/VRMID-analysis/data/df_boot_PosA_hit.csv")
+```
+
+```{r fig.width=8,fig.height=4, eval = FALSE}
+p_vals <- left_join( data.frame(window_size= unique(df_boot_PosA_hit$window_size)),count(df_boot_PosA_hit%>%
+  group_by(window_size,Estimate <= 0)%>%
+  filter(`Estimate <= 0` == TRUE))%>%
+    ungroup()%>%
+  mutate(p_val = ifelse(is.na(n) == TRUE,0,n/bootstrap_times)))
+
+p_vals$p_val[is.na(p_vals$p_val)] <- 0
+
+ggplot(df_boot_PosA_hit, aes(x = window_size, y = Estimate, color = window_size))+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  geom_violindot(binwidth = 0.005, size_dots = 0.2) +
+  stat_summary(geom = "pointrange", color = "black",size=0.3)+
+  scale_x_discrete(labels=c(1:33))+
+  theme(legend.position = "none")+
+  scale_color_bluebrown_d()+
+  geom_text(data = p_vals, aes(x = window_size, y = -0.1, label = p_vals$p_val))
+```
+
+```{r warning=FALSE, message=FALSE, eval = T}
+set.seed(19950803)
+
+bootstrap_times = 500
+sample_size = 28
+
+data_lm_outcome_reward_history_selfReport$hit <- factor(data_lm_outcome_reward_history_selfReport$hit, levels = c(0,1))
+df_boot_NegA_miss <- {}
+for (i in 1:33){
+  print(i)
+  my.formula = as.formula(paste0("scale(NegA_scaled) ~ scale(recent_avg_winpercent",i, ") * hit +(1|Subject) + (1|condition)"))
+  samples = replicate(n = bootstrap_times, draw_sample(sample_size,data_lm_outcome_reward_history_selfReport$Subject)) #dim(samples)
+  lmer_out <- {}
+  
+  for (d in 1:bootstrap_times){
+  lmer_out <- rbind(lmer_out,fit_lmer_to_bootstrapped_sample(my.formula,data_lm_outcome_reward_history_selfReport,samples[,d],c(0,1)))
+  }
+  lmer_out <- as.data.frame(lmer_out)
+  lmer_out$window_size = paste0(i,"_back")
+  df_boot_NegA_miss <- rbind(df_boot_NegA_miss,lmer_out)
+}
+
+df_boot_NegA_miss$window_size <- factor(df_boot_NegA_miss$window_size, levels = paste0(1:33,"_back"))
+
+write.csv(df_boot_NegA_miss,"/Users/rh/Desktop/VRMID-analysis/data/df_boot_NegA_miss.csv")
+```
+
+```{r fig.width=10,fig.height=6, eval = FALSE}
+p_vals <- left_join( data.frame(window_size= unique(df_boot_NegA_miss$window_size)),count(df_boot_NegA_miss%>%
+  group_by(window_size,Estimate <= 0)%>%
+  filter(`Estimate <= 0` == TRUE))%>%
+    ungroup()%>%
+  mutate(p_val = ifelse(is.na(n) == TRUE,0,n/bootstrap_times)))
+
+p_vals$p_val[is.na(p_vals$p_val)] <- 0
+
+ggplot(df_boot_NegA_miss, aes(x = window_size, y = Estimate, color = window_size))+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  geom_violindot(binwidth = 0.005, size_dots = 0.2) +
+  stat_summary(geom = "pointrange", color = "black",size=0.3)+
+  scale_x_discrete(labels=c(1:33))+
+  theme(legend.position = "none")+
+  scale_color_bluebrown_d()+
+  geom_text(data = p_vals, aes(x = window_size, y = -0.1, label = p_vals$p_val))
+
+```

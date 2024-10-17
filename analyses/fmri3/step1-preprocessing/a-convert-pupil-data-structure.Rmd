@@ -1,0 +1,202 @@
+---
+title: "pupil-pilot"
+author: "Ryan Yan"
+date: "2024-01-12"
+output: html_document
+---
+```{r}
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+library(patchwork)
+library(lme4)
+library(lmerTest)
+library(sjPlot)
+library(eyelinker)
+theme_set(theme_classic()+
+            theme(text = element_text(family = "Helvetica", size = 12)))
+
+subjects <- as.data.frame(read_csv("../subjects-pupil.txt", col_names = F))
+subjects_pupil <- paste0(rep(subjects$X1,each = 4),rep(c("b1","b2","b3","b4"),times = nrow(subjects)))
+```
+#
+```{r}
+
+for (sub in subjects_pupil){
+  df.pupil <- read_asc(paste0("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/raw/pupil-asc/",sub,".asc"))
+
+  df.pupil.blinks <- df.pupil$blinks %>% 
+    mutate(stime = stime - df.pupil$msg$time[1],
+           etime = etime - df.pupil$msg$time[1])
+  
+  df.pupil.msg <- df.pupil$msg%>% 
+    mutate(time = time - df.pupil$msg$time[1])
+  
+  df.pupil.raw <- df.pupil$raw %>% 
+    mutate(time = time - df.pupil$msg$time[1]) %>% 
+    left_join(df.pupil.msg)
+  
+  df.pupil.fix <- df.pupil$fix%>% 
+    mutate(stime = stime - df.pupil$msg$time[1],
+           etime = etime - df.pupil$msg$time[1])
+  
+  df.pupil.sacc <- df.pupil$sacc%>% 
+    mutate(stime = stime - df.pupil$msg$time[1],
+           etime = etime - df.pupil$msg$time[1])
+  
+  # add indicator for blinks, saccades, fixation, and events
+  df.pupil.raw <- df.pupil.raw%>% 
+    mutate(subject = sub,
+           trial = NA,
+           blink = NA,
+           sacc = NA,
+           sacc.ampl = NA,
+           fix = NA,
+           event = NA) %>% 
+    relocate(subject)
+  
+  df.trials <- df.pupil.msg %>% 
+    filter(grepl("TRIAL",text)) %>% 
+    rowwise() %>% 
+    mutate(trial = as.numeric(strsplit(text,"TRIAL")[[1]][2]),
+           marker = ifelse(grepl("ENDOFTRIAL",text), "end","start")) %>% 
+    select(-text) %>% 
+    pivot_wider(names_from = marker, values_from = time)
+  
+  for (t in 1:nrow(df.trials)){
+      df.pupil.raw <- df.pupil.raw %>% 
+        mutate(trial = ifelse(time >= df.trials$start[t] & 
+                        time <= df.trials$end[t],
+                        t,
+                        trial))
+  }
+  
+  df.pupil.raw <- df.pupil.raw %>% 
+    filter(!is.na(trial))
+  
+  # process the messages
+  
+  for (t in 1:max(df.trials$trial)){
+     trial_boundary <- df.pupil.msg %>% 
+    filter(grepl(paste0("TRIAL ",t),text))
+     
+     #filter out the event msgs
+     events_temp <- df.pupil.msg[df.pupil.msg$time >= trial_boundary$time[1] &
+                                   df.pupil.msg$time <= trial_boundary$time[2],] %>% 
+       filter(!grepl("_END",text)) %>% 
+       rename(stime = time) %>% 
+       mutate(etime = lead(stime,1)) %>% 
+       filter(!grepl(paste0("TRIAL "),text))
+     
+     for (e in 1:nrow(events_temp)){
+       df.pupil.raw <- df.pupil.raw %>% 
+         mutate(event = ifelse(time >= events_temp$stime[e] & 
+                                 time < events_temp$etime[e], 
+                               tolower(strsplit(events_temp$text[e],"_")[[1]][1]),
+                               event))
+     }
+  }
+  
+  # blinks, saccads et al.
+  # ======== blinks =======
+  for (i in 1:nrow(df.pupil.blinks)){
+      df.pupil.raw <- df.pupil.raw %>% 
+        mutate(blink = ifelse(time >= df.pupil.blinks$stime[i] & 
+                        time <= df.pupil.blinks$etime[i],
+                        1,
+                        blink))
+  }
+  
+  df.pupil.raw$blink[is.na(df.pupil.raw$blink)] <- 0
+  
+  mean(df.pupil.raw$blink)
+  
+  # ======== saccad =======
+  for (i in 1:nrow(df.pupil.sacc)){
+    if (i == floor(nrow(df.pupil.sacc)/2)){
+      print("===half way through====")
+    } 
+      df.pupil.raw <- df.pupil.raw %>% 
+        mutate(sacc = ifelse(time >= df.pupil.sacc$stime[i] & 
+                        time <= df.pupil.sacc$etime[i],
+                        1,
+                        sacc),
+               sacc.ampl = ifelse(time >= df.pupil.sacc$stime[i] & 
+                        time <= df.pupil.sacc$etime[i],
+                        df.pupil.sacc$ampl[i],
+                        sacc.ampl))
+  }
+  
+  df.pupil.raw$sacc[is.na(df.pupil.raw$sacc)] <- 0
+  
+  # ======== saccad =======
+  if (nrow(df.pupil.fix) > 0) {
+    for (i in 1:nrow(df.pupil.fix)){
+      if (i == floor(nrow(df.pupil.fix)/2)){
+      print("===half way through====")
+    } 
+      df.pupil.raw <- df.pupil.raw %>% 
+        mutate(fix = ifelse(time >= df.pupil.fix$stime[i] & 
+                        time <= df.pupil.fix$etime[i],
+                        1,
+                        fix))
+  }
+  }
+  
+  
+  df.pupil.raw$fix[is.na(df.pupil.raw$fix)] <- 0
+  
+  df.pupil.raw <- df.pupil.raw %>% 
+    select(-cr.info,text)
+  
+  if (sub == "cw240110"){
+    write.csv(df.pupil.raw,paste0("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/derivatives/individual-subjects-pupil/",sub,"b1_pupil.csv"))
+  } else {
+    write.csv(df.pupil.raw,paste0("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/derivatives/individual-subjects-pupil/",sub,"_pupil.csv"))
+  }
+
+}
+
+```
+
+```{r}
+df.pupil.out <- {}
+
+for (sub in subjects_pupil){
+  df.pupil.in <- read_csv(paste0("./derivatives/",sub,"_pupil.csv")) %>% 
+    mutate(xp = ifelse(is.na(xp),"NaN",xp),
+           yp = ifelse(is.na(yp),"NaN",yp),
+           ps = ifelse(is.na(ps),"NaN",ps))
+  df.pupil.out <- rbind(df.pupil.in,df.pupil.out)
+}
+
+write.csv(df.pupil.out,paste0("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/derivatives/all_subjs_pupil_preMATLAB.csv"))
+```
+
+#get blink files
+```{r}
+df.blinks.all <-{}
+sr = 1000
+for (sub in subjects_pupil){
+  df.pupil <- read_asc(paste0("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/raw/pupil-asc/",sub,".asc"))
+  df.pupil.blinks <- df.pupil$blinks %>% 
+    mutate(stime = (stime - df.pupil$msg$time[1])/sr,
+           etime = (etime - df.pupil$msg$time[1])/sr,
+           dur = dur/sr) %>% 
+    mutate(subject = sub) %>% 
+    relocate(subject)
+     
+    my.str1 <- substring(sub,1,6)
+    my.str2 <- substring(sub,7,9)
+    
+    df.pupil.blinks$subject <- paste0(substring(my.str1,1,2),
+                                         '24',substring(my.str1,3,6))
+    df.pupil.blinks$block <- my.str2
+    
+   df.blinks.all <- rbind(df.blinks.all,df.pupil.blinks)
+   
+}
+
+write_csv(df.blinks.all,"~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/derivatives/all_subjs_blinks.csv")
+```
+

@@ -1,0 +1,10 @@
+*.DS_Store
+*.csv
+*.mat
+*.asc
+*RData*
+*Data*.txt
+*Rhistory
+*.png
+*.tiff
+.Rproj.user

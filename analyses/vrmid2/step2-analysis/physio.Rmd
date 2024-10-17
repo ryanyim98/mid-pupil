@@ -1,0 +1,307 @@
+---
+title: "pupillometry"
+author: "Ryan Yan"
+date: "2023-07-24"
+output: html_document
+---
+
+```{r setup, include=FALSE, warning = F}
+source(here::here("load_libraries.R"))
+theme_set(theme_bw() + #set the theme 
+            theme(text = element_text(family = "Helvetica",size = 12))) #set the default text size
+```
+
+```{r}
+joint_data <- read_csv("/Users/rh/Desktop/VRMID-analysis/data/study2/per_second_data.csv")%>%
+  filter(abs(pupil_size_scaled) < 5)
+joint_data$Time_sec = second(joint_data$Time_in_trial_sec)
+
+joint_data$trial.type = factor(joint_data$trial.type, levels = c("minus5","minus1","minus0",
+                                                                 "plus0","plus1","plus5"))
+```
+
+```{r}
+out_outcome_sec = c(9,11)
+anti_outcome_sec = c(17,19)
+cue_sec = c(2,5)
+
+ggplot(joint_data%>%
+         filter(probe == "anti",
+                Time_sec <= 22), aes(x = Time_sec, y = pupil_size_scaled, color = trial.type))+
+  stat_summary(aes(group = trial.type))+
+  stat_summary(aes(group = trial.type), geom = "line")+
+  scale_color_manual(values = rev(purpleOrange_palette6))+
+  geom_vline(xintercept = cue_sec - 0.5, color = "blue")+
+  geom_vline(xintercept = c(15,17), color = "green")+
+  geom_vline(xintercept = anti_outcome_sec, color = "red")+
+  annotate("text", x=cue_sec[1]-0.5, y=1, label="cue", angle=90, color = "blue")+
+  annotate("text", x=15-0.5, y=1, label="target", angle=90, color = "green")+
+  annotate("text", x=anti_outcome_sec[1]-0.5, y=1, label="outcome", angle=90, color = "red")+
+  labs(title = "Anticipation probe")
+
+ggplot(joint_data%>%
+         filter(probe == "out",
+                Time_sec <= 22), aes(x = Time_sec, y = pupil_size_scaled, color = trial.type))+
+  stat_summary(aes(group = trial.type, color = trial.type))+
+  stat_summary(aes(group = trial.type, color = trial.type), geom = "line")+
+  scale_color_manual(values = purpleOrange_palette6)+
+  geom_vline(xintercept = cue_sec, color = "blue")+
+  geom_vline(xintercept = c(7,9), color = "green")+
+  geom_vline(xintercept = out_outcome_sec, color = "red")+
+  annotate("text", x=cue_sec[1]-0.5, y=1, label="cue", angle=90, color = "blue")+
+  annotate("text", x=7-0.5, y=1, label="target", angle=90, color = "green")+
+  annotate("text", x=9-0.5, y=1, label="outcome", angle=90, color = "red")+
+  labs(title = "Outcome probe")
+```
+```{r}
+mydf <- joint_data%>%
+  filter(Time_sec <= 4, Time_sec >= 2)%>%
+  filter(rating_type == "affect")%>%
+  group_by(Subject, `reaction.outcome`,trial,probe,trial.type,condition, arousal_scaled,
+           valence_scaled)%>%
+  summarise(pupil_size_scaled = mean(pupil_size_scaled, na.rm = TRUE),
+            pupil_size = mean(pupil_size, na.rm = TRUE))
+
+lm1 <- lmer(scale(arousal_scaled) ~ scale(pupil_size_scaled) + (1|Subject),mydf)
+summary(lm1)
+plot_model(lm1, type = "pred", terms = c("pupil_size_scaled"),
+           dot.size = 1, show.data = TRUE)
+
+lm2 <- lmer(valence_scaled ~ pupil_size_scaled +  (1|Subject),mydf)
+summary(lm2)
+plot_model(lm2, type = "pred", terms = c("pupil_size_scaled"), dot.size = 1,show.data = TRUE)
+
+lm3 <- lmer(arousal_scaled ~ condition * trial.type + (1|Subject),mydf%>%filter(probe == "anti", condition %in% c("small","large")))
+summary(lm3)
+plot_model(lm3, type = "pred", terms = c("trial.type","condition"))+
+  geom_line()+
+  scale_color_manual(values = purpleOrange_palette2)+
+plot_model(lm3, type = "pred", terms = c("condition"))+
+  geom_line()
+
+lm4 <- lmer(valence_scaled ~ condition * trial.type + (1|Subject),mydf%>%filter(probe == "anti", condition %in% c("small","large")))
+summary(lm4)
+plot_model(lm4, type = "pred", terms = c("trial.type","condition"))+
+  geom_line()+
+  scale_color_manual(values = purpleOrange_palette2)+
+plot_model(lm4, type = "pred", terms = c("condition"))+
+  geom_line()
+
+lm5 <- lmer(pupil_size_scaled ~ condition * trial.type + (1|Subject),mydf)
+summary(lm5)
+anova(lm5)
+plot_model(lm5, type = "pred", terms = c("trial.type","condition"))+
+  geom_line()+
+  scale_color_manual(values = purpleOrange_palette6)
+```
+
+```{r}
+# joint_data <- joint_data%>%
+#   mutate(emotion_color = ifelse(emotion == "Angry","red",
+#                                 ifelse(emotion == "Anxious","orange",
+#                                        ifelse(emotion == "Excited","gold",
+#                                               ifelse(emotion == "Happy","green3",
+#                                                      ifelse(emotion == "Calm","skyblue3",
+#                                                             ifelse(emotion == "Sad","purple","black")))))))
+#          
+
+ggplot(joint_data%>%
+         filter(probe == "anti",
+                rating_type == "emotion",
+                Time_sec <= 22), aes(x = Time_sec, y = pupil_size_scaled, color = reaction.outcome))+
+  stat_summary(aes(group = reaction.outcome,linetype = reaction.outcome, color = reaction.outcome))+
+  stat_summary(aes(group = reaction.outcome, linetype = reaction.outcome, color = reaction.outcome), geom = "line")+
+  labs(title = "anticipation")+
+  geom_vline(xintercept = cue_sec - 0.5, color = "black")+
+  geom_vline(xintercept = c(15,17), color = "black")+
+  geom_vline(xintercept = anti_outcome_sec, color = "black")+
+  annotate("text", x=cue_sec[1]-0.5, y=1, label="cue", angle=90, color = "black")+
+  annotate("text", x=15-0.5, y=1, label="target", angle=90, color = "black")+
+  annotate("text", x=anti_outcome_sec[1]-0.5, y=1, label="outcome", angle=90, color = "black")
+
+
+ggplot(joint_data%>%
+         filter(probe == "out",
+                rating_type == "emotion",
+                Time_sec <= 22), aes(x = Time_sec, y = pupil_size_scaled, color = reaction.outcome))+
+  stat_summary(aes(group = reaction.outcome,linetype = reaction.outcome, color = reaction.outcome))+
+  stat_summary(aes(group = reaction.outcome, linetype = reaction.outcome, color = reaction.outcome), geom = "line")+
+  labs(title = "outcome")+
+  geom_vline(xintercept = cue_sec, color = "black")+
+  geom_vline(xintercept = c(7,9), color = "black")+
+  geom_vline(xintercept = out_outcome_sec, color = "black")+
+  annotate("text", x=cue_sec[1]-0.5, y=1, label="cue", angle=90, color = "black")+
+  annotate("text", x=7-0.5, y=1, label="target", angle=90, color = "black")+
+  annotate("text", x=9-0.5, y=1, label="outcome", angle=90, color = "black")
+
+ggplot(joint_data%>%
+         filter(probe == "anti",
+                rating_type == "emotion",
+                Time_sec <= 22), aes(x = Time_sec, y = pupil_size_scaled, color = emotion))+
+  stat_summary(aes(group = emotion, color = emotion))+
+  stat_summary(aes(group = emotion, color = emotion), geom = "line")+
+  labs(title = "anticipation")+
+  geom_vline(xintercept = cue_sec - 0.5, color = "black")+
+  geom_vline(xintercept = c(15,17), color = "black")+
+  geom_vline(xintercept = anti_outcome_sec, color = "black")+
+  annotate("text", x=cue_sec[1]-0.5, y=1, label="cue", angle=90, color = "black")+
+  annotate("text", x=15-0.5, y=1, label="target", angle=90, color = "black")+
+  annotate("text", x=anti_outcome_sec[1]-0.5, y=1, label="outcome", angle=90, color = "black")+
+  scale_color_manual(values = c( "Angry"="red",
+                                "Anxious"="orange",
+                                "Excited"="gold",
+                                "Happy"="green3",
+                                "Calm"="skyblue3",
+                                "Sad"="purple"))
+
+
+ggplot(joint_data%>%
+         filter(probe == "out",
+                rating_type == "emotion",
+                Time_sec <= 22), aes(x = Time_sec, y = pupil_size_scaled, color = trial.type))+
+  stat_summary(aes(group = emotion, color = emotion))+
+  stat_summary(aes(group = emotion, color = emotion), geom = "line")+
+  scale_color_brewer(palette = "Set1")+
+  labs(title = "outcome")+
+  geom_vline(xintercept = cue_sec, color = "black")+
+  geom_vline(xintercept = c(7,9), color = "black")+
+  geom_vline(xintercept = out_outcome_sec, color = "black")+
+  annotate("text", x=cue_sec[1]-0.5, y=1, label="cue", angle=90, color = "black")+
+  annotate("text", x=7-0.5, y=1, label="target", angle=90, color = "black")+
+  annotate("text", x=9-0.5, y=1, label="outcome", angle=90, color = "black")+
+  labs(title = "Outcome probe") +
+  scale_color_manual(values = c( "Angry"="red",
+                                "Anxious"="orange",
+                                "Excited"="gold",
+                                "Happy"="green3",
+                                "Calm"="skyblue3",
+                                "Sad"="purple")) 
+```
+
+# look at heart rate
+```{r}
+
+joint_data <- joint_data%>%
+  group_by(Subject)%>%
+  mutate(HeartRate = as.numeric(scale(HeartRate)))
+
+ggplot(joint_data%>%
+         filter(probe == "anti",
+                rating_type == "emotion",
+                Time_sec <= 22), aes(x = Time_sec, y = HeartRate, color = trial.type))+
+  stat_summary(aes(group = emotion, color = emotion))+
+  stat_summary(aes(group = emotion, color = emotion), geom = "line")+
+  scale_color_manual(values = c( "Angry"="red",
+                                "Anxious"="orange",
+                                "Excited"="gold",
+                                "Happy"="green3",
+                                "Calm"="skyblue3",
+                                "Sad"="purple")) +
+  labs(title = "anticipation HR")
+
+ggplot(joint_data%>%
+         filter(probe == "out",
+                rating_type == "emotion",
+                Time_sec <= 22), aes(x = Time_sec, y = HeartRate, color = emotion))+
+  stat_summary(aes(group = emotion, color = emotion))+
+  stat_summary(aes(group = emotion, color = emotion), geom = "line")+
+  scale_color_manual(values = c( "Angry"="red",
+                                "Anxious"="orange",
+                                "Excited"="gold",
+                                "Happy"="green3",
+                                "Calm"="skyblue3",
+                                "Sad"="purple")) +
+  labs(title = "outcome HR")
+
+ggplot(joint_data%>%
+         filter(probe == "out",
+                rating_type == "emotion",
+                Time_sec <= 22), aes(x = Time_sec, y = HeartRateVar_rmssd, color = emotion))+
+  stat_summary(aes(group = emotion, color = emotion))+
+  stat_summary(aes(group = emotion, color = emotion), geom = "line")+
+  labs(title = "outcome HRV")+
+  scale_color_manual(values = c( "Angry"="red",
+                                "Anxious"="orange",
+                                "Excited"="gold",
+                                "Happy"="green3",
+                                "Calm"="skyblue3",
+                                "Sad"="purple")) 
+```
+
+# look at head motion
+```{r}
+joint_data$IMU_Acc_z <- as.numeric(scale(joint_data$IMU_Acc_z))
+
+ggplot(joint_data%>%
+         filter(probe == "anti",
+                Time_sec <= 22)%>%
+         mutate(trial.type = factor(trial.type, levels = c("+$5","+$1","+$0","-$0","-$1","-$5"))), aes(x = Time_sec, y = IMU_Acc_z, color = trial.type))+
+  stat_summary(aes(group = trial.type))+
+  stat_summary(aes(group = trial.type), geom = "line")+
+  scale_color_manual(values = rev(purpleOrange_palette6))+
+  geom_vline(xintercept = cue_sec - 0.5, color = "black")+
+  geom_vline(xintercept = c(15,17), color = "black")+
+  geom_vline(xintercept = anti_outcome_sec, color = "black")+
+  annotate("text", x=cue_sec[1]-0.5, y=0.5, label="cue", angle=90, color = "black")+
+  annotate("text", x=15-0.5, y=0.5, label="target", angle=90, color = "black")+
+  annotate("text", x=anti_outcome_sec[1]-0.5, y=0.5, label="outcome", angle=90, color = "black")+
+  labs(title = "Anticipation probe, Acceleration in z direction")
+
+ggplot(joint_data%>%
+         filter(probe == "out",
+                Time_sec <= 22), aes(x = Time_sec, y = IMU_Acc_z, color = trial.type))+
+  stat_summary(aes(group = trial.type, color = trial.type))+
+  stat_summary(aes(group = trial.type, color = trial.type), geom = "line")+
+  scale_color_manual(values = purpleOrange_palette6)+
+  geom_vline(xintercept = cue_sec, color = "black")+
+  geom_vline(xintercept = c(7,9), color = "black")+
+  geom_vline(xintercept = out_outcome_sec, color = "black")+
+  annotate("text", x=cue_sec[1]-0.5, y=0.5, label="cue", angle=90, color = "black")+
+  annotate("text", x=7-0.5, y=0.5, label="target", angle=90, color = "black")+
+  annotate("text", x=9-0.5, y=0.5, label="outcome", angle=90, color = "black")+
+  labs(title = "Outcome probe")
+
+ggplot(joint_data%>%
+         filter(probe == "anti",
+                rating_type == "emotion",
+                Time_sec <= 22), aes(x = Time_sec, y = IMU_Acc_z, color = trial.type))+
+  stat_summary(aes(group = emotion,color = emotion))+
+  stat_summary(aes(group = emotion, color = emotion), geom = "line")+
+  labs(title = "anticipation")+
+  geom_vline(xintercept = cue_sec - 0.5, color = "black")+
+  geom_vline(xintercept = c(15,17), color = "black")+
+  geom_vline(xintercept = anti_outcome_sec, color = "black")+
+  annotate("text", x=cue_sec[1]-0.5, y=0.5, label="cue", angle=90, color = "black")+
+  annotate("text", x=15-0.5, y=0.5, label="target", angle=90, color = "black")+
+  annotate("text", x=anti_outcome_sec[1]-0.5, y=0.5, label="outcome", angle=90, color = "black")+
+  scale_color_manual(values = c( "Angry"="red",
+                                "Anxious"="orange",
+                                "Excited"="gold",
+                                "Happy"="green3",
+                                "Calm"="skyblue3",
+                                "Sad"="purple")) 
+
+
+ggplot(joint_data%>%
+         filter(probe == "out",
+                rating_type == "emotion",
+                Time_sec <= 22), aes(x = Time_sec, y = IMU_Acc_z, color = trial.type))+
+  stat_summary(aes(group = emotion, color = emotion))+
+  stat_summary(aes(group = emotion, color = emotion), geom = "line")+
+  scale_color_brewer(palette = "Set1")+
+  labs(title = "outcome")+
+  geom_vline(xintercept = cue_sec, color = "black")+
+  geom_vline(xintercept = c(7,9), color = "black")+
+  geom_vline(xintercept = out_outcome_sec, color = "black")+
+  annotate("text", x=cue_sec[1]-0.5, y=1, label="cue", angle=90, color = "black")+
+  annotate("text", x=7-0.5, y=1, label="target", angle=90, color = "black")+
+  annotate("text", x=9-0.5, y=1, label="outcome", angle=90, color = "black")+
+  labs(title = "Outcome probe") +
+  scale_color_manual(values = c( "Angry"="red",
+                                "Anxious"="orange",
+                                "Excited"="gold",
+                                "Happy"="green3",
+                                "Calm"="skyblue3",
+                                "Sad"="purple")) 
+```
+

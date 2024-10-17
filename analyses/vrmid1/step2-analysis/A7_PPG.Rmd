@@ -1,0 +1,206 @@
+---
+title: "A7_PPG"
+author: "Ryan Yan"
+date: "2023-04-18"
+output: html_document
+---
+
+```{r}
+source(here::here("load_libraries.R"))
+theme_set(theme_bw() + #set the theme 
+            theme(text = element_text(family = "Helvetica",size = 12)))
+```
+
+# preprocessing
+```{r}
+data_ppg <- read_csv("/Users/rh/Desktop/VRMID-analysis/data/ppg.csv")%>%
+  mutate(sample_in_trial_n = row_number(),
+         sample_in_trial_t = sample_in_trial_n/64)
+
+#baseline stuff
+data_ppg_out <- {}
+# get the last two seconds of previous ITI and paste it to this trial
+for (i in 1:length(unique(data_ppg$Subject))){
+  sub = unique(data_ppg$Subject)[i]
+  print(i)
+  temp_data <- data_ppg%>%
+    filter(Subject == sub)%>%
+    ungroup()
+  for (j in 1:length(unique(temp_data$trial))){
+    temp_trial_data <- temp_data%>%
+    filter(trial == j)
+
+    if (j == 1){
+      d <- temp_trial_data
+    } else{
+
+    last_trial_iti_data <- temp_data%>%
+    filter(trial == (j-1),
+           current_stimulus == "ITI")
+
+    # last 2 second
+    last_trial_iti_data <-last_trial_iti_data%>%
+      filter(Time_sec >= max(last_trial_iti_data$Time_sec)-1)
+
+    # change timing info
+    last_trial_iti_data <- last_trial_iti_data%>%
+      mutate(Time_sec = Time_sec-max(last_trial_iti_data$Time_sec),
+             Time_in_trial_sec = Time_in_trial_sec - max(last_trial_iti_data$Time_in_trial_sec),
+             sample_in_trial_n = sample_in_trial_n - max(last_trial_iti_data$sample_in_trial_n),
+             sample_in_trial_t = sample_in_trial_t - max(last_trial_iti_data$sample_in_trial_t),
+             current_stimulus = "prestim_baseline")%>%
+      select(Subject,Time,Time_sec,current_stimulus,Time_str,Time_str_start,Time_in_trial_sec,sample_in_trial_n:sample_in_trial_t,PPG1:PPG2)
+
+    d <- merge(temp_trial_data,last_trial_iti_data,
+               all.x = T, all.y = T)%>%
+      arrange(sample_in_trial_n)%>%
+      fill(trial,trial_type:NegA_scaled, .direction = "downup")%>%
+      relocate(trial,.after = Subject)
+    }
+
+
+    data_ppg_out <- rbind(data_ppg_out,d)
+  }
+}
+
+
+#get the mean value of the last second in a trial (ITI)
+baseline <- data_ppg_out%>%
+  group_by(Subject, trial)%>%
+  filter(Time_sec == 0)%>%
+  summarise_at(vars(PPG1,PPG2,PPG3), ~mean(.x, na.rm = TRUE))%>%
+  ungroup()
+
+data_ppg_out$PPG1_baseline <- NA
+data_ppg_out$PPG2_baseline <- NA
+data_ppg_out$PPG3_baseline <- NA
+
+for (i in 1:nrow(baseline)){
+  ind = which(data_ppg_out$Subject == baseline$Subject[i] &
+                     data_ppg_out$trial == baseline$trial[i])
+  #baseline info
+  if (baseline$trial[i] == 1){
+    data_ppg_out$PPG1_baseline[ind] = NA
+    data_ppg_out$PPG2_baseline[ind] = NA
+    data_ppg_out$PPG3_baseline[ind] =  NA
+  } else {
+    #baseline is from last trial's ITI
+    data_ppg_out$PPG1_baseline[ind] = baseline$PPG1[i]
+    data_ppg_out$PPG2_baseline[ind] = baseline$PPG2[i]
+    data_ppg_out$PPG3_baseline[ind] = baseline$PPG3[i]
+  }
+}
+
+  #baseline correction; first trial of each participant was excluded
+data_ppg_out <- data_ppg_out%>%
+  mutate(PPG1_bc = PPG1 - PPG1_baseline,
+         PPG2_bc = PPG2 - PPG2_baseline,
+         PPG3_bc = PPG3 - PPG3_baseline)
+
+
+data_ppg_out <- data_ppg_out%>%
+  select(-PPG_1:-PPG_3)%>%
+  group_by(Subject)%>%
+  mutate(arousal_scaled = as.numeric(scale(arousal)),
+         valence_scaled = as.numeric(scale(valence)),
+         PPG1 = as.numeric(scale(PPG1)),#z-scoring
+         PPG2 = as.numeric(scale(PPG2)),
+         PPG3 = as.numeric(scale(PPG3)))%>%
+  mutate_at(vars(PPG1,PPG2,PPG3),~ifelse(abs(.x) >= 5, NA, .x))%>%
+  ungroup()%>%
+  group_by(Subject,trial)%>%
+  filter(Time_sec <= 16)
+
+data_ppg_out$trial_type <- factor(data_ppg_out$trial_type, levels = c("-$5","-$1","-$0","+$0","+$1","+$5"))
+# names(data_ppg)
+
+write_csv(data_ppg_out,"/Users/rh/Desktop/VRMID-analysis/data/ppg_.csv")
+```
+
+# entire timeline
+```{r}
+data_ppg <- read_csv("/Users/rh/Desktop/VRMID-analysis/data/ppg_.csv")%>%
+   group_by(Subject, Time)%>% 
+   mutate(sample_in_sec = row_number())%>% 
+   ungroup()%>% 
+   group_by(Subject,trial)%>% 
+   mutate(sample_in_trial_n = row_number(), 
+          sample_in_trial_t = sample_in_trial_n/64) 
+
+data_ppg$trial_type <- factor(data_ppg$trial_type, levels = c("-$5","-$1","-$0","+$0","+$1","+$5"))
+
+ggplot(data_ppg%>%
+         filter(sample_in_trial_t > 0, sample_in_trial_t <= 16,Subject == 'ah230203'), aes(x = sample_in_trial_t,
+                       y = PPG1))+
+  stat_summary(aes(color = trial_type),geom  = "line", size = 1)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  labs(title = "anticipation probe",
+       x = "time (s)",
+       y = "z-scored PPG")
+
+head(data_ppg)
+
+data_ppg1_anti <- data_ppg%>%
+  filter(sample_in_trial_t > 0, sample_in_trial_t <= 16)%>%
+  ungroup()%>%
+  filter(probe == "anti")%>%
+  group_by(trial_type,sample_in_trial_t)%>%
+  summarise(mean = mean(PPG1, na.rm = T))
+
+ggplot(data_ppg1_anti%>%
+         filter(sample_in_trial_t <= 16), aes(x = sample_in_trial_t,
+                       y = mean))+
+  geom_line(aes(color = trial_type), size = 1)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  scale_fill_manual(values = purpleOrange_palette6)+
+  labs(title = "anticipation probe",
+       x = "time (s)",
+       y = "z-scored PPG")
+
+data_ppg1_out <- data_ppg%>%
+  ungroup()%>%
+  filter(probe == "out")%>%
+  group_by(trial_type,sample_in_trial_t)%>%
+  summarise(mean = mean(PPG1, na.rm = T))
+
+ggplot(data_ppg1_out%>%
+         filter(sample_in_trial_t <= 16), aes(x = sample_in_trial_t,
+                       y = mean))+
+  geom_line(aes(color = trial_type), size = 1)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  scale_fill_manual(values = purpleOrange_palette6)+
+  labs(title = "outcome probe",
+       x = "time (s)",
+       y = "z-scored PPG")
+```
+
+```{r}
+data_ppg_avg <- data_ppg%>%
+  group_by(Subject,trial_type,probe,valence,arousal)%>%
+  filter(sample_in_trial_t > 1 & sample_in_trial_t <= 4)%>%
+  summarise(PPG1 = mean(PPG1, na.rm = T),
+            PPG2 = mean(PPG2, na.rm = T),
+            PPG3 = mean(PPG3, na.rm = T))
+
+lm1 <- lmer(PPG1 ~ valence + arousal + (1|Subject),data_ppg_avg)
+summary(lm1)
+```
+
+```{r}
+ggplot(data_ppg_avg, aes(x = trial_type, y = PPG1,
+                         color = trial_type))+
+  stat_summary()+
+  # geom_jitter(size = 0.3)+
+  scale_color_manual(values = purpleOrange_palette6)
+
+ggplot(data_ppg_avg, aes(x = trial_type, y = PPG2,
+                         color = trial_type))+
+  stat_summary()+
+  scale_color_manual(values = purpleOrange_palette6)
+
+ggplot(data_ppg_avg, aes(x = trial_type, y = PPG3,
+                         color = trial_type))+
+  stat_summary()+
+  scale_color_manual(values = purpleOrange_palette6)
+```
+
