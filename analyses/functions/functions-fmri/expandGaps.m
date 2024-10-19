@@ -7,8 +7,8 @@ function [RAW_gapRemoved, exclude_ind] = expandGaps(RAW,sr)
 % Get settings:
 minGap      = 75; %ms
 maxGap      = 100000; %ms
-backPadding = 0.08*sr; %time points, ~ 80 ms
-fwdPadding  = 0.20*sr; %time points, ~ 240 ms
+backPadding = 0.05*sr; %time points, ~  ms
+fwdPadding  = 0.05*sr; %time points, ~  ms
 
 % Blinks produce gaps in the data, the edges of these gaps may feature
 % artifacts, as such, dilate gaps:

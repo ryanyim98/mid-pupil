@@ -33,19 +33,6 @@ data_pupil%>%
 data_pupil <- data_pupil%>%
   filter(!is.na(Subject))
 
-data_pupil <- data_pupil%>%
-  mutate(Time_in_trial_sec = times(ifelse(times(Time_in_trial_sec) > "12:00:00", 
-                                 times(Time_in_trial_sec) - "12:00:00",
-                                 times(Time_in_trial_sec))))
-
-data_pupil <- data_pupil%>%
-  mutate(end_time = times(ifelse(times(end_time) < "12:00:00", 
-                                    times(end_time) + "12:00:00",
-                                    times(end_time))))
-
-data_pupil%>%
-  head(100)
-
 sort(unique(data_pupil$Time_sec))
 
 data_pupil$Time_sec[1]
@@ -69,7 +56,7 @@ for (i in 1:length(unique(data_pupil$Subject))){
         
         last_trial_iti_data <- temp_data%>%
           filter(trial == (j-1),
-                 Time_sec == 18 + ITI_duration)
+                 Time_sec == 18 + ITI_Duration)
         
         #if last second exists
         if (nrow(last_trial_iti_data) != 0){ 
@@ -83,8 +70,9 @@ for (i in 1:length(unique(data_pupil$Subject))){
                    Time_in_trial_sec = Time_in_trial_sec - max(last_trial_iti_data$Time_in_trial_sec),
                    sample_in_trial_n = sample_in_trial_n - max(last_trial_iti_data$sample_in_trial_n),
                    sample_in_trial_t = sample_in_trial_t - max(last_trial_iti_data$sample_in_trial_t),
-                   current_stimulus = "prestim_baseline")%>%
-            select(Subject,Time,Time_sec,current_stimulus,Time_str,Time_in_trial_sec,sample_in_sec,sample_in_trial_n:sample_in_trial_t,pupil_L:pupil_Avg)
+                   current_stimulus = "prestim_baseline"
+                   )%>%
+            select(Subject,Time,Time_sec,Time_str,Time_in_trial_sec,current_stimulus,sample_in_sec,sample_in_trial_n:sample_in_trial_t,pupil_L:pupil_Avg)
           
           d <- merge(temp_trial_data,last_trial_iti_data,
                      all.x = T, all.y = T)%>%

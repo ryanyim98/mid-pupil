@@ -81,6 +81,19 @@ end
 alldata.bad_participants = subjects(val(:,1) < 0.5,:);
 clear val;
 
+%% plot subj's blinking to get a sense of the amount of gap expansion needed
+
+my_time = [1,10];
+my_time = (sr*my_time(1)):(sr*my_time(2));
+for sub = [1,4,15]
+    ps = alldata.subjectdata(sub).Physio.pupil_size.LeftPDil(my_time);
+    blink = alldata.subjectdata(sub).Physio.pupil_size.LeftOpen(my_time);
+    blink(blink==0) = NaN;
+    
+    plot(my_time,ps);
+    % plot(my_time,blink+5,'r','LineWidth',2);
+    ylim([min(ps),max(ps)]);grid on; hold off;
+end
 
 %% set up filter
 filter = 'low'; %'low'
@@ -368,17 +381,17 @@ colororder(ax,cm([6 7],:));
 ylim([min(RAW_visr),max(RAW_visr)]);
 xlim(vis_duration);
 
-subplot(5,2,9:10);
+subplot(5,2,9);
 % plot(ind/120,RAW_vis3,'k', 'lineWidth',3); hold on;
 plot(ind/120,RAW_vis7l,'k', 'lineWidth',1); hold on;
 plot(ind/120,RAW_vis7r+0.01,'k', 'lineWidth',2); hold on;
-legend({'used data left','used data right'},'Location','NorthEastOutside');
+% legend({'used data left','used data right'},'Location','NorthEast');
 ylim([min([RAW_visl;RAW_visr]),max([RAW_visl;RAW_visr])]);
 xlim(vis_duration);
 
 print(['~/Desktop/VRMID-analysis/mid-pupil/figures/vrmid1/example_pupil_sub',num2str(p),'.tiff'],'-dtiff','-r300');
 %% get avg pupil size for where both eyes were available
-for p = 1:30
+for p = 1:nsubjects
     disp(["...participant number "+ p + "..."])
     
     alldata.subjectdata(p).Physio.AvgPDil.data.out = (alldata.subjectdata(p).Physio.LeftPDil.data.out + ...
@@ -388,6 +401,21 @@ for p = 1:30
         isnan(alldata.subjectdata(p).Physio.RightPDil.data.out)) = NaN;
     
 end
+
+%% examine abnormal values
+for p = 1:nsubjects
+    if sum(~isnan(alldata.subjectdata(p).Physio.LeftPDil.data.islandRemove)) %js b3
+        makefigure(40,10);
+        plot(alldata.subjectdata(p).Physio.LeftPDil.data.islandRemove,'lineWidth',2); hold on;
+        plot(alldata.subjectdata(p).Physio.LeftPDil.data.out + 0.1,'lineWidth',2);
+        ylim([min(alldata.subjectdata(p).Physio.LeftPDil.data.islandRemove) max(alldata.subjectdata(p).Physio.LeftPDil.data.islandRemove)]);
+        xlim([1 20*sr]);
+        title(subjects(p,:));
+        print(['~/Desktop/VRMID-analysis/mid-pupil/figures/vrmid1/examine_data/',subjects(p,:),'.tiff'],'-dtiff','-r100');
+    end
+end
+
+close all;
 
 %% combine behavioral data
 clc; %clear all;

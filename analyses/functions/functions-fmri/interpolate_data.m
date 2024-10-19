@@ -5,8 +5,8 @@ disp("...processing initiated...");
 
 RAW(RAW == -1) = NaN;
 
-if ~isempty(find(RAW <= 2))
-    disp("There is number smaller than 2 in the data. Check again.");
+if ~isempty(find(RAW <= 0))
+    disp("There is number smaller than 0 in the data. Check again.");
 return
 end
 %% find segments of missing data

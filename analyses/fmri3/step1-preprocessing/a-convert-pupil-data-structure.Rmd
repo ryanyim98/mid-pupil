@@ -16,7 +16,7 @@ library(eyelinker)
 theme_set(theme_classic()+
             theme(text = element_text(family = "Helvetica", size = 12)))
 
-subjects <- as.data.frame(read_csv("../subjects-pupil.txt", col_names = F))
+subjects <- as.data.frame(read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/subjects_list/subjects-pupil.txt", col_names = F))
 subjects_pupil <- paste0(rep(subjects$X1,each = 4),rep(c("b1","b2","b3","b4"),times = nrow(subjects)))
 ```
 #
@@ -163,7 +163,8 @@ for (sub in subjects_pupil){
 df.pupil.out <- {}
 
 for (sub in subjects_pupil){
-  df.pupil.in <- read_csv(paste0("./derivatives/",sub,"_pupil.csv")) %>% 
+  print(paste0("processing subject ", sub))
+  df.pupil.in <- read_csv(paste0("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/derivatives/individual-subjects-pupil/",sub,"_pupil.csv")) %>% 
     mutate(xp = ifelse(is.na(xp),"NaN",xp),
            yp = ifelse(is.na(yp),"NaN",yp),
            ps = ifelse(is.na(ps),"NaN",ps))

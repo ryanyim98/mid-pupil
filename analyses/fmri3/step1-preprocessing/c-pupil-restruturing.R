@@ -5,9 +5,10 @@ library(chron)
 library(lubridate)
 
 bad_participants <- read_delim("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/subjects_list/subject_to_drop_pupil.txt", col_names = F, delim = " ")
-# bad_participants <- c('av0312b1','el0312b3','el0312b4','js0311b3','js0311b4','jy0308b2','sk0301b3','sk0301b4')
+bad_participants <- unique(c(bad_participants$X1,'av0312b1','el0312b3','el0312b4','js0311b3','js0311b4','jy0308b2','sk0301b3','sk0301b4'))
 
-subjects <- as.data.frame(read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/subjects_list/subjects-midaffemo.txt", col_names = F))
+subjects <- as.data.frame(read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/subjects_list/subjects-pupil.txt", col_names = F)) %>% 
+  mutate(X1 = paste0(substr(X1,1,2),24,substr(X1,3,6)))
 
 subjects_midaffemo <- paste0(rep(subjects$X1,each = 4),"_",rep(c("b1","b2","b3","b4"),times = nrow(subjects)))
 
@@ -48,7 +49,7 @@ df.beh <- df.beh %>%
                         (as.numeric(strsplit(block, "b")[[1]][2]) - 1) * 24 + trial))%>% 
   relocate(subject,block,trial)
 
-write_csv(df.beh,"../behavior/derivatives/beh.csv")
+write_csv(df.beh,"../../data/fmri3/behavior/derivatives/beh.csv")
 
 sr = 200
 # data wo baseline correction
