@@ -1,4 +1,4 @@
-function [RAW_gapRemoved, exclude_ind] = expandGaps(RAW,sr)
+function [RAW_gapRemoved, exclude_ind] = expandGaps(RAW,sr,backPaddingSec,fwdPaddingSec)
 % Function for removing samples around gaps, see 'Standard Settings'
 % section of this m file.
 %
@@ -7,8 +7,8 @@ function [RAW_gapRemoved, exclude_ind] = expandGaps(RAW,sr)
 % Get settings:
 minGap      = 75; %ms
 maxGap      = 100000; %ms
-backPadding = 0.05*sr; %time points, ~  ms
-fwdPadding  = 0.05*sr; %time points, ~  ms
+backPadding = backPaddingSec*sr; %time points, ~  ms
+fwdPadding  = fwdPaddingSec*sr; %time points, ~  ms
 
 % Blinks produce gaps in the data, the edges of these gaps may feature
 % artifacts, as such, dilate gaps:

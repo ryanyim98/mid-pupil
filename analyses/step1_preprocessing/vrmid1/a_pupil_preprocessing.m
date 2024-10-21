@@ -2,7 +2,7 @@ clear all; clc;
 
 cd '~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/raw'
 physio_data = 'physio_120hz.csv';
-addpath(genpath('~/Desktop/VRMID-analysis/mid-pupil/analyses/functions/functions-vrmid'));
+addpath(genpath('~/Desktop/VRMID-analysis/mid-pupil/analyses/step1_preprocessing/functions/functions-vrmid'));
 T = readtable(physio_data);
 %%
 fmt = "hh:mm:ss.SSSSS";

@@ -1,0 +1,981 @@
+---
+title: "pooled_analyses"
+output: html_document
+date: "2024-10-21"
+---
+
+```{r setup, include=FALSE}
+source("~/Desktop/VRMID-analysis/mid-pupil/analyses/load_libraries.R")
+knitr::opts_chunk$set(echo = TRUE)
+theme_set(theme_blank() + #set the theme 
+            theme(text = element_text(family = "Helvetica",size = 12))) #set the default text size
+purpleOrange_palette6 = c("purple4","purple2","plum3","khaki","gold","goldenrod4")
+purpleOrange_palette2 = c("purple4","gold")
+```
+
+# read in pupil data and plot visualization
+
+## vrmid1
+```{r}
+vrmid1_pupil_data <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivatives/pupillometry_lowpass_baselineCorrected.csv")%>%
+  group_by(Subject)%>%
+  mutate(arousal_scaled = as.numeric(scale(arousal)),
+         valence_scaled = as.numeric(scale(valence)))%>%
+  ungroup()
+
+vrmid1_bad_participants <- read_delim("../../data/vrmid1/subjects_list/subject_to_drop_pupil.txt", col_names = F, delim = " ")
+
+vrmid1_pupil_data <- vrmid1_pupil_data %>% 
+  filter(!Subject %in% c("cn221206","vx220916"), #manual bad participants
+         !Subject %in% vrmid1_bad_participants) 
+
+vrmid1_subjects <- unique(vrmid1_pupil_data$Subject)
+vrmid1_subject_n<-length(vrmid1_subjects)
+vrmid1_subject_n
+
+for (i in 1:vrmid1_subject_n){
+  ggplot(vrmid1_pupil_data %>% filter(Subject == vrmid1_subjects[i]), aes(x = sample_in_trial_t, y = pupil_Avg))+
+    geom_line()+
+    facet_wrap(~trial)+
+    labs(title = i)
+
+  ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/vrmid1/examine_data/trial_figs/",vrmid1_subjects[i],".png"),dpi = 300, height = 7, width = 14)
+}
+
+vrmid1_pupil_data$trial_type <- factor(vrmid1_pupil_data$trial_type, levels = c("-$5","-$1","-$0","+$0","+$1","+$5"))
+
+#zscoring
+vrmid1_pupil_data <- vrmid1_pupil_data%>%
+  group_by(Subject)%>%
+  mutate_at(vars(pupil_L,pupil_R,pupil_Avg,pupil_L_baseline,pupil_R_baseline,pupil_Avg_baseline,pupil_L_bc,pupil_R_bc,pupil_Avg_bc), 
+            list(scale = scale))
+
+vrmid1_pupil_data <- vrmid1_pupil_data%>%
+  mutate(sample_in_trial_t = round(sample_in_trial_t,4))
+```
+## vrmid2
+```{r}
+vrmid2_pupil_data <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/vrmid2/derivatives/pupillometry_baselineCorrected.csv")%>%
+  group_by(Subject)%>%
+  mutate(arousal_scaled = as.numeric(scale(arousal)),
+         valence_scaled = as.numeric(scale(valence)))%>%
+  ungroup()
+
+vrmid2_bad_participants <- read_delim("../../data/vrmid2/subjects_list/subject_to_drop_pupil.txt", col_names = F, delim = " ")
+
+vrmid2_pupil_data <- vrmid2_pupil_data %>% 
+  filter(Subject != "ar230607",#only has 3 trials of data
+         !Subject %in% vrmid2_bad_participants) 
+
+vrmid2_subjects <- unique(vrmid2_pupil_data$Subject)
+vrmid2_subject_n<-length(vrmid2_subjects)
+
+for (i in 1:vrmid2_subject_n){
+  ggplot(vrmid2_pupil_data %>% filter(Subject == vrmid2_subjects[i]), aes(x = sample_in_trial_t, y = pupil_Avg))+
+    geom_line()+
+    facet_wrap(~trial)+
+    labs(title = i)
+
+  ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/vrmid2/examine_data/trial_figs/",vrmid2_subjects[i],".png"),dpi = 300, height = 7, width = 14)
+}
+
+
+#zscoring
+vrmid2_pupil_data <- vrmid2_pupil_data%>%
+  group_by(Subject)%>%
+  mutate_at(vars(pupil_L,pupil_R,pupil_Avg,pupil_L_baseline,pupil_R_baseline,pupil_Avg_baseline,pupil_L_bc,pupil_R_bc,pupil_Avg_bc), 
+            list(scale = scale))
+
+vrmid2_pupil_data <- vrmid2_pupil_data%>%
+  mutate(sample_in_trial_t = round(sample_in_trial_t,4))
+
+vrmid2_pupil_data <- vrmid2_pupil_data%>%
+  group_by(Subject, sample_in_trial_n)%>%
+  ungroup()%>%
+  mutate(emotion_cat = ifelse(emotion %in% c("Angry","Anxious","Excited"),
+                              "high_arous",
+                              ifelse(emotion %in% c("Calm","Happy","Sad"),
+                              "low_arous",NA)))
+
+vrmid2_pupil_data$emotion <- factor(vrmid2_pupil_data$emotion, levels = c("Angry","Anxious","Excited",
+                                                                            "Happy","Calm","Sad"))
+
+vrmid2_pupil_data$trial_type <- factor(vrmid2_pupil_data$trial_type, levels = c("minus5","minus1","minus0","plus0","plus1","plus5"),
+                                       labels = c("-$5","-$1","-$0","+$0","+$1","+$5"))
+
+
+```
+## fmri3
+```{r}
+fmri3_pupil_data <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/derivatives/pupillometry_baselineCorrected.csv") %>% 
+  mutate(cue_value = factor(trialtype, levels = 1:6, labels = c("-$0","-$1","-$5","+$0","+$1","+$5"))) %>% 
+  filter(!is.na(subject)) %>% 
+  ungroup() %>% 
+  group_by(subject) %>% 
+  mutate(pupilDiameter_scaled = as.numeric(scale(pupilDiameter)),
+         pupilDiameter_bc_scaled = as.numeric(scale(pupilDiameter_bc)),
+         pupilDiameter_baseline_scaled = as.numeric(scale(pupilDiameter_baseline)))
+
+fmri3_bad_participants <- read_delim("../../data/fmri3/subjects_list/subject_to_drop_pupil.txt", col_names = F, delim = " ")
+
+fmri3_pupil_data <- fmri3_pupil_data %>% 
+  filter(!sub_id %in% fmri3_bad_participants) %>% 
+  filter(!subject %in% c("sk240301","hc240324","js240311","jy240308","tc240311","el240312")) #these are manual exclusions based on data collection notes
+
+fmri3_subjects <- unique(fmri3_pupil_data$subject)
+fmri3_subject_n<-length(fmri3_subjects)
+fmri3_subject_n
+
+fmri3_pupil_data$cue_value <- factor(fmri3_pupil_data$cue_value,
+                                levels = c("-$5","-$1","-$0","+$0","+$1","+$5"))
+
+fmri3_pupil_data$emotion <- fmri3_pupil_data$erating
+
+fmri3_pupil_data$emotion <- factor(fmri3_pupil_data$emotion, levels = 1:6, 
+                           labels = c("Anxious","Angry","Sad","Calm","Happy","Excited"))
+
+fmri3_pupil_data$arousal <- fmri3_pupil_data$arating
+fmri3_pupil_data$valence <- fmri3_pupil_data$vrating
+
+fmri3_pupil_data <- fmri3_pupil_data %>% 
+  mutate(emotion_cat = ifelse(emotion %in% c("Anxious","Angry","Excited"),"higharous",
+                              ifelse(emotion %in% c("Sad","Calm","Happy"),"lowarous",NA)))%>%
+  ungroup()%>%
+  group_by(subject) %>% 
+  mutate(arousal_scaled = as.numeric(scale(arousal)),
+         valence_scaled = as.numeric(scale(valence)))
+
+for (i in 1:fmri3_subject_n){
+  ggplot(fmri3_pupil_data %>% filter(subject == fmri3_subjects[i]), aes(x = sample_in_trial_t, y = pupilDiameter_scaled))+
+    geom_line()+
+    facet_wrap(~trial)+
+    labs(title = i)
+
+  ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fmri3/examine_data/trial_figs/",fmri3_subjects[i],".png"),dpi = 300, height = 7, width = 14)
+}
+
+fmri3_pupil_data$hit <- factor(fmri3_pupil_data$hit,levels = c(1,0), labels = c("Hit","Miss"))
+fmri3_pupil_data$cue_size <- factor(fmri3_pupil_data$cue_size,levels = c(1,2), labels = c("small","large"))
+```
+
+
+# plot example time courses
+
+## entire timeline (1 line)
+```{r}
+vrmid1_summary_nobc <- vrmid1_pupil_data%>%
+  ungroup()%>%
+  group_by(sample_in_trial_t,probe)%>%
+  summarise(mean = mean(pupil_Avg_scale, na.rm = T),
+            lower = mean(pupil_Avg_scale, na.rm = T) - qt(0.975, df = n() - 1) * sd(pupil_Avg_scale, na.rm = T) / sqrt(n()),
+            upper = mean(pupil_Avg_scale, na.rm = T) + qt(0.975, df = n() - 1) * sd(pupil_Avg_scale, na.rm = T) / sqrt(n()))
+
+p1a<-ggplot(vrmid1_summary_nobc%>%
+         filter(sample_in_trial_t >0,sample_in_trial_t <= 20,probe == "anti"), aes(x = sample_in_trial_t,
+                       y = mean))+
+    geom_vline(xintercept = c(0,4,6,14,16,18), size = 1, color = "grey")+
+  geom_line(size = 1)+
+  geom_ribbon(aes(x = sample_in_trial_t,
+                  ymin = lower, 
+                  ymax = upper), 
+              alpha = 0.2)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  scale_fill_manual(values = purpleOrange_palette6)+
+  annotate("text", x = 2,y = 0.7, label = "cue",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 5,y = 0.7, label = "fix",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 15,y = 0.7, label = "probe",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 17,y = 0.7, label = "out",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 10,y = 0.7, label = "rate",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  labs(title = "VR study 1",
+       subtitle = "anticipation probe",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  ylim(-1.5,1.5)
+
+p1b<-ggplot(vrmid1_summary_nobc%>%
+         filter(sample_in_trial_t >0,sample_in_trial_t <= 20,probe == "out"), aes(x = sample_in_trial_t,
+                       y = mean))+
+    geom_vline(xintercept = c(0,4,6,8,10,18), size = 1, color = "grey")+
+  geom_line(size = 1)+
+  geom_ribbon(aes(x = sample_in_trial_t,
+                  ymin = lower, 
+                  ymax = upper), 
+              alpha = 0.2)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  scale_fill_manual(values = purpleOrange_palette6)+
+  annotate("text", x = 2,y = 0.7, label = "cue",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 5,y = 0.7, label = "fix",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 7,y = 0.7, label = "probe",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 9,y = 0.7, label = "out",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 14,y = 0.7, label = "rate",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  labs(title = "VR study 1",
+       subtitle = "outcome probe",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  ylim(-1.3,1.0)
+
+vrmid2_summary_nobc <- vrmid2_pupil_data%>%
+  ungroup()%>%
+  group_by(sample_in_trial_t,probe)%>%
+  summarise(mean = mean(pupil_Avg_scale, na.rm = T),
+            lower = mean(pupil_Avg_scale, na.rm = T) - qt(0.975, df = n() - 1) * sd(pupil_Avg_scale, na.rm = T) / sqrt(n()),
+            upper = mean(pupil_Avg_scale, na.rm = T) + qt(0.975, df = n() - 1) * sd(pupil_Avg_scale, na.rm = T) / sqrt(n()))
+
+p2a<-ggplot(vrmid2_summary_nobc%>%
+         filter(sample_in_trial_t >0,sample_in_trial_t <= 20,probe == "anti"), aes(x = sample_in_trial_t,
+                       y = mean))+
+    geom_vline(xintercept = c(0,4,6,14,16,18), size = 1, color = "grey")+
+  geom_line(size = 1)+
+  geom_ribbon(aes(x = sample_in_trial_t,
+                  ymin = lower, 
+                  ymax = upper), 
+              alpha = 0.2)+
+  annotate("text", x = 2,y = 0.7, label = "cue",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 5,y = 0.7, label = "fix",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 15,y = 0.7, label = "probe",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 17,y = 0.7, label = "out",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 10,y = 0.7, label = "rate",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  labs(title = "VR study 2",
+       subtitle = "anticipation probe",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  ylim(-1.3,1.0)
+
+p2b<-ggplot(vrmid2_summary_nobc%>%
+         filter(sample_in_trial_t >0,sample_in_trial_t <= 20,probe == "out"), aes(x = sample_in_trial_t,
+                       y = mean))+
+    geom_vline(xintercept = c(0,4,6,8,10,18), size = 1, color = "grey")+
+  geom_line(size = 1)+
+  geom_ribbon(aes(x = sample_in_trial_t,
+                  ymin = lower, 
+                  ymax = upper), 
+              alpha = 0.2)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  scale_fill_manual(values = purpleOrange_palette6)+
+  annotate("text", x = 2,y = 0.7, label = "cue",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 5,y = 0.7, label = "fix",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 7,y = 0.7, label = "probe",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 9,y = 0.7, label = "out",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 13,y = 0.7, label = "rate",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  labs(title = "VR study 2",
+       subtitle = "outcome probe",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  ylim(-1.3,1)
+
+fmri3_summary_nobc <- fmri3_pupil_data%>%
+  ungroup()%>%
+  group_by(sample_in_trial_t,probe)%>%
+  summarise(mean = mean(pupilDiameter_scaled, na.rm = T),
+            lower = mean(pupilDiameter_scaled, na.rm = T) - qt(0.975, df = n() - 1) * sd(pupilDiameter_scaled, na.rm = T) / sqrt(n()),
+            upper = mean(pupilDiameter_scaled, na.rm = T) + qt(0.975, df = n() - 1) * sd(pupilDiameter_scaled, na.rm = T) / sqrt(n()))
+
+p3a<-ggplot(fmri3_summary_nobc%>%
+         filter(sample_in_trial_t >0,sample_in_trial_t <= 20,probe == 1), aes(x = sample_in_trial_t,
+                       y = mean))+
+    geom_vline(xintercept = c(0,2,4,12,14,16,18), size = 1, color = "grey")+
+  geom_line(size = 1)+
+  geom_ribbon(aes(x = sample_in_trial_t,
+                  ymin = lower, 
+                  ymax = upper), 
+              alpha = 0.2)+
+
+  annotate("text", x = 1,y = 0.7, label = "cue",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 3,y = 0.7, label = "fix",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 13,y = 0.7, label = "fix2",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 15,y = 0.7, label = "probe",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 17,y = 0.7, label = "out",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 8,y = 0.7, label = "rate",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  labs(title = "FMRI study 3",
+       subtitle = "anticipation probe",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  ylim(-1.3,1)
+
+p3b<-ggplot(fmri3_summary_nobc%>%
+         filter(sample_in_trial_t >0,sample_in_trial_t <= 20,probe == 2), aes(x = sample_in_trial_t,
+                       y = mean))+
+    geom_vline(xintercept = c(0,2,4,6,8,16), size = 1, color = "grey")+
+  geom_line(size = 1)+
+  geom_ribbon(aes(x = sample_in_trial_t,
+                  ymin = lower, 
+                  ymax = upper), 
+              alpha = 0.2)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  scale_fill_manual(values = purpleOrange_palette6)+
+  annotate("text", x = 1,y = 0.7, label = "cue",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 3,y = 0.7, label = "fix",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 5,y = 0.7, label = "probe",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 7,y = 0.7, label = "out",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 12,y = 0.7, label = "rate",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  labs(title = "FMRI study 3",
+       subtitle = "outcome probe",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  ylim(-1.3,1)
+
+pant<-p1a+p2a+p3a+
+  plot_layout(nrow =1)
+
+pout<-p1b+p2b+p3b+
+  plot_layout(nrow =1)
+
+pant/pout
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig1_timecourse.tiff"),dpi = 300, height = 6, width = 8)
+```
+
+## time course by cue value
+
+```{r}
+vrmid1_summary_nobc <- vrmid1_pupil_data%>%
+  ungroup()%>%
+  group_by(sample_in_trial_t,probe,trial_type)%>%
+  summarise(mean = mean(pupil_Avg_scale, na.rm = T),
+            lower = mean(pupil_Avg_scale, na.rm = T) - qt(0.975, df = n() - 1) * sd(pupil_Avg_scale, na.rm = T) / sqrt(n()),
+            upper = mean(pupil_Avg_scale, na.rm = T) + qt(0.975, df = n() - 1) * sd(pupil_Avg_scale, na.rm = T) / sqrt(n()))
+
+p1a<-ggplot(vrmid1_summary_nobc%>%
+         filter(sample_in_trial_t >0,sample_in_trial_t <= 20,probe == "anti"), aes(x = sample_in_trial_t,
+                       y = mean))+
+    geom_vline(xintercept = c(0,4,6,14,16,18), size = 1, color = "grey")+
+  geom_line(aes(group = trial_type, color = trial_type),size = 1)+
+  geom_ribbon(aes(x = sample_in_trial_t, fill = trial_type,
+                  ymin = lower, 
+                  ymax = upper), 
+              alpha = 0.2)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  scale_fill_manual(values = purpleOrange_palette6)+
+  annotate("text", x = 2,y = 1, label = "cue",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 5,y = 1, label = "fix",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 15,y = 1, label = "probe",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 17,y = 1, label = "out",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 10,y = 1, label = "rate",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  labs(title = "VR study 1",
+       subtitle = "anticipation probe",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  theme(legend.position = "top")+
+  ylim(-1.5,1.5)
+
+p1b<-ggplot(vrmid1_summary_nobc%>%
+         filter(sample_in_trial_t >0,sample_in_trial_t <= 20,probe == "out"), aes(x = sample_in_trial_t,
+                       y = mean))+
+    geom_vline(xintercept = c(0,4,6,8,10,18), size = 1, color = "grey")+
+  geom_line(aes(group = trial_type, color = trial_type),size = 1)+
+  geom_ribbon(aes(x = sample_in_trial_t, fill = trial_type,
+                  ymin = lower, 
+                  ymax = upper), 
+              alpha = 0.2)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  scale_fill_manual(values = purpleOrange_palette6)+
+  annotate("text", x = 2,y = 1, label = "cue",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 5,y = 1, label = "fix",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 7,y = 1, label = "probe",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 9,y = 1, label = "out",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 13,y = 1, label = "rate",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  labs(title = "VR study 1",
+       subtitle = "outcome probe",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+   theme(legend.position = "none")+
+  ylim(-1.5,1.5)
+
+vrmid2_summary_nobc <- vrmid2_pupil_data%>%
+  ungroup()%>%
+  group_by(sample_in_trial_t,probe,trial_type)%>%
+  summarise(mean = mean(pupil_Avg_scale, na.rm = T),
+            lower = mean(pupil_Avg_scale, na.rm = T) - qt(0.975, df = n() - 1) * sd(pupil_Avg_scale, na.rm = T) / sqrt(n()),
+            upper = mean(pupil_Avg_scale, na.rm = T) + qt(0.975, df = n() - 1) * sd(pupil_Avg_scale, na.rm = T) / sqrt(n()))
+
+p2a<-ggplot(vrmid2_summary_nobc%>%
+         filter(sample_in_trial_t > 0,sample_in_trial_t <= 20,probe == "anti"), aes(x = sample_in_trial_t,
+                       y = mean))+
+    geom_vline(xintercept = c(0,4,6,14,16,18), size = 1, color = "grey")+
+  geom_line(aes(group = trial_type, color = trial_type),size = 1)+
+  geom_ribbon(aes(x = sample_in_trial_t, fill = trial_type,
+                  ymin = lower, 
+                  ymax = upper), 
+              alpha = 0.2)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  scale_fill_manual(values = purpleOrange_palette6)+
+  annotate("text", x = 2,y = 1, label = "cue",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 5,y = 1, label = "fix",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 15,y = 1, label = "probe",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 17,y = 1, label = "out",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 10,y = 1, label = "rate",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  labs(title = "VR study 2",
+       subtitle = "anticipation probe",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  theme(legend.position = "none")+
+  ylim(-1.5,1.5)
+
+p2b<-ggplot(vrmid2_summary_nobc%>%
+         filter(sample_in_trial_t > 0,sample_in_trial_t <= 20,probe == "out"), aes(x = sample_in_trial_t,
+                       y = mean))+
+    geom_vline(xintercept = c(0,4,6,8,10,18), size = 1, color = "grey")+
+  geom_line(aes(group = trial_type, color = trial_type),size = 1)+
+  geom_ribbon(aes(x = sample_in_trial_t, fill = trial_type,
+                  ymin = lower, 
+                  ymax = upper), 
+              alpha = 0.2)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  scale_fill_manual(values = purpleOrange_palette6)+
+  annotate("text", x = 2,y = 1, label = "cue",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 5,y = 1, label = "fix",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 7,y = 1, label = "probe",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 9,y = 1, label = "out",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 13,y = 1, label = "rate",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  labs(title = "VR study 2",
+       subtitle = "outcome probe",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  theme(legend.position = "none")+
+  ylim(-1.5,1.5)
+
+fmri3_summary_nobc <- fmri3_pupil_data%>%
+  ungroup()%>%
+  group_by(sample_in_trial_t,probe,cue_value)%>%
+  summarise(mean = mean(pupilDiameter_scaled, na.rm = T),
+            lower = mean(pupilDiameter_scaled, na.rm = T) - qt(0.975, df = n() - 1) * sd(pupilDiameter_scaled, na.rm = T) / sqrt(n()),
+            upper = mean(pupilDiameter_scaled, na.rm = T) + qt(0.975, df = n() - 1) * sd(pupilDiameter_scaled, na.rm = T) / sqrt(n()))
+
+p3a<-ggplot(fmri3_summary_nobc%>%
+         filter(sample_in_trial_t >0,sample_in_trial_t <= 20,probe == 1), aes(x = sample_in_trial_t,
+                       y = mean))+
+    geom_vline(xintercept = c(0,2,4,12,14,16,18), size = 1, color = "grey")+
+  geom_line(aes(group = cue_value, color = cue_value),size = 1)+
+  geom_ribbon(aes(x = sample_in_trial_t, fill = cue_value,
+                  ymin = lower, 
+                  ymax = upper), 
+              alpha = 0.2)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  scale_fill_manual(values = purpleOrange_palette6)+
+  annotate("text", x = 1,y = 1, label = "cue",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 3,y = 1, label = "fix",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 13,y = 1, label = "fix2",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 15,y = 1, label = "probe",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 17,y = 1, label = "out",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 8,y = 1, label = "rate",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  labs(title = "FMRI study 3",
+       subtitle = "anticipation probe",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  theme(legend.position = "none")+
+  ylim(-1.6,1.5)
+
+p3b<-ggplot(fmri3_summary_nobc%>%
+         filter(sample_in_trial_t >0,sample_in_trial_t <= 20,probe == 2), aes(x = sample_in_trial_t,
+                       y = mean))+
+    geom_vline(xintercept = c(0,2,4,6,8,16), size = 1, color = "grey")+
+  geom_line(aes(group = cue_value, color = cue_value),size = 1)+
+  geom_ribbon(aes(x = sample_in_trial_t, fill = cue_value,
+                  ymin = lower, 
+                  ymax = upper), 
+              alpha = 0.2)+
+  scale_color_manual(values = purpleOrange_palette6)+
+  scale_fill_manual(values = purpleOrange_palette6)+
+  annotate("text", x = 1,y = 1, label = "cue",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 3,y = 1, label = "fix",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 5,y = 1, label = "probe",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 7,y = 1, label = "out",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 12,y = 1, label = "rate",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  labs(title = "FMRI study 3",
+       subtitle = "outcome probe",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  theme(legend.position = "none")+
+  ylim(-1.6,1.5)
+
+pant<-p1a+p2a+p3a+
+  plot_layout(nrow =1)
+
+pout<-p1b+p2b+p3b+
+  plot_layout(nrow =1)
+
+pant/pout
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig1_timecourse_bycue.tiff"),dpi = 300, height = 7, width = 8)
+```
+
+## time course by hit vs. miss
+
+```{r}
+vrmid1_summary_nobc <- vrmid1_pupil_data%>%
+  ungroup()%>%
+  group_by(sample_in_trial_t,probe,reaction_outcome)%>%
+  summarise(mean = mean(pupil_Avg_scale, na.rm = T),
+            lower = mean(pupil_Avg_scale, na.rm = T) - qt(0.975, df = n() - 1) * sd(pupil_Avg_scale, na.rm = T) / sqrt(n()),
+            upper = mean(pupil_Avg_scale, na.rm = T) + qt(0.975, df = n() - 1) * sd(pupil_Avg_scale, na.rm = T) / sqrt(n()))
+
+p1a<-ggplot(vrmid1_summary_nobc%>%
+         filter(sample_in_trial_t >0,sample_in_trial_t <= 20,probe == "anti"), aes(x = sample_in_trial_t,
+                       y = mean))+
+    geom_vline(xintercept = c(0,4,6,14,16,18), size = 1, color = "grey")+
+  geom_line(aes(group = reaction_outcome, color = reaction_outcome, linetype = reaction_outcome),size = 1)+
+  geom_ribbon(aes(x = sample_in_trial_t, fill = reaction_outcome,
+                  ymin = lower, 
+                  ymax = upper), 
+              alpha = 0.2)+
+  scale_color_manual(values = c("navy","red"))+
+  scale_fill_manual(values = c("navy","red"))+
+  annotate("text", x = 2,y = 0.8, label = "cue",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 5,y = 0.8, label = "fix",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 15,y = 0.8, label = "probe",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 17,y = 0.8, label = "out",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 10,y = 0.8, label = "rate",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  labs(title = "VR study 1",
+       subtitle = "anticipation probe",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  theme(legend.position = "top")+
+  ylim(-1.3,1)
+
+p1b<-ggplot(vrmid1_summary_nobc%>%
+         filter(sample_in_trial_t >0,sample_in_trial_t <= 20,probe == "out"), aes(x = sample_in_trial_t,
+                       y = mean))+
+    geom_vline(xintercept = c(0,4,6,8,10,18), size = 1, color = "grey")+
+  geom_line(aes(group = reaction_outcome, color = reaction_outcome, linetype = reaction_outcome),size = 1)+
+  geom_ribbon(aes(x = sample_in_trial_t, fill = reaction_outcome,
+                  ymin = lower, 
+                  ymax = upper), 
+              alpha = 0.2)+
+  scale_color_manual(values = c("navy","red"))+
+  scale_fill_manual(values = c("navy","red"))+
+  annotate("text", x = 2,y = 0.8, label = "cue",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 5,y = 0.8, label = "fix",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 7,y = 0.8, label = "probe",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 9,y = 0.8, label = "out",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 13,y = 0.8, label = "rate",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  labs(title = "VR study 1",
+       subtitle = "outcome probe",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+   theme(legend.position = "none")+
+  ylim(-1.3,1)
+
+vrmid2_summary_nobc <- vrmid2_pupil_data%>%
+  ungroup()%>%
+  group_by(sample_in_trial_t,probe,reaction_outcome)%>%
+  summarise(mean = mean(pupil_Avg_scale, na.rm = T),
+            lower = mean(pupil_Avg_scale, na.rm = T) - qt(0.975, df = n() - 1) * sd(pupil_Avg_scale, na.rm = T) / sqrt(n()),
+            upper = mean(pupil_Avg_scale, na.rm = T) + qt(0.975, df = n() - 1) * sd(pupil_Avg_scale, na.rm = T) / sqrt(n()))
+
+p2a<-ggplot(vrmid2_summary_nobc%>%
+         filter(sample_in_trial_t > 0,sample_in_trial_t <= 20,probe == "anti"), aes(x = sample_in_trial_t,
+                       y = mean))+
+    geom_vline(xintercept = c(0,4,6,14,16,18), size = 1, color = "grey")+
+  geom_line(aes(group = reaction_outcome, color = reaction_outcome, linetype = reaction_outcome),size = 1)+
+  geom_ribbon(aes(x = sample_in_trial_t, fill = reaction_outcome,
+                  ymin = lower, 
+                  ymax = upper), 
+              alpha = 0.2)+
+  scale_color_manual(values = c("navy","red"))+
+  scale_fill_manual(values = c("navy","red"))+
+  annotate("text", x = 2,y = 0.8, label = "cue",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 5,y = 0.8, label = "fix",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 15,y = 0.8, label = "probe",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 17,y = 0.8, label = "out",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 10,y = 0.8, label = "rate",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  labs(title = "VR study 2",
+       subtitle = "anticipation probe",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  theme(legend.position = "none")+
+  ylim(-1.3,1)
+
+p2b<-ggplot(vrmid2_summary_nobc%>%
+         filter(sample_in_trial_t > 0,sample_in_trial_t <= 20,probe == "out"), aes(x = sample_in_trial_t,
+                       y = mean))+
+    geom_vline(xintercept = c(0,4,6,8,10,18), size = 1, color = "grey")+
+  geom_line(aes(group = reaction_outcome, color = reaction_outcome, linetype = reaction_outcome),size = 1)+
+  geom_ribbon(aes(x = sample_in_trial_t, fill = reaction_outcome,
+                  ymin = lower, 
+                  ymax = upper), 
+              alpha = 0.2)+
+  scale_color_manual(values = c("navy","red"))+
+  scale_fill_manual(values = c("navy","red"))+
+  annotate("text", x = 2,y = 0.8, label = "cue",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 5,y = 0.8, label = "fix",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 7,y = 0.8, label = "probe",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 9,y = 0.8, label = "out",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 13,y = 0.8, label = "rate",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  labs(title = "VR study 2",
+       subtitle = "outcome probe",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  theme(legend.position = "none")+
+  ylim(-1.3,1)
+
+fmri3_summary_nobc <- fmri3_pupil_data%>%
+  ungroup()%>%
+  group_by(sample_in_trial_t,probe,hit)%>%
+  summarise(mean = mean(pupilDiameter_scaled, na.rm = T),
+            lower = mean(pupilDiameter_scaled, na.rm = T) - qt(0.975, df = n() - 1) * sd(pupilDiameter_scaled, na.rm = T) / sqrt(n()),
+            upper = mean(pupilDiameter_scaled, na.rm = T) + qt(0.975, df = n() - 1) * sd(pupilDiameter_scaled, na.rm = T) / sqrt(n())) %>% 
+  rename(reaction_outcome = hit)
+
+p3a<-ggplot(fmri3_summary_nobc%>%
+         filter(sample_in_trial_t >0,sample_in_trial_t <= 20,probe == 1), aes(x = sample_in_trial_t,
+                       y = mean))+
+    geom_vline(xintercept = c(0,2,4,12,14,16,18), size = 1, color = "grey")+
+  geom_line(aes(group = reaction_outcome, color = reaction_outcome, linetype = reaction_outcome),size = 1)+
+  geom_ribbon(aes(x = sample_in_trial_t, fill = reaction_outcome,
+                  ymin = lower, 
+                  ymax = upper), 
+              alpha = 0.2)+
+  scale_color_manual(values = c("navy","red"))+
+  scale_fill_manual(values = c("navy","red"))+
+  annotate("text", x = 1,y = 0.8, label = "cue",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 3,y = 0.8, label = "fix",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 13,y = 0.8, label = "fix2",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 15,y = 0.8, label = "probe",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 17,y = 0.8, label = "out",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 8,y = 0.8, label = "rate",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  labs(title = "FMRI study 3",
+       subtitle = "anticipation probe",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  theme(legend.position = "none")+
+  ylim(-1.3,1)
+
+p3b<-ggplot(fmri3_summary_nobc%>%
+         filter(sample_in_trial_t >0,sample_in_trial_t <= 20,probe == 2), aes(x = sample_in_trial_t,
+                       y = mean))+
+    geom_vline(xintercept = c(0,2,4,6,8,16), size = 1, color = "grey")+
+  geom_line(aes(group = reaction_outcome, color = reaction_outcome, linetype = reaction_outcome),size = 1)+
+  geom_ribbon(aes(x = sample_in_trial_t, fill = reaction_outcome,
+                  ymin = lower, 
+                  ymax = upper), 
+              alpha = 0.2)+
+  scale_color_manual(values = c("navy","red"))+
+  scale_fill_manual(values = c("navy","red"))+
+  annotate("text", x = 1,y = 0.8, label = "cue",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 3,y = 0.8, label = "fix",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 5,y = 0.8, label = "probe",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 7,y = 0.8, label = "out",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 12,y = 0.8, label = "rate",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  labs(title = "FMRI study 3",
+       subtitle = "outcome probe",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  theme(legend.position = "none")+
+  ylim(-1.3,1)
+
+pant<-p1a+p2a+p3a+
+  plot_layout(nrow =1)
+
+pout<-p1b+p2b+p3b+
+  plot_layout(nrow =1)
+
+pant/pout
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig1_timecourse_byhit.tiff"),dpi = 300, height = 7, width = 8)
+```
+
+
+## time course by cue size and motion
+```{r}
+vrmid1_summary_nobc <- vrmid1_pupil_data%>%
+  ungroup()%>%
+  group_by(sample_in_trial_t,probe,condition)%>%
+  summarise(mean = mean(pupil_Avg_scale, na.rm = T),
+            lower = mean(pupil_Avg_scale, na.rm = T) - qt(0.975, df = n() - 1) * sd(pupil_Avg_scale, na.rm = T) / sqrt(n()),
+            upper = mean(pupil_Avg_scale, na.rm = T) + qt(0.975, df = n() - 1) * sd(pupil_Avg_scale, na.rm = T) / sqrt(n())) %>% 
+  rename(size = condition)
+
+p1a<-ggplot(vrmid1_summary_nobc%>%
+         filter(sample_in_trial_t >0,sample_in_trial_t <= 20,probe == "anti"), aes(x = sample_in_trial_t,
+                       y = mean))+
+    geom_vline(xintercept = c(0,4,6,14,16,18), size = 1, color = "grey")+
+  geom_line(aes(group = size, color = size),size = 1)+
+  geom_ribbon(aes(x = sample_in_trial_t, fill = size,
+                  ymin = lower, 
+                  ymax = upper), 
+              alpha = 0.2)+
+  ylim(-2.2,1)+
+  scale_color_brewer(palette = "Set2")+
+  scale_fill_brewer(palette = "Set2")+
+  annotate("text", x = 2,y = 0.8, label = "cue",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 5,y = 0.8, label = "fix",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 15,y = 0.8, label = "probe",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 17,y = 0.8, label = "out",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 10,y = 0.8, label = "rate",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  labs(title = "VR study 1",
+       subtitle = "anticipation probe",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  theme(legend.position = "top")
+
+p1b<-ggplot(vrmid1_summary_nobc%>%
+         filter(sample_in_trial_t >0,sample_in_trial_t <= 20,probe == "out"), aes(x = sample_in_trial_t,
+                       y = mean))+
+    geom_vline(xintercept = c(0,4,6,8,10,18), size = 1, color = "grey")+
+  geom_line(aes(group = size, color = size),size = 1)+
+  geom_ribbon(aes(x = sample_in_trial_t, fill = size,
+                  ymin = lower, 
+                  ymax = upper), 
+              alpha = 0.2)+
+  ylim(-2.2,1)+
+  scale_color_brewer(palette = "Set2")+
+  scale_fill_brewer(palette = "Set2")+
+  annotate("text", x = 2,y = 0.8, label = "cue",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 5,y = 0.8, label = "fix",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 7,y = 0.8, label = "probe",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 9,y = 0.8, label = "out",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 13,y = 0.8, label = "rate",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  labs(title = "VR study 1",
+       subtitle = "outcome probe",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+   theme(legend.position = "none")
+
+vrmid2_summary_nobc <- vrmid2_pupil_data%>%
+  ungroup()%>%
+  group_by(sample_in_trial_t,probe,condition)%>%
+  summarise(mean = mean(pupil_Avg_scale, na.rm = T),
+            lower = mean(pupil_Avg_scale, na.rm = T) - qt(0.975, df = n() - 1) * sd(pupil_Avg_scale, na.rm = T) / sqrt(n()),
+            upper = mean(pupil_Avg_scale, na.rm = T) + qt(0.975, df = n() - 1) * sd(pupil_Avg_scale, na.rm = T) / sqrt(n())) %>% 
+  rename(size = condition)
+
+p2a<-ggplot(vrmid2_summary_nobc%>%
+         filter(sample_in_trial_t > 0,sample_in_trial_t <= 20,probe == "anti"), aes(x = sample_in_trial_t,
+                       y = mean))+
+    geom_vline(xintercept = c(0,4,6,14,16,18), size = 1, color = "grey")+
+  geom_line(aes(group = size, color = size),size = 1)+
+  geom_ribbon(aes(x = sample_in_trial_t, fill = size,
+                  ymin = lower, 
+                  ymax = upper), 
+              alpha = 0.2)+
+  ylim(-2.2,1)+
+  scale_color_brewer(palette = "Set2")+
+  scale_fill_brewer(palette = "Set2")+
+  annotate("text", x = 2,y = 0.8, label = "cue",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 5,y = 0.8, label = "fix",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 15,y = 0.8, label = "probe",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 17,y = 0.8, label = "out",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 10,y = 0.8, label = "rate",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  labs(title = "VR study 2",
+       subtitle = "anticipation probe",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  theme(legend.position = "none")
+
+p2b<-ggplot(vrmid2_summary_nobc%>%
+         filter(sample_in_trial_t > 0,sample_in_trial_t <= 20,probe == "out"), aes(x = sample_in_trial_t,
+                       y = mean))+
+    geom_vline(xintercept = c(0,4,6,8,10,18), size = 1, color = "grey")+
+  geom_line(aes(group = size, color = size),size = 1)+
+  geom_ribbon(aes(x = sample_in_trial_t, fill = size,
+                  ymin = lower, 
+                  ymax = upper), 
+              alpha = 0.2)+
+  ylim(-2.2,1.3)+
+  scale_color_brewer(palette = "Set2")+
+  scale_fill_brewer(palette = "Set2")+
+  annotate("text", x = 2,y = 0.8, label = "cue",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 5,y = 0.8, label = "fix",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 7,y = 0.8, label = "probe",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 9,y = 0.8, label = "out",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 13,y = 0.8, label = "rate",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  labs(title = "VR study 2",
+       subtitle = "outcome probe",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  theme(legend.position = "none")
+
+fmri3_summary_nobc <- fmri3_pupil_data%>%
+  ungroup()%>%
+  group_by(sample_in_trial_t,probe,cue_size)%>%
+  summarise(mean = mean(pupilDiameter_scaled, na.rm = T),
+            lower = mean(pupilDiameter_scaled, na.rm = T) - qt(0.975, df = n() - 1) * sd(pupilDiameter_scaled, na.rm = T) / sqrt(n()),
+            upper = mean(pupilDiameter_scaled, na.rm = T) + qt(0.975, df = n() - 1) * sd(pupilDiameter_scaled, na.rm = T) / sqrt(n())) %>% 
+  rename(size = cue_size)
+
+p3a<-ggplot(fmri3_summary_nobc%>%
+         filter(sample_in_trial_t >0,sample_in_trial_t <= 20,probe == 1), aes(x = sample_in_trial_t,
+                       y = mean))+
+    geom_vline(xintercept = c(0,2,4,12,14,16,18), size = 1, color = "grey")+
+  geom_line(aes(group = size, color = size),size = 1)+
+  geom_ribbon(aes(x = sample_in_trial_t, fill = size,
+                  ymin = lower, 
+                  ymax = upper), 
+              alpha = 0.2)+
+  ylim(-2.2,1)+
+  scale_color_manual(values = c("#e78ac3","#66c2a5"))+
+  scale_fill_manual(values = c("#e78ac3","#66c2a5"))+
+  annotate("text", x = 1,y = 0.8, label = "cue",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 3,y = 0.8, label = "fix",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 13,y = 0.8, label = "fix2",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 15,y = 0.8, label = "probe",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 17,y = 0.8, label = "out",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 8,y = 0.8, label = "rate",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  labs(title = "FMRI study 3",
+       subtitle = "anticipation probe",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  theme(legend.position = "none")
+
+p3b<-ggplot(fmri3_summary_nobc%>%
+         filter(sample_in_trial_t >0,sample_in_trial_t <= 20,probe == 2), aes(x = sample_in_trial_t,
+                       y = mean))+
+    geom_vline(xintercept = c(0,2,4,6,8,16), size = 1, color = "grey")+
+  geom_line(aes(group = size, color = size),size = 1)+
+  geom_ribbon(aes(x = sample_in_trial_t, fill = size,
+                  ymin = lower, 
+                  ymax = upper), 
+              alpha = 0.2)+
+  ylim(-2.2,1)+
+  scale_color_manual(values = c("#e78ac3","#66c2a5"))+
+  scale_fill_manual(values = c("#e78ac3","#66c2a5"))+
+  annotate("text", x = 1,y = 0.8, label = "cue",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 3,y = 0.8, label = "fix",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 5,y = 0.8, label = "probe",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 7,y = 0.8, label = "out",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 12,y = 0.8, label = "rate",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  labs(title = "FMRI study 3",
+       subtitle = "outcome probe",
+       x = "time (s)",
+       y = "z-scored pupil size")+
+  theme(legend.position = "none")
+
+pant<-p1a+p2a+p3a+
+  plot_layout(nrow =1)
+
+pout<-p1b+p2b+p3b+
+  plot_layout(nrow =1)
+
+pant/pout
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig1_timecourse_bysize.tiff"),dpi = 300, height = 7, width = 9)
+```
+
+
+# pre-selected time window predicting affect
+
+## calculate df
+```{r}
+
+```
+

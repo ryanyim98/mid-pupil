@@ -2,7 +2,7 @@ clear all; clc;
 
 
 cd('~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/derivatives');
-addpath(genpath('~/Desktop/VRMID-analysis/mid-pupil/analyses/functions/functions-fmri'));
+addpath(genpath('~/Desktop/VRMID-analysis/mid-pupil/analyses/step1_preprocessing/functions/functions-fmri'));
 physio_data = 'all_subjs_pupil_preMATLAB.csv';
 T = readtable(physio_data);
 T.ps = T.ps/1000;
@@ -114,13 +114,30 @@ end
 
 %% Preprocessing steps
 % (1) gap expansion
+longer_blink_list = {'ey0320','ig0319','nq0330','sg0304','ya0314','yz0312'};
+block_list = {'b1','b2','b3','b4'};
+combined_list = [];
+for i = 1:length(longer_blink_list)
+    for j = 1:length(block_list)
+        combined_list = [combined_list,string(longer_blink_list(i))+block_list(j)];
+    end
+end
+
 for p = 1:nsubjects
     disp(["...participant number "+ p + "..."])
     %left
     alldata.subjectdata(p).Physio.LeftPDil.data.gapExpand = alldata.subjectdata(p).Physio.pupil_size.ps;
-    [alldata.subjectdata(p).Physio.LeftPDil.data.gapExpand, ...
-        alldata.subjectdata(p).Physio.LeftPDil.valid_id] = expandGaps(alldata.subjectdata(p).Physio.LeftPDil.data.gapExpand,...
-            sr);
+
+    if ~ismember(alldata.subjectdata(p).ID,combined_list)
+    
+        [alldata.subjectdata(p).Physio.LeftPDil.data.gapExpand, ...
+            alldata.subjectdata(p).Physio.LeftPDil.valid_id] = expandGaps(alldata.subjectdata(p).Physio.LeftPDil.data.gapExpand,...
+                sr,0.05,0.1);
+    else
+        [alldata.subjectdata(p).Physio.LeftPDil.data.gapExpand, ...
+            alldata.subjectdata(p).Physio.LeftPDil.valid_id] = expandGaps(alldata.subjectdata(p).Physio.LeftPDil.data.gapExpand,...
+                sr,0.1,0.15);
+    end
 end
 
 
@@ -155,7 +172,7 @@ subject_to_keep = [];
 subject_to_drop = [];
 subject_to_drop_id = [];
 for p = 1:nsubjects
-    if sum(~isnan(alldata.subjectdata(p).Physio.LeftPDil.data.islandRemove)) & p ~= 120
+    if sum(~isnan(alldata.subjectdata(p).Physio.LeftPDil.data.islandRemove))
         subject_to_keep = [subject_to_keep,p];
     else
         subject_to_drop = [subject_to_drop;alldata.subjectdata(p).ID];
@@ -168,53 +185,58 @@ end
 % data has to be fully interpolated to be filtered.
 % fully interpolate while noting where should be later excluded in long_blink_masked
 % note the start and end; they are not supposed to be interpolated;
-nsubjects = length(subject_to_keep);
 
-for s = 1:nsubjects
-    p = subject_to_keep(s);
-    disp(["...participant number "+ p + "..."])
-    %left
-    RAW = alldata.subjectdata(p).Physio.LeftPDil.data.islandRemove;
+% nsubjects = length(subject_to_keep);
 
-    [alldata.subjectdata(p).Physio.LeftPDil.data.interpolation, ...
-        alldata.subjectdata(p).Physio.LeftPDil.data.missing_data] = interpolate_data(RAW,sr);
-    alldata.subjectdata(p).Physio.LeftPDil.valid_id = long_blink_mask(alldata.subjectdata(p).Physio.LeftPDil.valid_id,...
-        alldata.subjectdata(p).Physio.LeftPDil.data.missing_data);
-
-    %after removal of 'long blinks', calculate valid sample proportion
-    alldata.subjectdata(p).Physio.ValidSample = mean(alldata.subjectdata(p).Physio.LeftPDil.valid_id);
+for p = 1:nsubjects
+    if ~ismember(string(alldata.subjectdata(p).ID),subject_to_drop)
+        disp(["...participant number "+ p + "..."])
+        %left
+        RAW = alldata.subjectdata(p).Physio.LeftPDil.data.islandRemove;
+    
+        [alldata.subjectdata(p).Physio.LeftPDil.data.interpolation, ...
+            alldata.subjectdata(p).Physio.LeftPDil.data.missing_data] = interpolate_data(RAW,sr);
+        alldata.subjectdata(p).Physio.LeftPDil.valid_id = long_blink_mask(alldata.subjectdata(p).Physio.LeftPDil.valid_id,...
+            alldata.subjectdata(p).Physio.LeftPDil.data.missing_data);
+    
+    end
 end
 
-for s = 1:length(subject_to_drop_id)
-    p = subject_to_drop_id(s);
-    alldata.subjectdata(p).Physio.ValidSample = 0;
+for p = 1:nsubjects
+   if ismember(string(alldata.subjectdata(p).ID),subject_to_drop)
+        alldata.subjectdata(p).Physio.ValidSample = 0;
+   else
+       %after removal of 'long blinks', calculate valid sample proportion
+        alldata.subjectdata(p).Physio.ValidSample = mean(alldata.subjectdata(p).Physio.LeftPDil.valid_id);
+   end
 end
 
 clear RAW;
 
 % (4) filtering (has to be full continuous signal to be filtered; NaN
 % doesn't work
-for s = 1:nsubjects
-    p = subject_to_keep(s);
-    RAW = alldata.subjectdata(p).Physio.LeftPDil.data.interpolation;
-    alldata.subjectdata(p).Physio.LeftPDil.data.filter = filtfilt(b,a,double(RAW));
+for p = 1:nsubjects
+    if ~ismember(string(alldata.subjectdata(p).ID),subject_to_drop)
+        RAW = alldata.subjectdata(p).Physio.LeftPDil.data.interpolation;
+        alldata.subjectdata(p).Physio.LeftPDil.data.filter = filtfilt(b,a,double(RAW));
+    end
 end
 
 % (5) exclude data based on long blink mask
-for s = 1:nsubjects
-    p = subject_to_keep(s);
-
-    RAW= alldata.subjectdata(p).Physio.LeftPDil.data.filter;
-    %remove interpolation at start and end of recording
-    na_ind=alldata.subjectdata(p).Physio.LeftPDil.data.missing_data;
-    if na_ind.start(1) == 1
-        RAW(na_ind.start(1):na_ind.end(1)) = NaN;
+for p = 1:nsubjects
+    if ~ismember(string(alldata.subjectdata(p).ID),subject_to_drop)
+        RAW= alldata.subjectdata(p).Physio.LeftPDil.data.filter;
+        %remove interpolation at start and end of recording
+        na_ind=alldata.subjectdata(p).Physio.LeftPDil.data.missing_data;
+        if na_ind.start(1) == 1
+            RAW(na_ind.start(1):na_ind.end(1)) = NaN;
+        end
+        last_na_seg_id = length(na_ind.end);
+        if na_ind.end(length(na_ind.end)) == length(RAW)
+            RAW(na_ind.start(last_na_seg_id):na_ind.end(last_na_seg_id)) = NaN;
+        end
+        alldata.subjectdata(p).Physio.LeftPDil.data.out = RAW;
     end
-    last_na_seg_id = length(na_ind.end);
-    if na_ind.end(length(na_ind.end)) == length(RAW)
-        RAW(na_ind.start(last_na_seg_id):na_ind.end(last_na_seg_id)) = NaN;
-    end
-    alldata.subjectdata(p).Physio.LeftPDil.data.out = RAW;
 end
 
 %% get list of "bad" participant
@@ -232,15 +254,17 @@ writematrix(subject_to_drop,"../subjects_list/subject_to_drop_pupil.txt")
 
 %% examine abnormal values
 for p = 1:nsubjects
-    if sum(~isnan(alldata.subjectdata(p).Physio.LeftPDil.data.islandRemove)) && ... %js b3
-            ~ismember(string(alldata.subjectdata(p).ID),subject_to_drop)
-        makefigure(30,10);
-        plot(alldata.subjectdata(p).Physio.LeftPDil.data.islandRemove,'lineWidth',2); hold on;
-        plot(alldata.subjectdata(p).Physio.LeftPDil.data.out + 0.1,'lineWidth',2);
-        ylim([min(alldata.subjectdata(p).Physio.LeftPDil.data.islandRemove) max(alldata.subjectdata(p).Physio.LeftPDil.data.islandRemove)]);
-        title(subjects(p,:));
-        xlim([1 20*sr]);
-        print(['~/Desktop/VRMID-analysis/mid-pupil/figures/fmri3/examine_data/',subjects(p,:),'.tiff'],'-dtiff','-r100');
+    if ~ismember(string(alldata.subjectdata(p).ID),subject_to_drop)
+        if sum(~isnan(alldata.subjectdata(p).Physio.pupil_size.ps)) && ... %js b3
+                ~ismember(string(alldata.subjectdata(p).ID),subject_to_drop)
+            makefigure(30,10);
+            plot(alldata.subjectdata(p).Physio.pupil_size.ps,'lineWidth',2); hold on;
+            plot(alldata.subjectdata(p).Physio.LeftPDil.data.out + 0.1,'lineWidth',2);
+            ylim([min(alldata.subjectdata(p).Physio.LeftPDil.data.islandRemove) max(alldata.subjectdata(p).Physio.LeftPDil.data.islandRemove)]);
+            title(subjects(p,:));
+            xlim([1 20*sr]);
+            print(['~/Desktop/VRMID-analysis/mid-pupil/figures/fmri3/examine_data/',subjects(p,:),'.tiff'],'-dtiff','-r100');
+        end
     end
 end
 
@@ -261,9 +285,10 @@ close all;
 
 %% plot correlation between max and min pupil size (should be highly correlated)
 pupil_range = [];
-for s = 1:nsubjects
-    p = subject_to_keep(s);
+for p = 1:nsubjects
+    if ~ismember(string(alldata.subjectdata(p).ID),subject_to_drop)
     pupil_range(p,:) = [min(alldata.subjectdata(p).Physio.LeftPDil.data.out) max(alldata.subjectdata(p).Physio.LeftPDil.data.out)];
+    end
 end
 
 plot(pupil_range(:,1),pupil_range(:,2),'ko');
@@ -279,7 +304,7 @@ RAWl = alldata.subjectdata(subj).Physio.pupil_size.ps;
 blks = alldata.subjectdata(subj).Physio.pupil_size.blink;
 blks(blks==0) = NaN;
 blks = blks+min(RAWl);
-vis_duration = [1 21]; % seconds
+vis_duration = [10 31]; % seconds
 
 ind = (vis_duration(1)*sr_old):(1+vis_duration(2)*sr_old);
 RAW_visl = RAWl(ind);
@@ -344,14 +369,15 @@ print(['~/Desktop/VRMID-analysis/mid-pupil/figures/fmri3/example_pupil_sub',num2
 sr_old = 1000;
 sr_new = 200;
 
-for s = 1:nsubjects
-    p = subject_to_keep(s);
-    alldata.subjectdata(p).beh = downsample(alldata.subjectdata(p).beh,sr_old/sr_new);
-    alldata.subjectdata(p).Physio.pupil_position = downsample(alldata.subjectdata(p).Physio.pupil_position,sr_old/sr_new);
-    alldata.subjectdata(p).Physio.pupil_size = downsample(alldata.subjectdata(p).Physio.pupil_size,sr_old/sr_new);
-    alldata.subjectdata(p).Physio.LeftPDil.valid_id = downsample(alldata.subjectdata(p).Physio.LeftPDil.valid_id,sr_old/sr_new);
-    alldata.subjectdata(p).Physio.LeftPDil.valid_id = downsample(alldata.subjectdata(p).Physio.LeftPDil.valid_id,sr_old/sr_new);
-    alldata.subjectdata(p).Physio.LeftPDil.data.out = downsample(alldata.subjectdata(p).Physio.LeftPDil.data.out,sr_old/sr_new);
+for p = 1:nsubjects
+    if ~ismember(string(alldata.subjectdata(p).ID),subject_to_drop)
+        alldata.subjectdata(p).beh = downsample(alldata.subjectdata(p).beh,sr_old/sr_new);
+        alldata.subjectdata(p).Physio.pupil_position = downsample(alldata.subjectdata(p).Physio.pupil_position,sr_old/sr_new);
+        alldata.subjectdata(p).Physio.pupil_size = downsample(alldata.subjectdata(p).Physio.pupil_size,sr_old/sr_new);
+        alldata.subjectdata(p).Physio.LeftPDil.valid_id = downsample(alldata.subjectdata(p).Physio.LeftPDil.valid_id,sr_old/sr_new);
+        alldata.subjectdata(p).Physio.LeftPDil.valid_id = downsample(alldata.subjectdata(p).Physio.LeftPDil.valid_id,sr_old/sr_new);
+        alldata.subjectdata(p).Physio.LeftPDil.data.out = downsample(alldata.subjectdata(p).Physio.LeftPDil.data.out,sr_old/sr_new);
+    end
 end
 
 alldata.sampling_rate = sr_new;
@@ -360,10 +386,9 @@ alldata.sampling_rate = sr_new;
 clc;
 TdataOut = [];
 
-for s = 1:nsubjects
-    p = subject_to_keep(s);
+for p = 1:nsubjects
     disp(["processing participant " + p]);
-    if ~isempty(alldata.subjectdata(p).beh)
+    if ~isempty(alldata.subjectdata(p).beh) & ~ismember(string(alldata.subjectdata(p).ID),subject_to_drop)
 
             temp_TdataOut = [table(repmat(alldata.subjectdata(p).ID,[height(alldata.subjectdata(p).beh),1]),'VariableNames',{'subject'}), alldata.subjectdata(p).beh, ...
                 array2table([alldata.subjectdata(p).Physio.LeftPDil.data.out, alldata.subjectdata(p).Physio.pupil_size.blink, ...

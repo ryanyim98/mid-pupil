@@ -15,6 +15,7 @@ subjects_midaffemo <- paste0(rep(subjects$X1,each = 4),"_",rep(c("b1","b2","b3",
 subjects <- subjects_midaffemo
 df.beh <- {}
 for (sub in subjects){
+  print(sub)
   df.beh.temp <- read_csv(paste0("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/raw/behavior/",sub,".csv"))%>%
     filter(TR == 1)
   if (sum(is.na(df.beh.temp$arating)) > 22){ #for subj that does not rate enough, do not calculate scale score
@@ -49,11 +50,11 @@ df.beh <- df.beh %>%
                         (as.numeric(strsplit(block, "b")[[1]][2]) - 1) * 24 + trial))%>% 
   relocate(subject,block,trial)
 
-write_csv(df.beh,"../../data/fmri3/behavior/derivatives/beh.csv")
+write_csv(df.beh,"../../data/fmri3/derivatives/beh.csv")
 
 sr = 200
 # data wo baseline correction
-data_pupil <- read_csv("../pupil/derivatives/pupillometry.csv")
+data_pupil <- read_csv("../../data/fmri3/derivatives/pupillometry.csv")
 
 subjs_temp <- unique(data_pupil$subject)
 subjs_temp
@@ -95,30 +96,34 @@ data_pupil_ <- data_pupil%>%
   group_by(subject,block,trial)%>%
   mutate(sample_in_trial_n = row_number(),
          sample_in_trial_t = (sample_in_trial_n-1)/sr,
-         Time_sec = floor(sample_in_trial_t))%>% 
-  rowwise() %>% 
-  mutate(trial = ifelse(subject %in% c("cw240110","lr240201"),
-                        (as.numeric(strsplit(block, "b")[[1]][2]) - 1) * 48 + trial, 
-                        (as.numeric(strsplit(block, "b")[[1]][2]) - 1) * 24 + trial))
+         Time_sec = floor(sample_in_trial_t))
+
+
+data_pupil_$trial[data_pupil_$block == "b1"] <- data_pupil_$trial[data_pupil_$block == "b1"]
+data_pupil_$trial[data_pupil_$block == "b2"] <- 24+data_pupil_$trial[data_pupil_$block == "b2"]
+data_pupil_$trial[data_pupil_$block == "b3"] <- 48+data_pupil_$trial[data_pupil_$block == "b3"]
+data_pupil_$trial[data_pupil_$block == "b4"] <- 72+data_pupil_$trial[data_pupil_$block == "b4"]
 
 data_pupil_ <- data_pupil_%>% 
   left_join(df.beh)
 
-a = data_pupil_ %>% filter(subject == "pm240301")
-max(a$sample_in_trial_t)
+#examine the timing info
+a = data_pupil_ %>% filter(subject == "pm240301") 
+max(a$sample_in_trial_t) #should be ~22
 
 names(data_pupil_)
 
 View(data_pupil_%>%
   tail(100))
 
-sort(unique(data_pupil_$Time_sec)) #should be 0 to 21 (22 is rare)
+sort(unique(data_pupil_$Time_sec)) #should be 0 to 21/22 (22 is rare)
 
-data_pupil_$trial_duration = 16+as.numeric(data_pupil_$iti)
+data_pupil_$trial_duration[data_pupil_$probe == 1] = 18+as.numeric(data_pupil_$iti)[data_pupil_$probe == 1]
+data_pupil_$trial_duration[data_pupil_$probe == 2] = 16+as.numeric(data_pupil_$iti)[data_pupil_$probe == 2]
 
-sort(unique(data_pupil_$trial_duration)) #16, 18, 20, 22
+sort(unique(data_pupil_$trial_duration)) #18, 20, 22
 
-sort(unique(data_pupil_$Time_sec)) #16, 18, 20, 22
+sort(unique(data_pupil_$Time_sec))
 
 View(count(data_pupil_ %>% ungroup(),Time_sec))
 data_pupil_$Time_sec[1] #should be 0
