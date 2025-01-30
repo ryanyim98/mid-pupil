@@ -113,7 +113,7 @@ vrmid2_pupil_data<-vrmid2_pupil_data %>%
 ```
 ## fmri3
 ```{r}
-fmri3_pupil_data <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/derivatives/pupillometry_baselineCorrected.csv") %>% 
+fmri3_pupil_data <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/derivatives/pupillometry_baselineCorrected_with_luminance_convolved.csv") %>% 
   mutate(cue_value = factor(trialtype, levels = 1:6, labels = c("-$0","-$1","-$5","+$0","+$1","+$5"))) %>% 
   filter(!is.na(subject)) %>% 
   ungroup() %>% 
@@ -122,14 +122,16 @@ fmri3_pupil_data <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/deri
          pupilDiameter_bc_scaled = as.numeric(scale(pupilDiameter_bc)),
          pupilDiameter_baseline_scaled = as.numeric(scale(pupilDiameter_baseline)))
 
+# # ## run the code for binding luminance data to fmri3
+# source("../step1_preprocessing/fmri3/bind_luminance_fmri3.R", local = TRUE)
+# source("../step1_preprocessing/fmri3/convolve_luminance_fmri3.R", local = TRUE)
+
 fmri3_bad_participants <- read_delim("../../data/fmri3/subjects_list/subject_to_drop_pupil.txt", col_names = F, delim = " ")
 
 fmri3_pupil_data <- fmri3_pupil_data %>% 
   filter(!sub_id %in% fmri3_bad_participants) %>% 
   filter(!subject %in% c("sk240301","hc240324","js240311","jy240308","tc240311","el240312"))#these are manual exclusions based on data collection notes
 
-
- 
 
 fmri3_subjects <- unique(fmri3_pupil_data$subject)
 fmri3_subject_n<-length(fmri3_subjects)
@@ -145,6 +147,9 @@ fmri3_pupil_data$emotion <- factor(fmri3_pupil_data$emotion, levels = 1:6,
 
 fmri3_pupil_data$arousal <- fmri3_pupil_data$arating
 fmri3_pupil_data$valence <- fmri3_pupil_data$vrating
+
+# fmri3_pupil_data$hit <- factor(fmri3_pupil_data$hit,levels = c(1,0), labels = c("Hit","Miss"))
+# fmri3_pupil_data$cue_size <- factor(fmri3_pupil_data$cue_size,levels = c(1,2), labels = c("small","large"))
 
 fmri3_pupil_data <- fmri3_pupil_data %>% 
   mutate(emotion_cat = ifelse(emotion %in% c("Anxious","Angry","Excited"),"higharous",
@@ -163,8 +168,6 @@ for (i in 1:fmri3_subject_n){
   ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fmri3/examine_data/trial_figs/",fmri3_subjects[i],".png"),dpi = 300, height = 7, width = 14)
 }
 
-fmri3_pupil_data$hit <- factor(fmri3_pupil_data$hit,levels = c(1,0), labels = c("Hit","Miss"))
-fmri3_pupil_data$cue_size <- factor(fmri3_pupil_data$cue_size,levels = c(1,2), labels = c("small","large"))
 
 fmri3_pupil_data<-fmri3_pupil_data %>% 
   filter(abs(pupilDiameter_scaled)<5) %>% 
@@ -178,6 +181,67 @@ vrmid1_subject_n
 vrmid2_subject_n
 fmri3_subject_n
 vrmid1_subject_n+vrmid2_subject_n+fmri3_subject_n
+```
+
+
+# controlling for luminance
+
+```{r, fig.height=4,fig.width=6}
+summary_data <- fmri3_pupil_data %>% 
+  mutate(probe = as.factor(probe),
+         rating_type = as.factor(rating_type),
+         cue_value = as.factor(cue_value)) %>% 
+  group_by(sample_in_trial_t,probe,rating_type,cue_value,hit,cue_size) %>% 
+  summarise(luminance = mean(luminance),
+            convolved_orig=mean(convolved_orig),
+            convolved_new = mean(convolved_new)) %>% 
+  filter(cue_value == "+$5")
+
+ggplot()+
+  geom_line(data=summary_data,aes(x = sample_in_trial_t, y = luminance,
+            linetype = cue_size), linewidth = 0.5, color = 'skyblue')+
+  geom_line(data=summary_data,aes(x = sample_in_trial_t+0.1, y = convolved_orig,
+             linetype = cue_size), linewidth = 0.5, color = 'salmon')+
+    geom_line(data=summary_data,aes(x = sample_in_trial_t+0.2, y = convolved_new,
+            linetype = cue_size), linewidth = 0.5, color = 'pink')+
+  scale_x_continuous(breaks = seq(0,20,2))+
+  facet_wrap(~rating_type+probe)
+```
+
+```{r}
+#both lagged and non-lagged luminance are related to pupil size, but the lagged one has better beta.
+
+summary(l1<-lmer(scale(pupilDiameter_bc_scaled) ~ scale(luminance) + (1|subject),fmri3_pupil_data))
+summary(l2<-lmer(scale(pupilDiameter_bc_scaled) ~ scale(luminance_lag1) + (1|subject),fmri3_pupil_data))
+summary(l3<-lmer(scale(pupilDiameter_bc_scaled) ~ scale(convolved_orig) + (1|subject),fmri3_pupil_data))
+summary(l4<-lmer(scale(pupilDiameter_bc_scaled) ~ scale(convolved_new) + (1|subject),fmri3_pupil_data))
+
+summary(l1)$coefficient
+summary(l2)$coefficient
+summary(l3)$coefficient
+summary(l4)$coefficient
+
+# Extract rows used in the model
+model_data2 <- model.frame(l2)
+used_rows2 <- as.numeric(rownames(model_data2))
+# Compute residuals for the model
+# Get the residuals
+
+# Create a residuals column in processed_data, initializing with NA
+fmri3_pupil_data$residuals_lag1 <- NA
+
+residuals_l2 <- residuals(l2)
+# Assign residuals to the appropriate rows
+fmri3_pupil_data$residuals_lag1[used_rows2] <- residuals_l2
+# summary(lmer(scale(luminance_lag1) ~ scale(residuals_lag1) + (1|subject),processed_data))
+
+model_data4 <- model.frame(l4)
+used_rows4 <- as.numeric(rownames(model_data4))
+fmri3_pupil_data$residuals_conv <- NA
+
+residuals_l4 <- residuals(l4)
+# Assign residuals to the appropriate rows
+fmri3_pupil_data$residuals_conv[used_rows4] <- residuals_l4
 ```
 
 # plot example time courses
@@ -1426,8 +1490,13 @@ fmri3_data_antprobe <-  fmri3_pupil_data%>%
            arousal_scaled,valence_scaled,cue_size,rt,iti,last_iti)%>%
   summarise(mean_pupil_bc_scaled = mean(pupilDiameter_bc_scaled, na.rm = T),
             mean_pupil_nobc_scaled= mean(pupilDiameter_scaled, na.rm = T),
-            mean_pupil_baseline_scaled = mean(pupilDiameter_baseline_scaled, na.rm = T))%>%
-  pivot_wider(values_from = mean_pupil_bc_scaled:mean_pupil_nobc_scaled, names_from = pupil_window)%>%
+            mean_pupil_baseline_scaled = mean(pupilDiameter_baseline_scaled, na.rm = T),
+            mean_pupil_bc_scaled_residual_lag = mean(residuals_lag1,na.rm = T),
+            mean_pupil_bc_scaled_residual_conv = mean(residuals_conv,na.rm = T),
+            luminance_mean = mean(luminance,na.rm = T),
+            luminance_lag1_mean = mean(luminance_lag1,na.rm = T),
+            luminance_convolved_mean = mean(convolved_new,na.rm = T))%>%
+  pivot_wider(values_from = c(mean_pupil_bc_scaled,mean_pupil_nobc_scaled,mean_pupil_bc_scaled_residual_lag,mean_pupil_bc_scaled_residual_conv,luminance_mean,luminance_lag1_mean,luminance_convolved_mean), names_from = pupil_window)%>%
   ungroup()%>%
   group_by(subject)%>%
   mutate(log_rt = log(rt),
@@ -1458,8 +1527,14 @@ fmri3_data_outprobe <-  fmri3_pupil_data%>%
            arousal_scaled,valence_scaled,cue_size,rt,iti,last_iti)%>%
   summarise(mean_pupil_bc_scaled = mean(pupilDiameter_bc_scaled, na.rm = T),
             mean_pupil_nobc_scaled= mean(pupilDiameter_scaled, na.rm = T),
-            mean_pupil_baseline_scaled = mean(pupilDiameter_baseline_scaled, na.rm = T))%>%
-  pivot_wider(values_from = mean_pupil_bc_scaled:mean_pupil_nobc_scaled, names_from = pupil_window)%>%
+            mean_pupil_baseline_scaled = mean(pupilDiameter_baseline_scaled, na.rm = T),
+            mean_pupil_bc_scaled_residual_lag = mean(residuals_lag1,na.rm = T),
+            mean_pupil_bc_scaled_residual_conv = mean(residuals_conv,na.rm = T),
+            luminance_mean = mean(luminance,na.rm = T),
+            luminance_lag1_mean = mean(luminance_lag1,na.rm = T),
+            luminance_convolved_mean = mean(convolved_new,na.rm = T))%>%
+  pivot_wider(values_from = c(mean_pupil_bc_scaled,mean_pupil_nobc_scaled,mean_pupil_bc_scaled_residual_lag,mean_pupil_bc_scaled_residual_conv,luminance_mean,luminance_lag1_mean,luminance_convolved_mean), names_from = pupil_window)%>%
+  ungroup()%>%
   ungroup()%>%
   group_by(subject)%>%
   mutate(log_rt = log(rt),
@@ -1944,6 +2019,21 @@ summary(l1<-lmer(mean_pupil_nobc_scaled_out ~ cue_value * hit + (1|subject)+ (1|
 round(anova(l1),2)
 round(r.squaredGLMM(l1)*100,2)
 ```
+## was luminance related to self-reported arousal?
+
+```{r}
+summary(lmer(arousal_scaled ~ luminance_mean_ant + (1|subject),fmri3_data_antprobe))
+summary(lmer(arousal_scaled ~ luminance_mean_ant + (1|subject),fmri3_data_outprobe))
+
+summary(lmer(arousal_scaled ~ luminance_lag1_mean_ant + (1|subject),fmri3_data_antprobe))
+summary(lmer(arousal_scaled ~ luminance_lag1_mean_out + (1|subject),fmri3_data_outprobe))
+
+summary(lmer(arousal_scaled ~ luminance_mean_ant + (1|subject) + (1|probe),rbind(fmri3_data_antprobe,
+                                                                     fmri3_data_outprobe)))
+
+summary(lmer(arousal_scaled ~ luminance_mean_out + (1|subject) + (1|probe),rbind(fmri3_data_antprobe,
+                                                                     fmri3_data_outprobe)))
+```
 
 ## is OBJECTIVE or SUBJECTIVE model better?
 
@@ -2103,8 +2193,14 @@ p <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_scaled_ant) +(1|subject) +
 summary(p)
 tp <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_ant) +(1|subject) + (1|cue_size),
               da)
+tp_res_lag <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_scaled_residual_lag_ant) +(1|subject) + (1|cue_size),
+              da)
+tp_res_conv <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_scaled_residual_conv_ant) +(1|subject) + (1|cue_size),
+              da)
 summary(tp)
-anova(t,p,tp)
+summary(tp_res_lag)
+summary(tp_res_conv)
+anova(t,p,tp,tp_res)
 
 v3a<- c(round(r.squaredGLMM(t)*100,2),
 round(r.squaredGLMM(p)*100,2),
@@ -2171,7 +2267,13 @@ p <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_scaled_out) +(1|subject) +
 summary(p)
 tp <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_out)+(1|subject) + (1|cue_size),
               do)
+tp_res_lag <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_scaled_residual_lag_out) +(1|subject) + (1|cue_size),
+              do)
+tp_res_conv <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_scaled_residual_conv_out) +(1|subject) + (1|cue_size),
+              do)
 summary(tp)
+summary(tp_res_lag)
+summary(tp_res_conv)
 # anova(t,p,tp)
 
 v3o<- c(round(r.squaredGLMM(t)*100,2),
@@ -3433,6 +3535,124 @@ fmri3_axes <- fmri3_axes%>%
          cos = cos(rad),
          sin = sin(rad))
 ```
+#### for the residual pupil size
+```{r}
+da <- fmri3_data_antprobe
+do <- fmri3_data_outprobe
+
+nbins = 360
+angles = seq(0,pi/2, by = pi/(2*nbins))
+angles = data.frame(angle1d = angles*180/pi,
+                    angle1r = angles,
+                    sin1 = sin(angles),
+                    cos1 = cos(angles))
+
+angles <- angles%>%
+  mutate(angle2d = angle1d + 90,
+         angle2r = angle1r + pi/2,
+         sin2 = sin(angle2r),
+         cos2 = cos(angle2r))
+
+lmer_out1 <- {}
+
+for (i in 1:nrow(angles)){
+  angle_info = angles[i,]
+  data_lm_anti_temp <- da%>%
+    mutate(axis1 = valence_scaled * angle_info$cos1 + arousal_scaled * angle_info$sin1,
+           axis2 = valence_scaled * angle_info$cos2 + arousal_scaled * angle_info$sin2)
+  sum_temp1 <- summary(lmer(scale(axis1) ~ scale(mean_pupil_bc_scaled_residual_ant) + (1|subject) + (1|cue_size),
+              data_lm_anti_temp))
+  sum_temp2 <- summary(lmer(scale(axis2) ~ scale(mean_pupil_bc_scaled_residual_ant) + (1|subject) + (1|cue_size),
+              data_lm_anti_temp))
+  lmer_out1 <- rbind(lmer_out1, sum_temp1$coefficients[2,],sum_temp2$coefficients[2,])
+}
+
+lmer_out1 <- as.data.frame(lmer_out1)
+lmer_out1$axis = rep(c("axis1","axis2"),nrow(angles))
+  
+lmer_out1[seq(1,nrow(angles)*2,by = 2),"angle"] = angles$angle1d
+lmer_out1[seq(2,nrow(angles)*2,by = 2),"angle"] = angles$angle2d
+
+lmer_out1[seq(1,nrow(angles)*2,by = 2),"sin"] = angles$sin1
+lmer_out1[seq(2,nrow(angles)*2,by = 2),"sin"] = angles$sin2
+
+lmer_out1[seq(1,nrow(angles)*2,by = 2),"cos"] = angles$cos1
+lmer_out1[seq(2,nrow(angles)*2,by = 2),"cos"] = angles$cos2
+
+lmer_out1$p_val <- (lmer_out1$`Pr(>|t|)` < 0.001)
+
+a1f <- lmer_out1[which.max(abs(lmer_out1$Estimate)),]
+
+lmer_out2 <- {}
+
+for (i in 1:nrow(angles)){
+  angle_info = angles[i,]
+  data_lm_out_temp <- do%>%
+    mutate(axis1 = valence_scaled * angle_info$cos1 + arousal_scaled * angle_info$sin1,
+           axis2 = valence_scaled * angle_info$cos2 + arousal_scaled * angle_info$sin2)
+  sum_temp1 <- summary(lmer(scale(axis1) ~ scale(mean_pupil_bc_scaled_residual_out) + (1|subject) + (1|cue_size),
+              data_lm_out_temp))
+  sum_temp2 <- summary(lmer(scale(axis2) ~ scale(mean_pupil_bc_scaled_residual_out) + (1|subject) + (1|cue_size),
+              data_lm_out_temp))
+  lmer_out2 <- rbind(lmer_out2, sum_temp1$coefficients[2,],sum_temp2$coefficients[2,])
+}
+
+lmer_out2 <- as.data.frame(lmer_out2)
+lmer_out2$axis = rep(c("axis1","axis2"),nrow(angles))
+  
+lmer_out2[seq(1,nrow(angles)*2,by = 2),"angle"] = angles$angle1d
+lmer_out2[seq(2,nrow(angles)*2,by = 2),"angle"] = angles$angle2d
+
+lmer_out2[seq(1,nrow(angles)*2,by = 2),"sin"] = angles$sin1
+lmer_out2[seq(2,nrow(angles)*2,by = 2),"sin"] = angles$sin2
+
+lmer_out2[seq(1,nrow(angles)*2,by = 2),"cos"] = angles$cos1
+lmer_out2[seq(2,nrow(angles)*2,by = 2),"cos"] = angles$cos2
+
+lmer_out2$p_val <- (lmer_out2$`Pr(>|t|)` < 0.001)
+
+a2f <- lmer_out2[which.max(abs(lmer_out2$Estimate)),]
+
+fmri3_res_axes <- rbind(a1f,a2f)
+fmri3_res_axes$condition <- c("anti","outcome")
+
+fmri3_res_axes <- fmri3_res_axes%>%
+  mutate(rad = angle/180 *pi,
+         cos = cos(rad),
+         sin = sin(rad))
+
+ggplot(fmri3_res_axes%>%
+         mutate(cos = cos * abs(Estimate),
+                sin = sin * abs(Estimate)))+
+  geom_segment(aes(x = -0.4, y = 0,
+                   xend = 0.4, yend = 0),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")),
+               color = "grey")+
+  geom_segment(aes(x = 0, y = -0.4,
+                   xend = 0, yend = 0.4),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")),
+               color = "grey")+
+    geom_segment(aes(x = 0, y = 0,
+                   xend = -0.3, yend = 0.3),
+               size = 1, linetype = "dashed",
+               color = "grey")+
+  geom_segment(aes(x = 0,y = 0,
+                   xend = cos, yend = sin,
+                   color = condition),
+               size = 2, arrow = arrow(length = unit(0.03, "npc")))+
+  geom_text(aes(x = cos * 1.2, y = sin * 1.2, color = condition, label = round(Estimate,2)),
+            size = 5,check_overlap = F)+
+  scale_color_manual(values = c("purple","skyblue"))+
+  labs(x = "",
+       y = "",
+       title = "FMRI study 3 (residual pupil)")+
+  theme_blank()+
+  theme(legend.position = "none",
+         axis.ticks = element_blank(),
+    axis.text = element_blank())+
+  annotate("text",x=0.2,y = 0.05, label = "valence zscore", color = "grey")+
+  annotate("text",x=-0.05,y = -0.25, label = "arousal zscore", color = "grey", angle = 90)
+```
 
 ## plot the axes
 ```{r}
@@ -3873,23 +4093,138 @@ p3b<-ggplot(fmri3_regression_coefs_out_nobc_smoothed %>% filter(sample_point <= 
 (p1a+p2a+p3a)/(p1b+p2b+p3b)
 ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig3_regression_timeseries.tiff"),dpi = 300, height = 5, width = 9)
 ```
+### The residual time course analysis for fmri3
+```{r}
+fmri3_regression_coefs_ant_res_nobc <- {}
+
+for (t in 1:20) {
+  coefs <- {}
+  print(t)
+  for (s in 1:200){
+  df_ant_temp <- fmri3_pupil_data%>%
+  filter(probe == 1,Time_sec == t, sample_in_sec == s)
+  lm_ant_temp <- lmer(scale(arousal_scaled) ~ scale(residuals_lag1) + (1|subject) + (1|cue_size),df_ant_temp)
+  lm_out <- c(summary(lm_ant_temp)$coefficient[2,],'r2m' = r.squaredGLMM(lm_ant_temp)[1])
+  coefs <- rbind(coefs,lm_out)
+  }
+  coefs <- as.data.frame(coefs)%>%
+    mutate(sample_in_sec = row_number(),
+           Time_sec = t)
+  rownames(coefs) <- NULL
+  fmri3_regression_coefs_ant_res_nobc <- rbind(fmri3_regression_coefs_ant_res_nobc,coefs)
+}
+
+fmri3_regression_coefs_ant_res_nobc <- fmri3_regression_coefs_ant_res_nobc%>%
+  mutate(sample_point = row_number(),
+         p_val = (`Pr(>|t|)` < .001))
+
+write.csv(fmri3_regression_coefs_ant_res_nobc, "../../data/fmri3/derivatives/fmri3_regression_coefs_ant_res_nobc.csv")
+
+fmri3_regression_coefs_out_res_nobc <- {}
+
+for (t in 1:20) {
+  coefs <- {}
+  print(t)
+  for (s in 1:200){
+  df_out_temp <- fmri3_pupil_data%>%
+  filter(probe == 2,Time_sec == t, sample_in_sec == s)
+  lm_out_temp <-  lmer(scale(arousal_scaled) ~ scale(residuals_lag1) + (1|subject) + (1|cue_size),df_out_temp)
+  lm_out <- summary(lm_out_temp)$coefficient[2,]
+  coefs <- rbind(coefs,lm_out) 
+  }
+  coefs <- as.data.frame(coefs)%>%
+    mutate(sample_in_sec = row_number(),
+           Time_sec = t)
+  rownames(coefs) <- NULL
+  fmri3_regression_coefs_out_res_nobc <- rbind(fmri3_regression_coefs_out_res_nobc,coefs)
+}
+
+fmri3_regression_coefs_out_res_nobc <- fmri3_regression_coefs_out_res_nobc%>%
+  mutate(sample_point = row_number(),
+         p_val = (`Pr(>|t|)` < .001))
+
+write.csv(fmri3_regression_coefs_out_res_nobc,  "../../data/fmri3/derivatives/fmri3_regression_coefs_out_res_nobc.csv")
+```
+
+```{r}
+fmri3_regression_coefs_ant_res_nobc_smoothed <- fmri3_regression_coefs_ant_res_nobc %>% 
+  mutate(smoothed_beta = zoo::rollmean(Estimate, k = 100, fill = NA))
+fmri3_regression_coefs_out_res_nobc_smoothed <- fmri3_regression_coefs_out_res_nobc %>% 
+  mutate(smoothed_beta = zoo::rollmean(Estimate, k = 100, fill = NA))
+
+p4a<-ggplot(fmri3_regression_coefs_ant_res_nobc_smoothed, aes(x = sample_point,y = smoothed_beta))+
+  geom_vline(xintercept = c(0,2,4,12,14,16,18)*200, size = 1, color = "grey")+
+  annotate("text", x = 1*200,y = 0.08, label = "cue",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 3*200,y = 0.08, label = "fix",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 13*200,y = 0.08, label = "fix2",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 15*200,y = 0.08, label = "target",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 17*200,y = 0.08, label = "out",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 8*200,y = 0.08, label = "rate",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  geom_point(aes(color = smoothed_beta),
+             size = 1)+
+    geom_segment(aes(x = fmri3_ant_window[1]*200, xend = fmri3_ant_window[2]*200, y = 0.15, yend = 0.15), color = 'purple',size = 2)+
+  scale_x_continuous(breaks = seq(0,200*20,5*200), labels =  seq(0,20,5))+
+  labs(x = "time (sec)",
+       y =  "",
+       title = "FMRI study 3 (residual pupil)",
+       subtitle = "anticipation probe")+
+  scale_color_viridis_c(limits=c(-0.05,0.45))+
+  theme(legend.position = "none")+
+  theme_blank()+
+  theme(legend.position = "none")
+
+p4b<-ggplot(fmri3_regression_coefs_out_res_nobc_smoothed %>% filter(sample_point <= 18*200), aes(x = sample_point,y = smoothed_beta))+
+  geom_vline(xintercept = c(0,2,4,6,8,16)*200, size = 1, color = "grey")+
+  annotate("text", x = 1*200,y = 0.02, label = "cue",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 3*200,y = 0.02, label = "fix",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 5*200,y = 0.02, label = "target",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+  annotate("text", x = 7*200,y = 0.02, label = "out",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    annotate("text", x = 12*200,y = 0.02, label = "rate",
+          color = "black",size = unit(4,"pt"),angle = 90)+
+    geom_point(aes(color = smoothed_beta),
+             size = 1)+
+  geom_segment(aes(x = fmri3_outprobe_out_window[1]*200, xend = fmri3_outprobe_out_window[2]*200, y = 0.06, yend = 0.06), color = 'skyblue',size = 2)+
+ scale_x_continuous(breaks = seq(0,200*20,5*200), labels =  seq(0,20,5))+
+  labs(x = "time (sec)",
+       y =  "",
+       title = "FMRI study 3 (residual pupil)",
+       subtitle = "outcome probe")+
+  scale_color_viridis_c(limits=c(-0.05,0.45))+
+  theme(legend.position = "none")+
+  theme_blank()+
+  theme(legend.position = "none")
+
+p3a+p4a+
+p3b+p4b
+```
+
 
 # combining two probes, timing = relative to rating period
 
 ## time window analysis
 ```{r}
 vrmid1_data_2probes <- rbind(vrmid1_data_antprobe %>% 
-                               select(probe:reaction_time,mean_pupil_nobc_ant) %>% 
+                               select(probe:reaction_time,arousal,valence,mean_pupil_nobc_ant) %>% 
                                rename(mean_pupil_nobc=mean_pupil_nobc_ant),
                              vrmid1_data_outprobe %>% 
-                               select(probe:reaction_time,mean_pupil_nobc_out) %>% 
+                               select(probe:reaction_time,arousal,valence,mean_pupil_nobc_out) %>% 
                                rename(mean_pupil_nobc=mean_pupil_nobc_out))
 
 vrmid2_data_2probes <- rbind(vrmid2_data_antprobe %>% 
-                               select(probe:reaction_time,mean_pupil_nobc_ant) %>% 
+                               select(probe:reaction_time,arousal,valence,mean_pupil_nobc_ant) %>% 
                                rename(mean_pupil_nobc=mean_pupil_nobc_ant),
                              vrmid2_data_outprobe %>% 
-                               select(probe:reaction_time,mean_pupil_nobc_out) %>% 
+                               select(probe:reaction_time,arousal,valence,mean_pupil_nobc_out) %>% 
                                rename(mean_pupil_nobc=mean_pupil_nobc_out))
 
 fmri3_data_2probes <- rbind(fmri3_data_antprobe %>% 
@@ -3905,6 +4240,30 @@ summary(l2<-lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc) +(1|Subject) + 
               vrmid2_data_2probes))
 summary(l3<-lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc) +(1|subject) + (1|cue_size),
               fmri3_data_2probes))
+```
+#### data to share with Tara and Cynthia
+```{r}
+datashare1<-vrmid1_pupil_data %>% 
+  group_by(Subject,trial) %>% 
+  mutate(rowid = row_number()) %>% 
+  filter(rowid == 1) %>% 
+  select(-rowid,-Time:-current_stimulus,-Time_str:-Time_in_trial_sec,-PPG_1:-pupil_Avg_bc_scale)
+
+datashare2<-vrmid2_pupil_data %>% 
+  group_by(Subject,trial) %>% 
+  mutate(rowid = row_number()) %>% 
+  filter(rowid == 1) %>% 
+  select(-rowid,-Time_sec,-Time:-current_stimulus,-Time_str:-end_time,-pupil_size:-pupil_Avg_bc_scale)
+
+datashare3<-fmri3_pupil_data %>% 
+  group_by(subject,trial) %>% 
+  mutate(rowid = row_number()) %>% 
+  filter(rowid == 1) %>% 
+  select(-rowid,-blink:-pupil_y,-sample_in_trial_n:-trialonset,-last_iti:-pupilDiameter_baseline_scaled)
+
+write.csv(datashare1,"vrmid1.csv")
+write.csv(datashare2,"vrmid2.csv")
+write.csv(datashare3,"fmri3.csv")
 ```
 
 ## time course analysis
@@ -4182,21 +4541,26 @@ plot_layout(heights = c(0.2,1,1))
 ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig7_howlongago3.tiff"),dpi = 300, height = 7, width = 10)
 ```
 
+
+
 #brain pattern stuff
 
 ## read in the brain template similarity
 
 ```{r}
 subjects_list<-read_delim('~/Desktop/midaffemo/analyses/subjects-pupil-fmri.txt',delim = '\t', col_names = F)
+glm27_array<-as.data.frame(t(read_csv("~/Desktop/midaffemo/glm_maps/glm27_array.csv", col_names = F))) %>% mutate(type = "glm27", tr = row_number())
 glm33_array<-as.data.frame(t(read_csv("~/Desktop/midaffemo/glm_maps/glm33_array.csv", col_names = F))) %>% mutate(type = "glm33", tr = row_number())
 glm33b_array<-as.data.frame(t(read_csv("~/Desktop/midaffemo/glm_maps/glm33b_array.csv", col_names = F))) %>% mutate(type = "glm33b", tr = row_number())
 pupil_array<-as.data.frame(t(read_csv("~/Desktop/midaffemo/glm_maps/pupil_array.csv", col_names = F))) %>% mutate(type = "pupil", tr = row_number())
 
-my_array<-Reduce(rbind,list(glm33_array,glm33b_array,pupil_array))
+my_array<-Reduce(rbind,list(glm27_array,glm33_array,glm33b_array,pupil_array))
 names(my_array) <- c(subjects_list$X1,"type","tr")
 my_array<-my_array%>% 
   pivot_longer(ab240324:yz240312,names_to = "subject",values_to = "val") %>% 
   pivot_wider(names_from = type, values_from = val)
+
+cor(my_array %>% select(glm27:glm33b))
 
 my_array_ <- my_array %>% 
   mutate(pupil_lead10 = lead(pupil,10),
@@ -4304,6 +4668,232 @@ my_array2_ <- my_array2_ %>%
 
 ```
 
+#### self-reported arousal template
+```{r}
+my_array2__ <- my_array2%>% 
+  ungroup() %>% 
+  select(trial,subject,tr_in_trial,glm27,trial_tr) %>% 
+  pivot_wider(names_from = tr_in_trial, values_from = c(glm27), names_prefix = "glm27_TR_") %>% 
+  arrange(subject,trial)
+
+
+for (sub in unique(my_array2__$subject)){
+  for(tr in 9:11){
+    replace_idx = my_array2__$subject == sub & my_array2__$trial_tr == tr & is.na(my_array2__[,paste0("glm27_TR_",tr+1)])
+    my_array2__[replace_idx,paste0("glm27_TR_",(tr+1):TR_DELAY)] <- my_array2__[lag(replace_idx) %>% replace_na(FALSE),paste0("glm27_TR_",1:(TR_DELAY-tr))]
+} # tr loop
+}
+
+TR_DELAY = 14
+my_array2__ <- my_array2__ %>% mutate(glm27_TR_17 = NA, glm27_TR_18 = NA, glm27_TR_19 = NA, glm27_TR_20 = NA)
+
+my_array2__<-left_join(my_array2__ %>% 
+                        pivot_longer(glm27_TR_1:glm27_TR_20,names_to = "tr_in_trial",names_prefix = "glm27_TR_",
+                                     values_to = "glm27"),fmri3_data_2probes,
+                      by = c("subject","trial")) %>% 
+  filter(tr <= 975)%>%
+  mutate(half = ifelse(trial >= 48,"second","first"))%>% #last bit was interpolated
+  mutate(probe = ifelse(probe == 1, "anticipation probe","outcome probe"))
+
+my_array2__ <- my_array2__ %>% 
+  mutate(tr_in_trial = as.numeric(tr_in_trial),
+         time = (tr_in_trial-1) * 2)
+
+d1<-my_array2__ %>% 
+         filter(!is.na(hit)) %>% 
+         group_by(tr_in_trial,hit,subject,probe) %>% 
+         summarise(glm27 = mean(glm27,na.rm = T)) %>% 
+         group_by(tr_in_trial,hit,probe) %>% 
+         summarise(mean = mean(glm27,na.rm = T),
+                   se = sd(glm27,na.rm = T)/sqrt(n())) %>% 
+  filter(tr_in_trial <= 14)
+p1a<-ggplot(d1 %>% filter(probe == "anticipation probe"),
+       aes(x = tr_in_trial, y = mean,color = hit))+
+  geom_vline(xintercept = c(4.5,5.5), size = 1, color = "grey")+
+  annotate("text",x = 5, y = 0.15, label = "fixation",angle = 90)+
+  geom_vline(xintercept = c(9.5,10.5), size = 1, color = "grey")+
+  annotate("text",x = 10, y = 0.15, label = "outcome",angle = 90)+
+  annotate("text",x = 7, y = 0.15, label = "rating")+
+  geom_line(aes(linetype = hit),size = 0.5) +
+  geom_point()+
+  geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
+  scale_color_manual(values = c("navy","red"))+
+  scale_fill_manual(values = c("navy","red"))+
+  labs(y = "Simalirty to pupil template",
+       x = "time (s)",
+       subtitle = "anticipation probe")+
+  theme(legend.position = "top")+
+  scale_x_continuous(breaks = seq(1,15,2),labels = seq(0,28,4))
+
+p1b<-ggplot(d1 %>% filter(probe == "outcome probe"),
+       aes(x = tr_in_trial, y = mean,color = hit))+
+  geom_vline(xintercept = c(4.5,5.5), size = 1, color = "grey")+
+  annotate("text",x = 5, y = 0.1, label = "fixation",angle = 90)+
+  geom_vline(xintercept = c(6.5,7.5), size = 1, color = "grey")+
+  annotate("text",x = 7, y = 0.1, label = "outcome",angle = 90)+
+  annotate("text",x = 10, y = 0.1, label = "rating")+
+  geom_line(aes(linetype = hit),size = 0.5) +
+  geom_point()+
+  geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
+  scale_color_manual(values = c("navy","red"))+
+  scale_fill_manual(values = c("navy","red"))+
+  labs(y = "Simalirty to pupil template",
+       x = "time (s)",
+       subtitle = "outcome probe")+
+  scale_x_continuous(breaks = seq(0,20,4))+
+  theme(legend.position = "none")+
+  scale_x_continuous(breaks = seq(1,15,2),labels = seq(0,28,4))
+
+d2<-my_array2__ %>% 
+         filter(cue_value %in% c("+$5","+$0")) %>% 
+         group_by(tr_in_trial,cue_value,subject,probe) %>% 
+         summarise(glm27 = mean(glm27,na.rm = T)) %>% 
+         group_by(tr_in_trial,cue_value,probe) %>% 
+         summarise(mean = mean(glm27,na.rm = T),
+                   se = sd(glm27,na.rm = T)/sqrt(n()))%>% 
+  filter(tr_in_trial <= 14)
+p2a<-
+  ggplot(d2 %>% filter(probe == "anticipation probe"),
+       aes(x = tr_in_trial, y = mean,color = cue_value))+
+  geom_vline(xintercept = c(4.5,5.5), size = 1, color = "grey")+
+  annotate("text",x = 5, y = 0.1, label = "fixation",angle = 90)+
+  geom_vline(xintercept = c(9.5,10.5), size = 1, color = "grey")+
+  annotate("text",x = 10, y = 0.1, label = "outcome",angle = 90)+
+  geom_line(size = 0.5) +
+  geom_point()+
+  geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
+  scale_color_manual(values = c("khaki","goldenrod4"))+
+  scale_fill_manual(values =  c("khaki","goldenrod4"))+
+  labs(y="similarity",x = "time (s)",
+       subtitle = "anticipation probe")+
+  scale_x_continuous(breaks = seq(0,20,4))+
+  theme(legend.position = "top")+
+  scale_x_continuous(breaks = seq(1,15,2),labels = seq(0,28,4))
+
+p2b<-
+  ggplot(d2 %>% filter(probe == "outcome probe"),
+       aes(x = tr_in_trial, y = mean,color = cue_value))+
+  geom_vline(xintercept = c(4.5,5.5), size = 1, color = "grey")+
+  annotate("text",x = 5, y = 0.1, label = "fixation",angle = 90)+
+  geom_vline(xintercept = c(6.5,7.5), size = 1, color = "grey")+
+  annotate("text",x = 7, y =0.1, label = "outcome",angle = 90)+
+  geom_line(size = 0.5) +
+  geom_point()+
+  geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
+  scale_color_manual(values = c("khaki","goldenrod4"))+
+  scale_fill_manual(values =  c("khaki","goldenrod4"))+
+  labs(y="similarity",x = "time (s)",
+       subtitle = "outcome probe")+
+  scale_x_continuous(breaks = seq(0,20,4))+
+  theme(legend.position = "none")+
+  scale_x_continuous(breaks = seq(1,15,2),labels = seq(0,28,4))
+
+d3<-my_array2__ %>% 
+         filter(cue_value %in% c("-$5","-$0")) %>% 
+         group_by(tr_in_trial,cue_value,subject,probe) %>% 
+         summarise(glm27 = mean(glm27,na.rm = T)) %>% 
+         group_by(tr_in_trial,cue_value,probe) %>% 
+         summarise(mean = mean(glm27,na.rm = T),
+                   se = sd(glm27,na.rm = T)/sqrt(n()))%>% 
+  filter(tr_in_trial <= 14)
+p3a<-
+  ggplot(d3 %>% filter(probe == "anticipation probe"),
+       aes(x = tr_in_trial, y = mean,color = cue_value))+
+  geom_vline(xintercept = c(4.5,5.5), size = 1, color = "grey")+
+  annotate("text",x = 5, y = 0.1, label = "fixation",angle = 90)+
+  geom_vline(xintercept = c(9.5,10.5), size = 1, color = "grey")+
+  annotate("text",x = 10, y = 0.1, label = "outcome",angle = 90)+
+  geom_line(size = 0.5) +
+  geom_point()+
+  geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
+  scale_color_manual(values = c("purple4","plum3"))+
+  scale_fill_manual(values =  c("purple4","plum3"))+
+  labs(y="similarity",x = "time (s)",
+       subtitle = "anticipation probe")+
+  scale_x_continuous(breaks = seq(0,20,4))+
+  theme(legend.position = "top")+
+  scale_x_continuous(breaks = seq(1,15,2),labels = seq(0,28,4))
+p3b<-
+  ggplot(d3 %>% filter(probe == "outcome probe"),
+       aes(x = tr_in_trial, y = mean,color = cue_value))+
+  geom_vline(xintercept = c(4.5,5.5), size = 1, color = "grey")+
+  annotate("text",x = 5, y = 0.1, label = "fixation",angle = 90)+
+  geom_vline(xintercept = c(6.5,7.5), size = 1, color = "grey")+
+  annotate("text",x = 7, y = 0.1, label = "outcome",angle = 90)+
+  geom_line(size = 0.5) +
+  geom_point()+
+  geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
+  scale_color_manual(values = c("purple4","plum3"))+
+  scale_fill_manual(values =  c("purple4","plum3"))+
+  labs(y="similarity",x = "time (s)",
+       subtitle = "outcome probe")+
+  scale_x_continuous(breaks = seq(0,20,4))+
+  theme(legend.position = "none")+
+  scale_x_continuous(breaks = seq(1,15,2),labels = seq(0,28,4))
+
+
+summary(lmer(rt ~ glm27 + (1|subject),my_array2__ %>% filter(tr_in_trial == 5, hit == "Hit")))
+
+coefs1 = NULL
+for (t in 1:14){
+  l1<-summary(lmer(scale(glm27) ~ scale(arousal) + (1|subject),my_array2__ %>% filter(tr_in_trial == t, probe == "anticipation probe")))
+  coefs1 <- rbind(coefs1,l1$coefficients[2,])
+}
+coefs1<-as.data.frame(coefs1)
+coefs1$TR <- 1:14
+coefs1$probe = "anticipation probe"
+
+coefs2 = NULL
+for (t in 1:14){
+  l1<-summary(lmer(scale(glm27) ~ scale(arousal) + (1|subject),my_array2__ %>% filter(tr_in_trial == t, probe == "outcome probe")))
+  coefs2 <- rbind(coefs2,l1$coefficients[2,])
+}
+coefs2<-as.data.frame(coefs2)
+coefs2$TR <- 1:14
+coefs2$probe = "outcome probe"
+
+coefs <- rbind(coefs1,coefs2) %>% 
+  mutate(sig = ifelse(`Pr(>|t|)` >= 0.05, "",
+                      ifelse(`Pr(>|t|)` >= 0.01, "*",
+                             ifelse(`Pr(>|t|)` >= 0.001, "**","***"))))
+
+p4a<-ggplot(coefs %>% filter(probe == "anticipation probe"),aes(x = TR, y =Estimate))+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  geom_vline(xintercept = c(4.5,5.5,9.5,10.5),size = 1, color = "grey")+
+  annotate("text",x = 5, y = 0.05, label = "fixation",angle = 90)+
+  annotate("text",x = 10, y = 0.05, label = "outcome",angle = 90)+
+  geom_line(aes(color = probe))+
+  geom_point(aes(color = probe), shape = 1)+
+  scale_x_continuous(breaks = seq(0,14,2), labels = seq(0,28,4))+
+  scale_color_manual(values = c("purple"))+
+  geom_text(aes(x = TR, y = Estimate+0.01, label = sig, color = probe))+
+  labs(x = "time (s)",
+       y = "Correlation with arousal",
+       title = "Regression weights on arousal",
+       subtitle = "anticipation probe")+
+  theme(legend.position = "none")
+
+p4b<-ggplot(coefs%>% filter(probe == "outcome probe"),aes(x = TR, y =Estimate))+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  geom_vline(xintercept = c(4.5,5.5,6.5,7.5),size = 1, color = "grey")+
+  annotate("text",x = 5, y = 0.05, label = "fixation",angle = 90)+
+    annotate("text",x = 7, y = 0.05, label = "outcome",angle = 90)+
+  geom_line(aes(color = probe))+
+  geom_point(aes(color = probe), shape = 1)+
+  scale_x_continuous(breaks = seq(0,14,2), labels = seq(0,28,4))+
+  scale_color_manual(values = c("skyblue"))+
+  geom_text(aes(x = TR, y = Estimate+0.01, label = sig, color = probe))+
+  labs(x = "time (s)",
+       subtitle = "outcome probe")+
+  theme(legend.position = "none")
+
+p1a+p1b+p2a+p2b+p3a+p3b+p4a+p4b+plot_layout(nrow = 2)
+
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/similarity_glm27.png"),dpi = 300, height = 6, width = 11)
+```
+
+
+#### pupil glm template (glm 33b)
 ```{r}
 d1<-my_array2_ %>% 
          filter(!is.na(hit)) %>% 
@@ -4313,7 +4903,7 @@ d1<-my_array2_ %>%
          summarise(mean = mean(glm33b,na.rm = T),
                    se = sd(glm33b,na.rm = T)/sqrt(n())) %>% 
   filter(tr_in_trial <= 14)
-p1a<-ggplot(d1 %>% filter(probe == "anticipation probe"),
+p1a_<-ggplot(d1 %>% filter(probe == "anticipation probe"),
        aes(x = tr_in_trial, y = mean,color = hit))+
   geom_vline(xintercept = c(4.5,5.5), size = 1, color = "grey")+
   annotate("text",x = 5, y = -0.01, label = "fixation",angle = 90)+
@@ -4331,7 +4921,7 @@ p1a<-ggplot(d1 %>% filter(probe == "anticipation probe"),
   theme(legend.position = "top")+
   scale_x_continuous(breaks = seq(1,15,2),labels = seq(0,28,4))
 
-p1b<-ggplot(d1 %>% filter(probe == "outcome probe"),
+p1b_<-ggplot(d1 %>% filter(probe == "outcome probe"),
        aes(x = tr_in_trial, y = mean,color = hit))+
   geom_vline(xintercept = c(4.5,5.5), size = 1, color = "grey")+
   annotate("text",x = 5, y = -0.01, label = "fixation",angle = 90)+
@@ -4358,7 +4948,7 @@ d2<-my_array2_ %>%
          summarise(mean = mean(glm33b,na.rm = T),
                    se = sd(glm33b,na.rm = T)/sqrt(n()))%>% 
   filter(tr_in_trial <= 14)
-p2a<-
+p2a_<-
   ggplot(d2 %>% filter(probe == "anticipation probe"),
        aes(x = tr_in_trial, y = mean,color = cue_value))+
   geom_vline(xintercept = c(4.5,5.5), size = 1, color = "grey")+
@@ -4376,7 +4966,7 @@ p2a<-
   theme(legend.position = "top")+
   scale_x_continuous(breaks = seq(1,15,2),labels = seq(0,28,4))
 
-p2b<-
+p2b_<-
   ggplot(d2 %>% filter(probe == "outcome probe"),
        aes(x = tr_in_trial, y = mean,color = cue_value))+
   geom_vline(xintercept = c(4.5,5.5), size = 1, color = "grey")+
@@ -4402,7 +4992,7 @@ d3<-my_array2_ %>%
          summarise(mean = mean(glm33b,na.rm = T),
                    se = sd(glm33b,na.rm = T)/sqrt(n()))%>% 
   filter(tr_in_trial <= 14)
-p3a<-
+p3a_<-
   ggplot(d3 %>% filter(probe == "anticipation probe"),
        aes(x = tr_in_trial, y = mean,color = cue_value))+
   geom_vline(xintercept = c(4.5,5.5), size = 1, color = "grey")+
@@ -4419,7 +5009,7 @@ p3a<-
   scale_x_continuous(breaks = seq(0,20,4))+
   theme(legend.position = "top")+
   scale_x_continuous(breaks = seq(1,15,2),labels = seq(0,28,4))
-p3b<-
+p3b_<-
   ggplot(d3 %>% filter(probe == "outcome probe"),
        aes(x = tr_in_trial, y = mean,color = cue_value))+
   geom_vline(xintercept = c(4.5,5.5), size = 1, color = "grey")+
@@ -4464,7 +5054,7 @@ coefs <- rbind(coefs1,coefs2) %>%
                       ifelse(`Pr(>|t|)` >= 0.01, "*",
                              ifelse(`Pr(>|t|)` >= 0.001, "**","***"))))
 
-p4a<-ggplot(coefs %>% filter(probe == "anticipation probe"),aes(x = TR, y =Estimate))+
+p4a_<-ggplot(coefs %>% filter(probe == "anticipation probe"),aes(x = TR, y =Estimate))+
   geom_hline(yintercept = 0, linetype = "dashed")+
   geom_vline(xintercept = c(4.5,5.5,9.5,10.5),size = 1, color = "grey")+
   annotate("text",x = 5, y = 0.05, label = "fixation",angle = 90)+
@@ -4480,7 +5070,7 @@ p4a<-ggplot(coefs %>% filter(probe == "anticipation probe"),aes(x = TR, y =Estim
        subtitle = "anticipation probe")+
   theme(legend.position = "none")
 
-p4b<-ggplot(coefs%>% filter(probe == "outcome probe"),aes(x = TR, y =Estimate))+
+p4b_<-ggplot(coefs%>% filter(probe == "outcome probe"),aes(x = TR, y =Estimate))+
   geom_hline(yintercept = 0, linetype = "dashed")+
   geom_vline(xintercept = c(4.5,5.5,6.5,7.5),size = 1, color = "grey")+
   annotate("text",x = 5, y = 0.05, label = "fixation",angle = 90)+
@@ -4494,13 +5084,11 @@ p4b<-ggplot(coefs%>% filter(probe == "outcome probe"),aes(x = TR, y =Estimate))+
        subtitle = "outcome probe")+
   theme(legend.position = "none")
 
-
-
-
 p1a+p1b+p2a+p2b+p3a+p3b+p4a+p4b+plot_layout(nrow = 2)
 
 ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/similarity.png"),dpi = 300, height = 6, width = 11)
 ```
+
 ```{r}
 summary(lmer(scale(glm33b) ~ hit + (1|subject) + (1|probe),my_array2_ %>% filter(tr_in_trial == 5)))
 
@@ -4509,5 +5097,15 @@ summary(lmer(scale(glm33b) ~ cue_value + (1|subject) + (1|probe),my_array2_ %>% 
 summary(lmer(scale(glm33b) ~ cue_value  + (1|subject)+ (1|probe),my_array2_ %>% filter(tr_in_trial == 5, cue_value %in% c("-$5","-$0"))))
 
 summary(lmer(scale(glm33b) ~ half  + (1|subject) + (1|probe),my_array2_ %>% filter(tr_in_trial == 5)))
+
+summary(lmer(scale(glm33b) ~ arousal  + (1|subject) + (1+arousal|probe),my_array2_ %>% filter(tr_in_trial == 5)))
+summary(lmer(scale(glm27) ~ arousal  + (1|subject) + (1+arousal|probe),my_array2__ %>% filter(tr_in_trial == 5)))
+```
+
+```{r}
+p4a_+labs(title = "pupil GLM")+p4b_+
+p4a+labs(title = "reported arousal GLM")+p4b
+
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig_corr_tc.tiff"),dpi = 300, height = 5, width =6)
 ```
 
