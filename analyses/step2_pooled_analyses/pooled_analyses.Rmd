@@ -219,8 +219,8 @@ ggplot()+
              linetype = cue_size), linewidth = 0.5, color = 'salmon')+
     geom_line(data=summary_data,aes(x = sample_in_trial_t+0.2, y = -convolved_new,
             linetype = cue_size), linewidth = 0.5, color = 'pink')+
-      geom_line(data=summary_data,aes(x = sample_in_trial_t, y = convolved_orig_deriv,
-            linetype = cue_size), linewidth = 0.5, color = 'orange')+
+      # geom_line(data=summary_data,aes(x = sample_in_trial_t, y = convolved_orig_deriv,
+      #       linetype = cue_size), linewidth = 0.5, color = 'orange')+
   scale_x_continuous(breaks = seq(0,20,2))+
   facet_wrap(~rating_type+probe)
 
@@ -233,11 +233,13 @@ summary(l1<-lmer(scale(pupilDiameter_bc_scaled) ~ scale(luminance) + (1|subject)
 summary(l2<-lmer(scale(pupilDiameter_bc_scaled) ~ scale(luminance_lag1) + (1|subject),fmri3_pupil_data))
 summary(l3<-lmer(scale(pupilDiameter_bc_scaled) ~ scale(convolved_orig) + (1|subject),fmri3_pupil_data))
 summary(l4<-lmer(scale(pupilDiameter_bc_scaled) ~ scale(convolved_new) + (1|subject),fmri3_pupil_data))
+summary(l5<-lmer(scale(pupilDiameter_scaled) ~ scale(convolved_new) + (1|subject),fmri3_pupil_data))
 
 summary(l1)$coefficient
 summary(l2)$coefficient
 summary(l3)$coefficient
 summary(l4)$coefficient
+summary(l5)$coefficient
 
 # Extract rows used in the model
 model_data2 <- model.frame(l2)
@@ -262,6 +264,14 @@ residuals_l4 <- residuals(l4)
 fmri3_pupil_data$residuals_conv[used_rows4] <- residuals_l4
 
 summary(lmer(scale(residuals_conv) ~ scale(convolved_new) + (1|subject),fmri3_pupil_data))
+
+model_data5 <- model.frame(l5)
+used_rows5 <- as.numeric(rownames(model_data5))
+fmri3_pupil_data$residuals_conv_nobc <- NA
+
+residuals_l5 <- residuals(l5)
+# Assign residuals to the appropriate rows
+fmri3_pupil_data$residuals_conv_nobc[used_rows5] <- residuals_l5
 ```
 
 # plot example time courses
@@ -1709,10 +1719,11 @@ fmri3_data_antprobe <-  fmri3_pupil_data%>%
             mean_pupil_baseline_scaled = mean(pupilDiameter_baseline_scaled, na.rm = T),
             mean_pupil_bc_scaled_residual_lag = mean(residuals_lag1,na.rm = T),
             mean_pupil_bc_scaled_residual_conv = mean(residuals_conv,na.rm = T),
+            mean_pupil_nobc_scaled_residual_conv = mean(residuals_conv_nobc,na.rm = T),
             luminance_mean = mean(luminance,na.rm = T),
             luminance_lag1_mean = mean(luminance_lag1,na.rm = T),
             luminance_convolved_mean = mean(convolved_new,na.rm = T))%>%
-  pivot_wider(values_from = c(mean_pupil_bc_scaled,mean_pupil_nobc_scaled,mean_pupil_bc_scaled_residual_lag,mean_pupil_bc_scaled_residual_conv,luminance_mean,luminance_lag1_mean,luminance_convolved_mean), names_from = pupil_window)%>%
+  pivot_wider(values_from = c(mean_pupil_bc_scaled,mean_pupil_nobc_scaled,mean_pupil_bc_scaled_residual_lag,mean_pupil_bc_scaled_residual_conv,mean_pupil_nobc_scaled_residual_conv,luminance_mean,luminance_lag1_mean,luminance_convolved_mean), names_from = pupil_window)%>%
   ungroup()%>%
   group_by(subject)%>%
   mutate(log_rt = log(rt),
@@ -1746,10 +1757,11 @@ fmri3_data_outprobe <-  fmri3_pupil_data%>%
             mean_pupil_baseline_scaled = mean(pupilDiameter_baseline_scaled, na.rm = T),
             mean_pupil_bc_scaled_residual_lag = mean(residuals_lag1,na.rm = T),
             mean_pupil_bc_scaled_residual_conv = mean(residuals_conv,na.rm = T),
+            mean_pupil_nobc_scaled_residual_conv = mean(residuals_conv_nobc,na.rm = T),
             luminance_mean = mean(luminance,na.rm = T),
             luminance_lag1_mean = mean(luminance_lag1,na.rm = T),
             luminance_convolved_mean = mean(convolved_new,na.rm = T))%>%
-  pivot_wider(values_from = c(mean_pupil_bc_scaled,mean_pupil_nobc_scaled,mean_pupil_bc_scaled_residual_lag,mean_pupil_bc_scaled_residual_conv,luminance_mean,luminance_lag1_mean,luminance_convolved_mean), names_from = pupil_window)%>%
+  pivot_wider(values_from = c(mean_pupil_bc_scaled,mean_pupil_nobc_scaled,mean_pupil_bc_scaled_residual_lag,mean_pupil_bc_scaled_residual_conv,mean_pupil_nobc_scaled_residual_conv,luminance_mean,luminance_lag1_mean,luminance_convolved_mean), names_from = pupil_window)%>%
   ungroup()%>%
   ungroup()%>%
   group_by(subject)%>%
@@ -2410,16 +2422,18 @@ p <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_scaled_ant) +(1|subject) +
 summary(p)
 tp <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_ant) +(1|subject) + (1|cue_size),
               da)
-tp_res_lag <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_scaled_residual_lag_ant) +(1|subject) + (1|cue_size),
-              da)
-tp_res_conv <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_scaled_residual_conv_ant) +(1|subject) + (1|cue_size),
-              da)
 summary(tp)
-summary(tp_res_lag)
+p_res_lag <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_scaled_residual_lag_ant) +(1|subject) + (1|cue_size),
+              da)
+p_res_conv <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_scaled_residual_conv_ant) +(1|subject) + (1|cue_size),
+              da)
+tp_res_conv <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_residual_conv_ant) +(1|subject) + (1|cue_size),
+              da)
 summary(tp_res_conv)
-anova(t,p,tp,tp_res)
-
-anova(tp,tp_res)
+summary(p_res_lag)
+summary(p_res_conv)
+anova(p,p_res_lag,p_res_conv)
+anova(tp,tp_res_conv)
 
 v3a<- c(round(r.squaredGLMM(t)*100,2),
 round(r.squaredGLMM(p)*100,2),
@@ -2486,13 +2500,19 @@ p <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_scaled_out) +(1|subject) +
 summary(p)
 tp <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_out)+(1|subject) + (1|cue_size),
               do)
-tp_res_lag <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_scaled_residual_lag_out) +(1|subject) + (1|cue_size),
-              do)
-tp_res_conv <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_scaled_residual_conv_out) +(1|subject) + (1|cue_size),
-              do)
 summary(tp)
-summary(tp_res_lag)
+p_res_lag <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_scaled_residual_lag_out) +(1|subject) + (1|cue_size),
+              do)
+p_res_conv <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_scaled_residual_conv_out) +(1|subject) + (1|cue_size),
+              do)
+tp_res_conv <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_residual_conv_out) +(1|subject) + (1|cue_size),
+              do)
 summary(tp_res_conv)
+summary(p_res_lag)
+summary(p_res_conv)
+anova(p,p_res_conv,p_res_lag)
+anova(tp,tp_res_conv)
+
 # anova(t,p,tp)
 
 v3o<- c(round(r.squaredGLMM(t)*100,2),
@@ -4458,6 +4478,8 @@ fmri3_data_2probes <- rbind(fmri3_data_antprobe %>%
                                select(probe:rt,mean_pupil_nobc_scaled_out,mean_pupil_baseline_scaled,last_iti) %>% 
                                rename(mean_pupil_nobc=mean_pupil_nobc_scaled_out,
                                       mean_pupil_baseline = mean_pupil_baseline_scaled))
+
+write_csv(fmri3_data_2probes,"../../data/fmri3/derivatives/fmri3_data_2probes.csv")
 
 summary(l1<-lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc) +(1|Subject) + (1|condition),
               vrmid1_data_2probes))

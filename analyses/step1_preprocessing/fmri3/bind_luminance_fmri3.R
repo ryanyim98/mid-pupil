@@ -115,7 +115,7 @@ fmri3_pupil_data <- fmri3_pupil_data %>%
         trial_data <- trial_data %>%
           mutate(
             luminance = case_when(
-              sample_in_trial_t < 0 ~ luminance_values["allblack.png"],  # all the seconds in baselining
+              sample_in_trial_t < 0 ~ luminance_values["iti.png"],  # all the seconds in baselining
               sample_in_trial_t >= 0 & sample_in_trial_t < 2 ~ luminance_values[cue_type],                         # Cue: 0–2 seconds
               sample_in_trial_t >= 2 & sample_in_trial_t < 4 ~ luminance_values["fix.png"],                   # Fixation: 2–4 seconds
               sample_in_trial_t >= 4 & sample_in_trial_t < 4+vrating_t ~ luminance_values['valence.png'],  # two ratings
@@ -135,7 +135,7 @@ fmri3_pupil_data <- fmri3_pupil_data %>%
         trial_data <- trial_data %>%
           mutate(
             luminance = case_when(
-              sample_in_trial_t < 0 ~ luminance_values["allblack.png"],  # all the seconds in baselining
+              sample_in_trial_t < 0 ~ luminance_values["iti.png"],  # all the seconds in baselining
               sample_in_trial_t >= 0 & sample_in_trial_t < 2 ~ luminance_values[cue_type],                         # Cue: 0–2 seconds
               sample_in_trial_t >= 2 & sample_in_trial_t < 4 ~ luminance_values["fix.png"],                   # Fixation: 2–4 seconds
               sample_in_trial_t >= 4 & sample_in_trial_t < 4+erating_t ~ luminance_values['emotion.png'],  # two ratings
@@ -156,7 +156,7 @@ fmri3_pupil_data <- fmri3_pupil_data %>%
         trial_data <- trial_data %>%
           mutate(
             luminance = case_when(
-              sample_in_trial_t < 0 ~ luminance_values["allblack.png"],  # all the seconds in baselining
+              sample_in_trial_t < 0 ~ luminance_values["iti.png"],  # all the seconds in baselining
               sample_in_trial_t >= 0 & sample_in_trial_t < 2 ~ luminance_values[cue_type],                         # Cue: 0–2 seconds
               sample_in_trial_t >= 2 & sample_in_trial_t < 4+0.625 ~ luminance_values["fix.png"],                   # Fixation: 2–4 seconds
               sample_in_trial_t >= 4+0.625 & sample_in_trial_t < (4+0.625 + target_seconds) ~ luminance_values["target.png"],  # Target: 4–(4 + target_seconds)
@@ -175,7 +175,7 @@ fmri3_pupil_data <- fmri3_pupil_data %>%
         trial_data <- trial_data %>%
           mutate(
             luminance = case_when(
-              sample_in_trial_t < 0 ~ luminance_values["allblack.png"],  # all the seconds in baselining
+              sample_in_trial_t < 0 ~ luminance_values["iti.png"],  # all the seconds in baselining
               sample_in_trial_t >= 0 & sample_in_trial_t < 2 ~ luminance_values[cue_type],                         # Cue: 0–2 seconds
               sample_in_trial_t >= 2 & sample_in_trial_t < 4+0.625 ~ luminance_values["fix.png"],                   # Fixation: 2–4 seconds
               sample_in_trial_t >= 4+0.625 & sample_in_trial_t < (4+0.625 + target_seconds) ~ luminance_values["target.png"],  # Target: 4–(4 + target_seconds)
@@ -198,6 +198,6 @@ fmri3_pupil_data <- fmri3_pupil_data %>%
 # create lagged luminance
 fmri3_pupil_data <- fmri3_pupil_data %>% 
   group_by(subject,trial) %>% 
-  mutate(luminance_lag1 = ifelse(sample_in_trial_t <= 1, 0,
+  mutate(luminance_lag1 = ifelse(sample_in_trial_t <= 1,  luminance_values["iti.png"],
     lag(luminance,200))) #the luminance that matters is the luminance 1 sec ago or so
 #write_csv(fmri3_pupil_data,"../../data/fmri3/derivatives/pupillometry_baselineCorrected_with_luminance.csv")
