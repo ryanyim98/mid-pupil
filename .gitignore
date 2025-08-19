@@ -9,3 +9,8 @@
 *.tiff
 .Rproj.user
 data/r2.html
+
+*.pptx
+*.jpg
+*.html
+*.png
