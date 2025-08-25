@@ -14,3 +14,5 @@ data/r2.html
 *.jpg
 *.html
 *.png
+*.xlsx
+*.svg
