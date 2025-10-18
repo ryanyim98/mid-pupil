@@ -34,11 +34,11 @@ for (sub in unique(fmri3_pupil_data$subject)){
     my.df.temp.trial$luminance_change <- c(rep(0,40),my.df.temp.trial$luminance_change)[1:nrow(my.df.temp.trial)] #lag by 200 ms
     my.df.temp.trial$convolved_s2 <- convolve(my.df.temp.trial$luminance_change, rev(gamma_pdf_s2), type = "open")[1:(nrow(my.df.temp.trial))]
     # my.df.temp.trial$convolved_total = my.df.temp.trial$convolved_s1+200*my.df.temp.trial$convolved_s2
-    ggplot(my.df.temp.trial)+
-      geom_line(aes(x = sample_in_trial_t, y = luminance), color = "red")+
-      geom_line(aes(x = sample_in_trial_t, y = luminance_change))+
-      geom_line(aes(x = sample_in_trial_t, y = convolved_s1), color = "red",size = 2)+
-      geom_line(aes(x = sample_in_trial_t, y = convolved_s2*200),size = 2)
+    # ggplot(my.df.temp.trial)+
+    #   geom_line(aes(x = sample_in_trial_t, y = luminance), color = "red")+
+    #   geom_line(aes(x = sample_in_trial_t, y = luminance_change))+
+    #   geom_line(aes(x = sample_in_trial_t, y = convolved_s1), color = "red",size = 2)+
+    #   geom_line(aes(x = sample_in_trial_t, y = convolved_s2*200),size = 2)
     fmri3_pupil_data.new <- rbind(fmri3_pupil_data.new,my.df.temp.trial)
   }
 }

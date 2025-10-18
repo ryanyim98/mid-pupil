@@ -20,6 +20,12 @@ data_pupil <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/vrmid2/derivativ
   mutate(sample_in_trial_n = row_number(),
          sample_in_trial_t = sample_in_trial_n/sr)
 
+data_pupil <- data_pupil %>% 
+  group_by(Subject) %>% 
+  mutate(pupil_L_scaled = as.numeric(scale(pupil_L)),
+         pupil_R_scaled = as.numeric(scale(pupil_L)),
+         pupil_Avg_scaled = as.numeric(scale(pupil_L)))
+
 length(unique(data_pupil$Subject))
 unique(data_pupil$emotion)
 
@@ -72,7 +78,8 @@ for (i in 1:length(unique(data_pupil$Subject))){
                    sample_in_trial_t = sample_in_trial_t - max(last_trial_iti_data$sample_in_trial_t),
                    current_stimulus = "prestim_baseline"
                    )%>%
-            select(Subject,Time,Time_sec,Time_str,Time_in_trial_sec,current_stimulus,sample_in_sec,sample_in_trial_n:sample_in_trial_t,pupil_L:pupil_Avg)
+            select(Subject,Time,Time_sec,Time_str,Time_in_trial_sec,current_stimulus,sample_in_sec,sample_in_trial_n:sample_in_trial_t,
+                   pupil_L:pupil_Avg,pupil_L_scaled:pupil_Avg_scaled)
           
           d <- merge(temp_trial_data,last_trial_iti_data,
                      all.x = T, all.y = T)%>%
@@ -94,12 +101,16 @@ for (i in 1:length(unique(data_pupil$Subject))){
 baseline <- data_pupil_out%>%
   group_by(Subject, trial)%>%
   filter(Time_sec == 0)%>%
-  summarise_at(vars(pupil_L,pupil_R,pupil_Avg), ~mean(.x, na.rm = TRUE))%>%
+  summarise_at(vars(pupil_L,pupil_R,pupil_Avg,pupil_L_scaled,pupil_R_scaled,pupil_Avg_scaled), ~mean(.x, na.rm = TRUE))%>%
   ungroup()
 
 data_pupil_out$pupil_L_baseline <- NA
 data_pupil_out$pupil_R_baseline <- NA
 data_pupil_out$pupil_Avg_baseline <- NA
+
+data_pupil_out$pupil_L_baseline_scaled <- NA
+data_pupil_out$pupil_R_baseline_scaled <- NA
+data_pupil_out$pupil_Avg_baseline_scaled <- NA
 
 for (i in 1:nrow(baseline)){
   ind = which(data_pupil_out$Subject == baseline$Subject[i] &
@@ -110,6 +121,9 @@ for (i in 1:nrow(baseline)){
     data_pupil_out$pupil_L_baseline[ind] = baseline$pupil_L[i]
     data_pupil_out$pupil_R_baseline[ind] = baseline$pupil_R[i]
     data_pupil_out$pupil_Avg_baseline[ind] = baseline$pupil_Avg[i]
+    data_pupil_out$pupil_L_baseline_scaled[ind] = baseline$pupil_L_scaled[i]
+    data_pupil_out$pupil_R_baseline_scaled[ind] = baseline$pupil_R_scaled[i]
+    data_pupil_out$pupil_Avg_baseline_scaled[ind] = baseline$pupil_Avg_scaled[i]
   }
 }
 
@@ -117,7 +131,10 @@ for (i in 1:nrow(baseline)){
 data_pupil_out <- data_pupil_out%>%
   mutate(pupil_L_bc = pupil_L - pupil_L_baseline,
          pupil_R_bc = pupil_R - pupil_R_baseline,
-         pupil_Avg_bc = pupil_Avg - pupil_Avg_baseline)
+         pupil_Avg_bc = pupil_Avg - pupil_Avg_baseline,
+         pupil_L_bc_scaled = pupil_L_scaled - pupil_L_baseline_scaled,
+         pupil_R_bc_scaled = pupil_R_scaled - pupil_R_baseline_scaled,
+         pupil_Avg_bc_scaled = pupil_Avg_scaled - pupil_Avg_baseline_scaled)
 
 write_csv(data_pupil_out, "~/Desktop/VRMID-analysis/mid-pupil/data/vrmid2/derivatives/pupillometry_baselineCorrected.csv")
 

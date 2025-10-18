@@ -1,0 +1,868 @@
+---
+title: "pattern-similarity-fmri1"
+output: html_document
+date: "2025-10-17"
+---
+## read in the brain template similarity
+
+```{r}
+subjects_list<-read_delim('~/Desktop/midaffemo/analyses/subjects-pupil-fmri.txt',delim = '\t', col_names = F)
+glmArousal_array<-as.data.frame(t(read_csv("~/Desktop/midaffemo/glm_maps/glm27_array.csv", col_names = F))) %>% 
+  mutate(type = "glmArousal", tr = row_number()) #self-reported arousal GLM
+glmPupil_array<-as.data.frame(t(read_csv("~/Desktop/midaffemo/glm_maps/glm33b_array.csv", col_names = F))) %>% 
+  mutate(type = "glmPupil", tr = row_number()) #pupil GLM
+glmConj_array<-as.data.frame(t(read_csv("~/Desktop/midaffemo/glm_maps/glm_conj_array.csv", col_names = F))) %>%
+  mutate(type = "glmConj", tr = row_number()) #conjunction map
+pupil_array<-as.data.frame(t(read_csv("~/Desktop/midaffemo/glm_maps/pupil_array.csv", col_names = F))) %>% 
+  mutate(type = "pupil", tr = row_number()) #pupil time series
+
+my_array<-Reduce(rbind,list(glmArousal_array,glmPupil_array,glmConj_array,pupil_array))
+names(my_array) <- c(subjects_list$X1,"type","tr")
+my_array<-my_array%>% 
+  pivot_longer(ab240324:yz240312,names_to = "subject",values_to = "val") %>% 
+  pivot_wider(names_from = type, values_from = val)
+
+cor(my_array %>% select(glmArousal:glmConj))
+
+my_array_ <- my_array %>% 
+  mutate(pupil_lead10 = lead(pupil,10),
+         pupil_lead9 = lead(pupil,9),
+         pupil_lead8 = lead(pupil,8),
+        pupil_lead7 = lead(pupil,7),
+        pupil_lead6 = lead(pupil,6),
+        pupil_lead5 = lead(pupil,5),
+         pupil_lead4 = lead(pupil,4),
+         pupil_lead3 = lead(pupil,3),
+         pupil_lead2 = lead(pupil,2),
+         pupil_lead1 = lead(pupil,1),
+         pupil_lead0 = pupil,
+         pupil_lag1 = lag(pupil,1),
+         pupil_lag2 = lag(pupil,2),
+         pupil_lag3 = lag(pupil,3),
+         pupil_lag4 = lag(pupil,4),
+         pupil_lag5 = lag(pupil,5),
+         pupil_lag6 = lag(pupil,6),
+         pupil_lag7 = lag(pupil,7),
+         pupil_lag8 = lag(pupil,8),
+         pupil_lag9 = lag(pupil,9),
+         pupil_lag10 = lag(pupil,10),
+         pupil_lag11 = lag(pupil,11),
+         pupil_lag12 = lag(pupil,12))
+
+df.1sub <- read_csv("~/Desktop/midaffemo/analyses/timecourses/data/realsubj/MIDaffemo/timecourses_b4_woOutliers_long.csv") %>% 
+  filter(subject == "nq240330", voi == "nacc",coreg == "ants") %>% 
+  mutate(trial_tr_noiti = ifelse(probe == 1, 9,8),
+         trial_tr = trial_tr_noiti + iti/2) %>% 
+  # select(trial,trial_tr,tr,run) %>% 
+  filter(tr <= trial_tr)
+
+end_run1 <- df.1sub %>%
+  subset(trial == 24) %>%
+  .[1:5,] %>%
+  mutate(tr = tr + 10)
+
+# create the 5 TRs at the tail of run 2
+end_run2 <- df.1sub %>%
+        filter(run == "run-02")%>%
+        subset(trial == 24) %>%
+        .[1:5,] %>%
+        mutate(tr = tr + 9)
+
+# create the 5 TRs at the tail of run 3
+end_run3 <- df.1sub %>%
+        filter(run == "run-03")%>%
+        subset(trial == 24) %>%
+        .[1:5,] %>%
+        mutate(tr = tr + 10)
+
+# create the 5 TRs at the tail of run 4
+end_run4 <- df.1sub %>%
+        filter(run == "run-04")%>%
+        subset(trial == 24) %>%
+        .[1:5,] %>%
+        mutate(tr = tr + 11)
+
+df.1sub <- df.1sub %>%
+        # insert 5 rows at the end of each run
+        add_row(end_run1, .after = 240) %>%
+        add_row(end_run2, .after = 485) %>%
+        add_row(end_run3, .after = 730) %>%
+        add_row(end_run4, .after = 975)
+      
+df.1sub <- df.1sub %>% 
+  mutate(block = as.numeric(substr(run,6,6))) %>% 
+  mutate(trial = trial + (block - 1) * 24) %>% 
+  mutate(tr = row_number())
+
+my_array2 <- left_join(my_array,df.1sub %>% 
+                         select(trial:erating_t,time,tr,trial_tr)) %>% 
+  group_by(subject,trial) %>% 
+  mutate(tr_in_trial = row_number())%>% 
+  relocate(tr_in_trial,.after = tr)
+```
+
+#### self-reported arousal template
+(This is just to confirm that this method works; by theory, this index should relate to self-reported arousal because the GLM is built on this.)
+```{r}
+my_array2__ <- my_array2%>% 
+  ungroup() %>% 
+  select(trial,subject,tr_in_trial,glmArousal,trial_tr) %>% 
+  pivot_wider(names_from = tr_in_trial, values_from = c(glmArousal), names_prefix = "glmArousal_TR_") %>% 
+  arrange(subject,trial)
+
+
+for (sub in unique(my_array2__$subject)){
+  for(tr in 9:11){
+    replace_idx = my_array2__$subject == sub & my_array2__$trial_tr == tr & is.na(my_array2__[,paste0("glmArousal_TR_",tr+1)])
+    my_array2__[replace_idx,paste0("glmArousal_TR_",(tr+1):TR_DELAY)] <- my_array2__[lag(replace_idx) %>% replace_na(FALSE),paste0("glmArousal_TR_",1:(TR_DELAY-tr))]
+} # tr loop
+}
+
+TR_DELAY = 14
+my_array2__ <- my_array2__ %>% mutate(glmArousal_TR_17 = NA, glmArousal_TR_18 = NA, glmArousal_TR_19 = NA, glmArousal_TR_20 = NA)
+
+my_array2__<-left_join(my_array2__ %>% 
+                        pivot_longer(glmArousal_TR_1:glmArousal_TR_20,names_to = "tr_in_trial",names_prefix = "glmArousal_TR_",
+                                     values_to = "glmArousal"),fmri3_data_2probes,
+                      by = c("subject","trial")) %>% 
+  filter(tr <= 975)%>%
+  mutate(half = ifelse(trial >= 48,"second","first"))%>% #last bit was interpolated
+  mutate(probe = ifelse(probe == 1, "anticipation probe","outcome probe"))
+
+my_array2__ <- my_array2__ %>% 
+  mutate(tr_in_trial = as.numeric(tr_in_trial),
+         time = (tr_in_trial-1) * 2)
+
+d1<-my_array2__ %>% 
+         filter(!is.na(hit)) %>% 
+         group_by(tr_in_trial,hit,subject,probe) %>% 
+         summarise(glmArousal = mean(glmArousal,na.rm = T)) %>% 
+         group_by(tr_in_trial,hit,probe) %>% 
+         summarise(mean = mean(glmArousal,na.rm = T),
+                   se = sd(glmArousal,na.rm = T)/sqrt(n())) %>% 
+  filter(tr_in_trial <= 14) %>% 
+  mutate(hit = as.factor(hit))
+ymax = max(d1$mean,na.rm = T)+max(d1$se,na.rm = T)
+ymin = min(d1$mean,na.rm = T)-max(d1$se,na.rm = T)
+y=mean(d1$mean,na.rm = T)
+
+p1a<-ggplot(d1 %>% filter(probe == "anticipation probe"),
+       aes(x = tr_in_trial, y = mean,color = hit))+
+  geom_vline(xintercept = c(3.5,4.5,5.5,9.5,10.5,11.5,12.5), size = 1, color = "grey")+
+  annotate("text",x = 4, y = y, label = "C")+
+  annotate("text",x = 5, y = y, label = "fixation")+
+  annotate("text",x = 10, y = y, label = "fixation2")+
+  annotate("text",x = 11, y = y, label = "button")+
+  annotate("text",x = 12, y = y, label = "outcome")+
+  annotate("text",x = 7.5, y = y, label = "rating")+
+  geom_line(aes(linetype = hit),size = 0.5) +
+  geom_point()+
+  geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
+  scale_color_manual(values = c("navy","red"))+
+  scale_fill_manual(values = c("navy","red"))+
+  labs(y = "Simalirty to self-report template",
+       x = "time (s)",
+       subtitle = "anticipation probe",
+       title = )+
+  theme(legend.position = "left")+
+  scale_x_continuous(breaks = seq(1,15,2),labels = seq(0,28,4))+
+  ylim(ymin,ymax)
+
+p1b<-ggplot(d1 %>% filter(probe == "outcome probe"),
+       aes(x = tr_in_trial, y = mean,color = hit))+
+  geom_vline(xintercept = c(3.5,4.5,5.5,6.5,7.5), size = 1, color = "grey")+
+  annotate("text",x = 4, y = y, label = "C")+
+  annotate("text",x = 5, y = y, label = "fixation")+
+  annotate("text",x = 6, y = y, label = "button")+
+  annotate("text",x = 7, y = y, label = "outcome")+
+  annotate("text",x = 10, y = y, label = "rating")+
+  geom_line(aes(linetype = hit),size = 0.5) +
+  geom_point()+
+  geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
+  scale_color_manual(values = c("navy","red"))+
+  scale_fill_manual(values = c("navy","red"))+
+  labs(y = "Simalirty to self-report template",
+       x = "time (s)",
+       subtitle = "outcome probe")+
+  scale_x_continuous(breaks = seq(0,20,4))+
+  theme(legend.position = "none")+
+  scale_x_continuous(breaks = seq(1,15,2),labels = seq(0,28,4))+
+  ylim(ymin,ymax)
+
+d2<-my_array2__ %>% 
+         group_by(tr_in_trial,cue_value,subject,probe) %>% 
+         summarise(glmArousal = mean(glmArousal,na.rm = T)) %>% 
+         group_by(tr_in_trial,cue_value,probe) %>% 
+         summarise(mean = mean(glmArousal,na.rm = T),
+                   se = sd(glmArousal,na.rm = T)/sqrt(n()))%>% 
+  filter(tr_in_trial <= 14) %>% 
+  mutate(cue_value = factor(cue_value, levels = c("-$5","-$1","-$0","+$0","+$1","+$5")))
+ymax = max(d2$mean,na.rm = T)+max(d2$se,na.rm = T)
+ymin = min(d2$mean,na.rm = T)-max(d2$se,na.rm = T)
+y=mean(d2$mean,na.rm = T)
+p2a<-
+  ggplot(d2 %>% filter(probe == "anticipation probe"),
+       aes(x = tr_in_trial, y = mean,color = cue_value))+
+  geom_vline(xintercept = c(3.5,4.5,5.5,9.5,10.5,11.5,12.5), size = 1, color = "grey")+
+  annotate("text",x = 4, y = y, label = "C")+
+  annotate("text",x = 5, y = y, label = "fixation")+
+  annotate("text",x = 10, y = y, label = "fixation2")+
+  annotate("text",x = 11, y = y, label = "button")+
+  annotate("text",x = 12, y = y, label = "outcome")+
+  annotate("text",x = 7.5, y = y, label = "rating")+
+  geom_line(size = 0.5) +
+  geom_point()+
+  geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
+  scale_color_manual(values = redOrange_palette6)+
+  scale_fill_manual(values  = redOrange_palette6)+
+  labs(y = "Simalirty to self-report template",x = "time (s)",
+       subtitle = "anticipation probe")+
+  scale_x_continuous(breaks = seq(0,20,4))+
+  theme(legend.position = "left")+
+  scale_x_continuous(breaks = seq(1,15,2),labels = seq(0,28,4))+
+  ylim(ymin,ymax)
+
+p2b<-
+  ggplot(d2 %>% filter(probe == "outcome probe"),
+       aes(x = tr_in_trial, y = mean,color = cue_value))+
+  geom_vline(xintercept = c(3.5,4.5,5.5,6.5,7.5), size = 1, color = "grey")+
+  annotate("text",x = 4, y = y, label = "C")+
+  annotate("text",x = 5, y = y, label = "fixation")+
+  annotate("text",x = 6, y = y, label = "button")+
+  annotate("text",x = 7, y = y, label = "outcome")+
+  annotate("text",x = 10, y = y, label = "rating")+
+  geom_line(size = 0.5) +
+  geom_point()+
+  geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
+  scale_color_manual(values = redOrange_palette6)+
+  scale_fill_manual(values  = redOrange_palette6)+
+  labs(y= "Simalirty to self-report template",x = "time (s)",
+       subtitle = "outcome probe")+
+  scale_x_continuous(breaks = seq(0,20,4))+
+  theme(legend.position = "none")+
+  scale_x_continuous(breaks = seq(1,15,2),labels = seq(0,28,4))+
+  ylim(ymin,ymax)
+
+summary(l1<-glmer(hit_num ~ glmArousal + (1|subject) + (1|probe),family = binomial,my_array2__ %>% filter(tr_in_trial == 5) %>% 
+                    mutate(hit_num = as.factor(hit == 1))))
+summary(l2<-lmer(rt ~ glmArousal + (1|subject)+ (1|probe),my_array2__ %>% 
+                   filter(tr_in_trial == 5, hit == 1)))
+
+plot_model(l1, type = "pred", terms = "glmArousal", show.data = T, dot.size = 0.1)
+plot_model(l2, type = "pred", terms = "glmArousal", show.data = T, dot.size = 0.1)
+
+coefs1 = NULL
+for (t in 1:14){
+  l1<-summary(lmer(scale(glmArousal) ~ scale(arousal) + (1|subject),my_array2__ %>% filter(tr_in_trial == t, probe == "anticipation probe")))
+  coefs1 <- rbind(coefs1,l1$coefficients[2,])
+}
+coefs1<-as.data.frame(coefs1)
+coefs1$TR <- 1:14
+coefs1$probe = "anticipation probe"
+
+coefs2 = NULL
+for (t in 1:14){
+  l1<-summary(lmer(scale(glmArousal) ~ scale(arousal) + (1|subject),my_array2__ %>% filter(tr_in_trial == t, probe == "outcome probe")))
+  coefs2 <- rbind(coefs2,l1$coefficients[2,])
+}
+coefs2<-as.data.frame(coefs2)
+coefs2$TR <- 1:14
+coefs2$probe = "outcome probe"
+
+coefs <- rbind(coefs1,coefs2) %>% 
+  mutate(sig = ifelse(`Pr(>|t|)` >= 0.05, "",
+                      ifelse(`Pr(>|t|)` >= 0.01, "*",
+                             ifelse(`Pr(>|t|)` >= 0.001, "**","***"))))
+
+p4a<-ggplot(coefs %>% filter(probe == "anticipation probe"),aes(x = TR, y =Estimate))+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  geom_vline(xintercept = c(3.5,4.5,5.5,9.5,10.5,11.5,12.5), size = 1, color = "grey")+
+  annotate("text",x = 4, y = 0.05, label = "C")+
+  annotate("text",x = 5, y = 0.05, label = "fixation")+
+  annotate("text",x = 10, y = 0.05, label = "fixation2")+
+  annotate("text",x = 11, y = 0.05, label = "button")+
+  annotate("text",x = 12, y = 0.05, label = "outcome")+
+  annotate("text",x = 7.5, y = 0.05, label = "rating")+
+  scale_x_continuous(breaks = seq(0,14,2), labels = seq(0,28,4))+
+  scale_color_manual(values = c("purple"))+
+  geom_line(aes(color = probe), size = 2, alpha = 0.5)+
+  geom_segment(aes(x = 7, y = 0.15,
+                   xend =7, yend = 0.1),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")),
+               color = "darkgrey")+
+  annotate("text",x = 7, y = 0.16, label ="arousal rating")+
+  geom_text(aes(x = TR, y = Estimate+0.01, label = sig, color = probe))+
+  labs(x = "time (s)",
+       y = "Correlation with arousal ratings",
+       title = "Regression weights on arousal",
+       subtitle = "anticipation probe")+
+  theme(legend.position = "none")
+
+p4b<-ggplot(coefs%>% filter(probe == "outcome probe"),aes(x = TR, y =Estimate))+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  geom_vline(xintercept = c(3.5,4.5,5.5,6.5,7.5), size = 1, color = "grey")+
+  annotate("text",x = 4, y = 0.05, label = "C")+
+  annotate("text",x = 5, y = 0.05, label = "fixation")+
+  annotate("text",x = 6, y = 0.05, label = "button")+
+  annotate("text",x = 7, y = 0.05, label = "outcome")+
+  annotate("text",x = 10, y = 0.05, label = "rating")+
+  scale_x_continuous(breaks = seq(0,14,2), labels = seq(0,28,4))+
+  scale_color_manual(values = c("skyblue"))+
+  geom_line(aes(color = probe), size = 2, alpha = 0.5)+
+  geom_segment(aes(x = 10, y = 0.17,
+                   xend =10, yend = 0.12),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")),
+               color = "darkgrey")+
+  annotate("text",x = 10, y = 0.18, label ="arousal rating")+
+  geom_segment(aes(x = 10, y = 0.17,
+                   xend =10, yend = 0.12),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")),
+               color = "darkgrey")+
+  annotate("text",x = 10, y = 0.18, label ="arousal rating")+
+  geom_text(aes(x = TR, y = Estimate+0.01, label = sig, color = probe))+
+  labs(x = "time (s)",
+       subtitle = "outcome probe")+
+  theme(legend.position = "none")
+
+p2a+p2b+p1a+p1b+plot_layout(nrow = 2)
+
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/similarity_glmArousal.png"),dpi = 300, height = 6, width = 8)
+```
+
+
+#### pupil glm template (glm 33b)
+```{r}
+my_array2_ <- my_array2%>% 
+  ungroup() %>% 
+  select(trial,subject,tr_in_trial,glmPupil,trial_tr) %>% 
+  pivot_wider(names_from = tr_in_trial, values_from = c(glmPupil), names_prefix = "glmPupil_TR_") %>% 
+  arrange(subject,trial)
+
+TR_DELAY = 14
+my_array2_ <- my_array2_ %>% mutate(glmPupil_TR_17 = NA, glmPupil_TR_18 = NA, glmPupil_TR_19 = NA, glmPupil_TR_20 = NA)
+
+for (sub in unique(my_array2_$subject)){
+  for(tr in 9:11){
+    replace_idx = my_array2_$subject == sub & my_array2_$trial_tr == tr & is.na(my_array2_[,paste0("glmPupil_TR_",tr+1)])
+    my_array2_[replace_idx,paste0("glmPupil_TR_",(tr+1):TR_DELAY)] <- my_array2_[lag(replace_idx) %>% replace_na(FALSE),paste0("glmPupil_TR_",1:(TR_DELAY-tr))]
+} # tr loop
+}
+
+my_array2_<-left_join(my_array2_ %>% 
+                        pivot_longer(glmPupil_TR_1:glmPupil_TR_20,names_to = "tr_in_trial",names_prefix = "glmPupil_TR_",
+                                     values_to = "glmPupil"),fmri3_data_2probes,
+                      by = c("subject","trial")) %>% 
+  filter(tr <= 975)%>%
+  mutate(half = ifelse(trial >= 48,"second","first"))%>% #last bit was interpolated
+  mutate(probe = ifelse(probe == 1, "anticipation probe","outcome probe"))
+
+my_array2_ <- my_array2_ %>% 
+  mutate(tr_in_trial = as.numeric(tr_in_trial),
+         time = (tr_in_trial-1) * 2) 
+
+```
+
+```{r}
+d1<-my_array2_ %>% 
+         filter(!is.na(hit)) %>% 
+         group_by(tr_in_trial,hit,subject,probe) %>% 
+         summarise(glmPupil = mean(glmPupil,na.rm = T)) %>% 
+         group_by(tr_in_trial,hit,probe) %>% 
+         summarise(mean = mean(glmPupil,na.rm = T),
+                   se = sd(glmPupil,na.rm = T)/sqrt(n())) %>% 
+  filter(tr_in_trial <= 14) %>% 
+  mutate(hit = as.factor(hit))
+ymax = max(d1$mean,na.rm = T)+max(d1$se,na.rm = T)
+ymin = min(d1$mean,na.rm = T)-max(d1$se,na.rm = T)
+y=mean(d1$mean,na.rm = T)
+
+p1a_<-ggplot(d1 %>% filter(probe == "anticipation probe"),
+       aes(x = tr_in_trial, y = mean,color = hit))+
+  geom_vline(xintercept = c(3.5,4.5,5.5,9.5,10.5,11.5,12.5), size = 1, color = "grey")+
+  annotate("text",x = 4, y = y, label = "C")+
+  annotate("text",x = 5, y = y, label = "fixation")+
+  annotate("text",x = 10, y = y, label = "fixation2")+
+  annotate("text",x = 11, y = y, label = "button")+
+  annotate("text",x = 12, y = y, label = "outcome")+
+  annotate("text",x = 7.5, y = y, label = "rating")+
+  geom_line(aes(linetype = hit),size = 0.5) +
+  geom_point()+
+  geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
+  scale_color_manual(values = c("navy","red"))+
+  scale_fill_manual(values = c("navy","red"))+
+  labs(y = "Simalirty to pupil template",
+       x = "time (s)",
+       subtitle = "anticipation probe")+
+  theme(legend.position = "left")+
+  scale_x_continuous(breaks = seq(1,15,2),labels = seq(0,28,4))+
+  ylim(ymin,ymax)
+
+p1b_<-ggplot(d1 %>% filter(probe == "outcome probe"),
+       aes(x = tr_in_trial, y = mean,color = hit))+
+  geom_vline(xintercept = c(3.5,4.5,5.5,6.5,7.5), size = 1, color = "grey")+
+  annotate("text",x = 4, y = y, label = "C")+
+  annotate("text",x = 5, y = y, label = "fixation")+
+  annotate("text",x = 6, y = y, label = "button")+
+  annotate("text",x = 7, y = y, label = "outcome")+
+  annotate("text",x = 10, y = y, label = "rating")+
+  geom_line(aes(linetype = hit),size = 0.5) +
+  geom_point()+
+  geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
+  scale_color_manual(values = c("navy","red"))+
+  scale_fill_manual(values = c("navy","red"))+
+  labs(y = "Simalirty to pupil template",
+       x = "time (s)",
+       subtitle = "outcome probe")+
+  scale_x_continuous(breaks = seq(0,20,4))+
+  theme(legend.position = "none")+
+  scale_x_continuous(breaks = seq(1,15,2),labels = seq(0,28,4))+
+  ylim(ymin,ymax)
+
+d2<-my_array2_ %>% 
+         group_by(tr_in_trial,cue_value,subject,probe) %>% 
+         summarise(glmPupil = mean(glmPupil,na.rm = T)) %>% 
+         group_by(tr_in_trial,cue_value,probe) %>% 
+         summarise(mean = mean(glmPupil,na.rm = T),
+                   se = sd(glmPupil,na.rm = T)/sqrt(n()))%>% 
+  filter(tr_in_trial <= 14) %>% 
+  mutate(cue_value = factor(cue_value, levels = c("-$5","-$1","-$0","+$0","+$1","+$5")),
+         tr_in_trial = as.numeric(tr_in_trial))
+ymax = max(d2$mean,na.rm = T)+max(d2$se,na.rm = T)
+ymin = min(d2$mean,na.rm = T)-max(d2$se,na.rm = T)
+y=mean(d2$mean,na.rm = T)
+p2a_<-
+  ggplot(d2 %>% filter(probe == "anticipation probe"),
+       aes(x = tr_in_trial, y = mean,color = cue_value))+
+  geom_vline(xintercept = c(3.5,4.5,5.5,9.5,10.5,11.5,12.5), size = 1, color = "grey")+
+  annotate("text",x = 4, y = y, label = "C")+
+  annotate("text",x = 5, y = y, label = "fixation")+
+  annotate("text",x = 10, y = y, label = "fixation2")+
+  annotate("text",x = 11, y = y, label = "button")+
+  annotate("text",x = 12, y = y, label = "outcome")+
+  annotate("text",x = 7.5, y = y, label = "rating")+
+  geom_line(size = 0.5) +
+  geom_point()+
+  geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
+  scale_color_manual(values = redOrange_palette6)+
+  scale_fill_manual(values  = redOrange_palette6)+
+  scale_x_continuous()+
+  labs(y="Simalirty to pupil template",x = "time (s)",
+       subtitle = "anticipation probe")+
+  theme(legend.position = "left")+
+  ylim(ymin,ymax)
+
+p2b_<-
+  ggplot(d2 %>% filter(probe == "outcome probe"),
+       aes(x = tr_in_trial, y = mean,color = cue_value))+
+  geom_vline(xintercept = c(3.5,4.5,5.5,6.5,7.5), size = 1, color = "grey")+
+  annotate("text",x = 4, y = y, label = "C")+
+  annotate("text",x = 5, y = y, label = "fixation")+
+  annotate("text",x = 6, y = y, label = "button")+
+  annotate("text",x = 7, y = y, label = "outcome")+
+  annotate("text",x = 10, y = y, label = "rating")+
+  geom_line(size = 0.5) +
+  geom_point()+
+  geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
+  scale_color_manual(values = redOrange_palette6)+
+  scale_fill_manual(values  = redOrange_palette6)+
+  labs(y="Simalirty to pupil template",x = "time (s)",
+       subtitle = "outcome probe")+
+  theme(legend.position = "none")+
+  ylim(ymin,ymax)
+
+summary(l1<-glmer(hit_num ~ glmPupil + (1|subject) + (1|probe),family = binomial,my_array2_ %>% filter(tr_in_trial == 5) %>% mutate(hit_num = as.factor(hit == 1))))
+summary(l2<-lmer(rt ~ glmPupil + (1|subject)+ (1|probe),my_array2_ %>% filter(tr_in_trial == 5, hit == 1)))
+
+coefs1 = NULL
+for (t in 1:14){
+  l1<-summary(lmer(scale(glmPupil) ~ scale(arousal) + (1|subject),my_array2_ %>% filter(tr_in_trial == t, probe == "anticipation probe")))
+  coefs1 <- rbind(coefs1,l1$coefficients[2,])
+}
+coefs1<-as.data.frame(coefs1)
+coefs1$TR <- 1:14
+coefs1$probe = "anticipation probe"
+
+coefs2 = NULL
+for (t in 1:14){
+  l1<-summary(lmer(scale(glmPupil) ~ scale(arousal) + (1|subject),my_array2_ %>% filter(tr_in_trial == t, probe == "outcome probe")))
+  coefs2 <- rbind(coefs2,l1$coefficients[2,])
+}
+coefs2<-as.data.frame(coefs2)
+coefs2$TR <- 1:14
+coefs2$probe = "outcome probe"
+
+coefs <- rbind(coefs1,coefs2) %>% 
+  mutate(sig = ifelse(`Pr(>|t|)` >= 0.05, "",
+                      ifelse(`Pr(>|t|)` >= 0.01, "*",
+                             ifelse(`Pr(>|t|)` >= 0.001, "**","***"))))
+
+p4a_<-ggplot(coefs %>% filter(probe == "anticipation probe"),aes(x = TR, y =Estimate))+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  geom_vline(xintercept = c(3.5,4.5,5.5,9.5,10.5,11.5,12.5), size = 1, color = "grey")+
+  annotate("text",x = 4, y = 0.05, label = "C")+
+  annotate("text",x = 5, y = 0.05, label = "fixation")+
+  annotate("text",x = 10, y = 0.05, label = "fixation2")+
+  annotate("text",x = 11, y = 0.05, label = "button")+
+  annotate("text",x = 12, y = 0.05, label = "outcome")+
+  annotate("text",x = 7.5, y = 0.05, label = "rating")+
+  geom_line(aes(color = probe),size = 2, alpha = 0.5)+
+  scale_x_continuous(breaks = seq(0,14,2), labels = seq(0,28,4))+
+  scale_color_manual(values = c("purple"))+
+  geom_segment(aes(x = 7, y = 0.15,
+                   xend =7, yend = 0.1),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")),
+               color = "darkgrey")+
+  annotate("text",x = 7, y = 0.16, label ="arousal rating")+
+  geom_text(aes(x = TR, y = Estimate+0.01, label = sig, color = probe))+
+  labs(x = "time (s)",
+       y = "Correlation with arousal",
+       title = "Regression weights on arousal",
+       subtitle = "anticipation probe")+
+  theme(legend.position = "none")
+
+p4b_<-ggplot(coefs%>% filter(probe == "outcome probe"),aes(x = TR, y =Estimate))+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  geom_vline(xintercept = c(3.5,4.5,5.5,6.5,7.5), size = 1, color = "grey")+
+  annotate("text",x = 4, y = 0.05, label = "C")+
+  annotate("text",x = 5, y = 0.05, label = "fixation")+
+  annotate("text",x = 6, y = 0.05, label = "button")+
+  annotate("text",x = 7, y = 0.05, label = "outcome")+
+  annotate("text",x = 10, y = 0.05, label = "rating")+
+  geom_line(aes(color = probe), size = 2, alpha = 0.5)+
+  geom_segment(aes(x = 10, y = 0.17,
+                   xend =10, yend = 0.12),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")),
+               color = "darkgrey")+
+  annotate("text",x = 10, y = 0.18, label ="arousal rating")+
+  scale_x_continuous(breaks = seq(0,14,2), labels = seq(0,28,4))+
+  scale_color_manual(values = c("skyblue"))+
+  geom_text(aes(x = TR, y = Estimate+0.01, label = sig, color = probe))+
+  labs(x = "time (s)",
+       subtitle = "outcome probe")+
+  theme(legend.position = "none")
+
+p2a_+p2b_+p1a_+p1b_+plot_layout(nrow = 2)
+
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/similarity_glmPupil.png"),dpi = 300, height = 6, width = 8)
+```
+
+```{r}
+my_array2_<-my_array2_ %>% mutate(half = ifelse(trial <= 48, "half1","half2"))
+my_array2__<-my_array2__ %>% mutate(half = ifelse(trial <= 48, "half1","half2"))
+
+summary(lmer(scale(glmPupil) ~ hit + (1|subject) + (1|probe),my_array2_ %>% filter(tr_in_trial == 5)))
+
+summary(lmer(scale(glmPupil) ~ half + (1|subject),my_array2_ %>% filter(tr_in_trial == 5)))
+
+summary(lmer(scale(glmPupil) ~ cue_value + (1|subject) + (1|probe),my_array2_ %>% filter(tr_in_trial == 5, cue_value %in% c("+$5","+$0"))))
+
+summary(lmer(scale(glmPupil) ~ cue_value  + (1|subject)+ (1|probe),my_array2_ %>% filter(tr_in_trial == 5, cue_value %in% c("-$5","-$0"))))
+
+summary(lmer(scale(glmPupil) ~ cue_value  + (1|subject)+ (1|probe),my_array2_ %>% filter(tr_in_trial == 5, cue_value %in% c("-$5","+$5"))))
+
+summary(lmer(scale(glmPupil) ~ scale(arousal)  + (1|subject) + (1|probe),my_array2_ %>% filter(tr_in_trial == 5)))
+
+#arousal template
+
+summary(lmer(scale(glmArousal) ~ hit + (1|subject) + (1|probe),my_array2__ %>% filter(tr_in_trial == 5)))
+
+summary(lmer(scale(glmArousal) ~ half + (1|subject),my_array2__ %>% filter(tr_in_trial == 5)))
+
+summary(lmer(scale(glmArousal) ~ cue_value + (1|subject) + (1|probe),my_array2__ %>% filter(tr_in_trial == 5, cue_value %in% c("+$5","+$0"))))
+
+summary(lmer(scale(glmArousal) ~ cue_value  + (1|subject)+ (1|probe),my_array2__ %>% filter(tr_in_trial == 5, cue_value %in% c("-$5","+$5"))))
+
+summary(lmer(scale(glmArousal) ~ scale(arousal)  + (1|subject) + (1|probe),my_array2__ %>% filter(tr_in_trial == 5)))
+
+plot_model(lmer(scale(glmPupil) ~ cue_value + (1|subject) + (1|probe),my_array2_ %>% filter(tr_in_trial == 5)),
+            type = "pred",terms = "cue_value")+
+plot_model(lmer(scale(glmArousal) ~ cue_value + (1|subject) + (1|probe),my_array2__ %>% filter(tr_in_trial == 5)),
+            type = "pred",terms = "cue_value")
+
+plot_model(lmer(scale(glmPupil) ~ cue_value + (1|subject),my_array2_ %>% filter(tr_in_trial == 7, probe == "outcome probe")),
+            type = "pred",terms = "cue_value")+
+plot_model(lmer(scale(glmArousal) ~ cue_value + (1|subject),my_array2__ %>% filter(tr_in_trial == 7, probe == "outcome probe")),
+            type = "pred",terms = "cue_value")
+```
+#### conjunction map template (glm 33bb)
+```{r}
+my_array2_c <- my_array2%>% 
+  ungroup() %>% 
+  select(trial,subject,tr_in_trial,glmConj,trial_tr) %>% 
+  pivot_wider(names_from = tr_in_trial, values_from = c(glmConj), names_prefix = "glmConj_TR_") %>% 
+  arrange(subject,trial)
+
+TR_DELAY = 14
+my_array2_c <- my_array2_c %>% mutate(glmConj_TR_17 = NA, glmConj_TR_18 = NA, glmConj_TR_19 = NA, glmConj_TR_20 = NA)
+
+for (sub in unique(my_array2_c$subject)){
+  for(tr in 9:11){
+    replace_idx = my_array2_c$subject == sub & my_array2_c$trial_tr == tr & is.na(my_array2_c[,paste0("glmConj_TR_",tr+1)])
+    my_array2_c[replace_idx,paste0("glmConj_TR_",(tr+1):TR_DELAY)] <- my_array2_c[lag(replace_idx) %>% replace_na(FALSE),paste0("glmConj_TR_",1:(TR_DELAY-tr))]
+} # tr loop
+}
+
+my_array2_c<-left_join(my_array2_c %>% 
+                        pivot_longer(glmConj_TR_1:glmConj_TR_20,names_to = "tr_in_trial",names_prefix = "glmConj_TR_",
+                                     values_to = "glmConj"),fmri3_data_2probes,
+                      by = c("subject","trial")) %>% 
+  filter(tr <= 975)%>%
+  mutate(half = ifelse(trial >= 48,"second","first"))%>% #last bit was interpolated
+  mutate(probe = ifelse(probe == 1, "anticipation probe","outcome probe"))
+
+my_array2_c <- my_array2_c %>% 
+  mutate(tr_in_trial = as.numeric(tr_in_trial),
+         time = (tr_in_trial-1) * 2) 
+
+```
+
+```{r}
+d1<-my_array2_c %>% 
+         filter(!is.na(hit)) %>% 
+         group_by(tr_in_trial,hit,subject,probe) %>% 
+         summarise(glmConj = mean(glmConj,na.rm = T)) %>% 
+         group_by(tr_in_trial,hit,probe) %>% 
+         summarise(mean = mean(glmConj,na.rm = T),
+                   se = sd(glmConj,na.rm = T)/sqrt(n())) %>% 
+  filter(tr_in_trial <= 14) %>% 
+  mutate(hit = as.factor(hit))
+ymax = max(d1$mean,na.rm = T)+max(d1$se,na.rm = T)
+ymin = min(d1$mean,na.rm = T)-max(d1$se,na.rm = T)
+y=mean(d1$mean,na.rm = T)
+p1a_c<-ggplot(d1 %>% filter(probe == "anticipation probe"),
+       aes(x = tr_in_trial, y = mean,color = hit))+
+  geom_vline(xintercept = c(3.5,4.5,5.5,9.5,10.5,11.5,12.5), size = 1, color = "grey")+
+  annotate("text",x = 4, y = y, label = "C")+
+  annotate("text",x = 5, y = y, label = "fixation")+
+  annotate("text",x = 10, y = y, label = "fixation2")+
+  annotate("text",x = 11, y = y, label = "button")+
+  annotate("text",x = 12, y = y, label = "outcome")+
+  annotate("text",x = 7.5, y = y, label = "rating")+
+  geom_line(aes(linetype = hit),size = 0.5) +
+  geom_point()+
+  geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
+  scale_color_manual(values = c("navy","red"))+
+  scale_fill_manual(values = c("navy","red"))+
+  labs(y = "Simalirty to pupil template",
+       x = "time (s)",
+       subtitle = "anticipation probe")+
+  theme(legend.position = "left")+
+  scale_x_continuous(breaks = seq(1,15,2),labels = seq(0,28,4))
+
+p1b_c<-ggplot(d1 %>% filter(probe == "outcome probe"),
+       aes(x = tr_in_trial, y = mean,color = hit))+
+  geom_vline(xintercept = c(3.5,4.5,5.5,6.5,7.5), size = 1, color = "grey")+
+  annotate("text",x = 4, y = y, label = "C")+
+  annotate("text",x = 5, y = y, label = "fixation")+
+  annotate("text",x = 6, y = y, label = "button")+
+  annotate("text",x = 7, y = y, label = "outcome")+
+  annotate("text",x = 10, y = y, label = "rating")+
+  geom_line(aes(linetype = hit),size = 0.5) +
+  geom_point()+
+  geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
+  scale_color_manual(values = c("navy","red"))+
+  scale_fill_manual(values = c("navy","red"))+
+  labs(y = "Simalirty to pupil template",
+       x = "time (s)",
+       subtitle = "outcome probe")+
+  scale_x_continuous(breaks = seq(0,20,4))+
+  theme(legend.position = "none")+
+  scale_x_continuous(breaks = seq(1,15,2),labels = seq(0,28,4))
+
+d2<-my_array2_c %>% 
+         group_by(tr_in_trial,cue_value,subject,probe) %>% 
+         summarise(glmConj = mean(glmConj,na.rm = T)) %>% 
+         group_by(tr_in_trial,cue_value,probe) %>% 
+         summarise(mean = mean(glmConj,na.rm = T),
+                   se = sd(glmConj,na.rm = T)/sqrt(n()))%>% 
+  filter(tr_in_trial <= 14) %>% 
+  mutate(cue_value = factor(cue_value, levels = c("-$5","-$1","-$0","+$0","+$1","+$5")),
+         tr_in_trial = as.numeric(tr_in_trial))
+
+p2a_c<-
+  ggplot(d2 %>% filter(probe == "anticipation probe"),
+       aes(x = tr_in_trial, y = mean,color = cue_value))+
+  geom_vline(xintercept = c(3.5,4.5,5.5,9.5,10.5,11.5,12.5), size = 1, color = "grey")+
+  annotate("text",x = 4, y = y, label = "C")+
+  annotate("text",x = 5, y = y, label = "fixation")+
+  annotate("text",x = 10, y = y, label = "fixation2")+
+  annotate("text",x = 11, y = y, label = "button")+
+  annotate("text",x = 12, y = y, label = "outcome")+
+  annotate("text",x = 7.5, y = y, label = "rating")+
+  geom_line(size = 0.5) +
+  geom_point()+
+  geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
+  scale_color_manual(values = redOrange_palette6)+
+  scale_fill_manual(values  = redOrange_palette6)+
+  scale_x_continuous()+
+  labs(y="Simalirty to pupil template",x = "time (s)",
+       subtitle = "anticipation probe")+
+  theme(legend.position = "left")
+
+p2b_c<-
+  ggplot(d2 %>% filter(probe == "outcome probe"),
+       aes(x = tr_in_trial, y = mean,color = cue_value))+
+  geom_vline(xintercept = c(3.5,4.5,5.5,6.5,7.5), size = 1, color = "grey")+
+  annotate("text",x = 4, y = y, label = "C")+
+  annotate("text",x = 5, y = y, label = "fixation")+
+  annotate("text",x = 6, y = y, label = "button")+
+  annotate("text",x = 7, y = y, label = "outcome")+
+  annotate("text",x = 10, y = y, label = "rating")+
+  geom_line(size = 0.5) +
+  geom_point()+
+  geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
+  scale_color_manual(values = redOrange_palette6)+
+  scale_fill_manual(values  = redOrange_palette6)+
+  labs(y="Simalirty to pupil template",x = "time (s)",
+       subtitle = "outcome probe")+
+  theme(legend.position = "none")
+
+summary(l1<-glmer(hit_num ~ glmConj + (1|subject) + (1|probe),family = binomial,my_array2_c %>% filter(tr_in_trial == 5) %>% mutate(hit_num = as.factor(hit == 1))))
+summary(l2<-lmer(rt ~ glmConj + (1|subject)+ (1|probe),my_array2_c %>% filter(tr_in_trial == 5, hit == 1)))
+
+summary(l3<-glmer(hit_num ~ glmConj + (1|subject) + (1|probe),family = binomial,my_array2_c %>% filter(tr_in_trial == 4) %>% mutate(hit_num = as.factor(hit == 1))))
+summary(l4<-lmer(rt ~ glmConj + (1|subject)+ (1|probe),my_array2_c %>% filter(tr_in_trial == 4, hit == 1)))
+
+# Predictions
+pred_l1 <- ggpredict(l1, terms = "glmConj [all]")
+pred_l2 <- ggpredict(l2, terms = "glmConj [all]")
+pred_l3 <- ggpredict(l3, terms = "glmConj [all]")
+pred_l4 <- ggpredict(l4, terms = "glmConj [all]")
+
+# Extract coefficient info
+coef_l1 <- broom.mixed::tidy(l1, effects = "fixed") %>% filter(term == "glmConj")
+coef_l2 <- broom.mixed::tidy(l2, effects = "fixed") %>% filter(term == "glmConj")
+coef_l3 <- broom.mixed::tidy(l3, effects = "fixed") %>% filter(term == "glmConj")
+coef_l4 <- broom.mixed::tidy(l4, effects = "fixed") %>% filter(term == "glmConj")
+
+
+annot_l1 <- paste0("TR 5: ","β = ", round(effectsize::standardize_parameters(l1, method = "pseudo")$Std_Coefficient[2], 3),
+                   ", z = ", round(coef_l1$statistic, 2),
+                   ", p = ", signif(coef_l1$p.value, 3))
+
+annot_l2 <- paste0("TR 5: ","β = ", round(effectsize::standardize_parameters(l2, method = "pseudo")$Std_Coefficient[2], 3),
+                   ", t = ", round(coef_l2$statistic, 2),
+                   ", p = ", signif(coef_l2$p.value, 3))
+
+annot_l3 <- paste0("TR 4: ","β = ", round(effectsize::standardize_parameters(l3, method = "pseudo")$Std_Coefficient[2], 3),
+                   ", t = ", round(coef_l3$statistic, 2),
+                   ", p = ", signif(coef_l3$p.value, 3))
+
+annot_l4 <- paste0("TR 4: ","β = ", round(effectsize::standardize_parameters(l4, method = "pseudo")$Std_Coefficient[2], 3),
+                   ", t = ", round(coef_l4$statistic, 2),
+                   ", p = ", signif(coef_l4$p.value, 3))
+
+# Plot for l1
+p1 <- ggplot() +
+  geom_line(data = pred_l1, aes(x = x, y = predicted), color = "black", size = 1.2) +
+  geom_ribbon(data = pred_l1, aes(x = x, ymin = conf.low, ymax = conf.high), 
+              alpha = 0.2, fill = "black") +
+  geom_line(data = pred_l3, aes(x = x, y = predicted), color = "darkgrey", size = 1.2) +
+  geom_ribbon(data = pred_l3, aes(x = x, ymin = conf.low, ymax = conf.high), 
+              alpha = 0.2, fill = "darkgrey") +
+  labs(x = "similarity to pupil GLM template", y = "Predicted probability of hit") +
+  annotate("text", x = max(pred_l1$x), y = 0.4, label = annot_l1, hjust = 1, size = 4,color = "black")+
+  annotate("text", x = max(pred_l1$x), y = 0.35, label = annot_l3, hjust = 1, size = 4,color = "darkgrey")+
+  ylim(0,1)
+
+# Plot for l2
+p2 <- ggplot() +
+  geom_line(data = pred_l2, aes(x = x, y = predicted), color = "black", size = 1.2) +
+  geom_ribbon(data = pred_l2, aes(x = x, ymin = conf.low, ymax = conf.high), 
+              alpha = 0.2, fill = "black") +
+  geom_line(data = pred_l4, aes(x = x, y = predicted), color = "darkgrey", size = 1.2) +
+  geom_ribbon(data = pred_l4, aes(x = x, ymin = conf.low, ymax = conf.high), 
+              alpha = 0.2, fill = "darkgrey") +
+  annotate("text", x = max(pred_l2$x), y = 0.2, label = annot_l2, hjust = 1, size = 4,color = "black")+
+  annotate("text", x = max(pred_l2$x), y = 0.185, label = annot_l4, hjust = 1, size = 4,color = "darkgrey")+
+  labs(x = "similarity to pupil GLM template", y = "RT") +
+  ylim(0.1,0.3)
+
+coefs1 = NULL
+for (t in 1:14){
+  l1<-summary(lmer(scale(arousal) ~ scale(glmConj) + (1|subject),my_array2_c %>% filter(tr_in_trial == t, probe == "anticipation probe")))
+  coefs1 <- rbind(coefs1,l1$coefficients[2,])
+}
+coefs1<-as.data.frame(coefs1)
+coefs1$TR <- 1:14
+coefs1$probe = "anticipation probe"
+
+coefs2 = NULL
+for (t in 1:14){
+  l1<-summary(lmer(scale(arousal) ~ scale(glmConj) + (1|subject),my_array2_c %>% filter(tr_in_trial == t, probe == "outcome probe")))
+  coefs2 <- rbind(coefs2,l1$coefficients[2,])
+}
+coefs2<-as.data.frame(coefs2)
+coefs2$TR <- 1:14
+coefs2$probe = "outcome probe"
+
+coefs <- rbind(coefs1,coefs2) %>% 
+  mutate(sig = ifelse(`Pr(>|t|)` >= 0.05, "",
+                      ifelse(`Pr(>|t|)` >= 0.01, "*",
+                             ifelse(`Pr(>|t|)` >= 0.001, "**","***"))))
+
+p4a_c<-ggplot(coefs %>% filter(probe == "anticipation probe"),aes(x = TR, y =Estimate))+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  geom_vline(xintercept = c(3.5,4.5,5.5,9.5,10.5,11.5,12.5), size = 1, color = "grey")+
+  annotate("text",x = 4, y = 0.05, label = "C")+
+  annotate("text",x = 5, y = 0.05, label = "fixation")+
+  annotate("text",x = 10, y = 0.05, label = "fixation2")+
+  annotate("text",x = 11, y = 0.05, label = "button")+
+  annotate("text",x = 12, y = 0.05, label = "outcome")+
+  annotate("text",x = 7.5, y = 0.05, label = "rating")+
+  geom_line(aes(color = probe),size = 2, alpha = 0.5)+
+  geom_point(aes(color = probe))+
+  scale_x_continuous(breaks = seq(0,14,2), labels = seq(0,28,4))+
+  scale_color_manual(values = c("purple"))+
+  geom_segment(aes(x = 7, y = 0.15,
+                   xend =7, yend = 0.1),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")),
+               color = "darkgrey")+
+  annotate("text",x = 7, y = 0.16, label ="arousal rating")+
+  geom_text(aes(x = TR, y = Estimate+0.05, label = sig, color = probe))+
+  labs(x = "time (s)",
+       y = "Correlation with arousal",
+       title = "Regression weights on arousal",
+       subtitle = "anticipation probe")+
+  theme(legend.position = "none")
+
+p4b_c<-ggplot(coefs%>% filter(probe == "outcome probe"),aes(x = TR, y =Estimate))+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  geom_vline(xintercept = c(3.5,4.5,5.5,6.5,7.5), size = 1, color = "grey")+
+  annotate("text",x = 4, y = 0.05, label = "C")+
+  annotate("text",x = 5, y = 0.05, label = "fixation")+
+  annotate("text",x = 6, y = 0.05, label = "button")+
+  annotate("text",x = 7, y = 0.05, label = "outcome")+
+  annotate("text",x = 10, y = 0.05, label = "rating")+
+  geom_point(aes(color = probe))+
+  geom_line(aes(color = probe), size = 2, alpha = 0.5)+
+  geom_segment(aes(x = 10, y = 0.17,
+                   xend =10, yend = 0.12),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")),
+               color = "darkgrey")+
+  annotate("text",x = 10, y = 0.18, label ="arousal rating")+
+  scale_x_continuous(breaks = seq(0,14,2), labels = seq(0,28,4))+
+  scale_color_manual(values = c("skyblue"))+
+  geom_text(aes(x = TR, y = Estimate+0.05, label = sig, color = probe))+
+  labs(x = "time (s)",
+       subtitle = "outcome probe")+
+  theme(legend.position = "none")
+
+p2a_c+p2b_c+p1a_c+p1b_c+plot_layout(nrow = 2)
+
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/similarity_glmConj.png"),dpi = 300, height = 6, width = 8)
+```
+```{r}
+p1+p2+
+p4a_c+ylim(-0.2,0.22)+labs(title = "correlation time course")+p4b_c+ylim(-0.2,0.22)+
+  plot_layout(nrow = 2)+
+  plot_annotation(tag_levels = "A")
+
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig_corr_tc.tiff"),dpi = 300, height = 8, width =10)
+
+p4a_+labs(title = "pupil GLM")+p4b_+
+p4a+labs(title = "reported arousal GLM")+p4b+
+p4a_c+labs(title = "pupil GLM (conjunction)")+p4b_c+
+plot_layout(nrow = 3)
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig_corr_tc2.tiff"),dpi = 300, height = 8, width =6)
+```
