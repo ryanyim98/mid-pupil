@@ -1,0 +1,63 @@
+---
+title: "cluster_table"
+output: html_document
+date: "2025-10-28"
+---
+
+Written by: Leili Mortazavi February 2024
+Purpose: Getting labels of brain regions based on coordinates of peak activity in whole-brain group analyses. 
+
+
+```{r}
+library(tidyverse)
+library(devtools)
+#install_github("yunshiuan/label4MRI") #This is also only required for the first time*
+library(label4MRI)
+```
+
+# import tables
+**output of 3dClusterize
+***manually minimally edited to have no space in column labels and uncomment the column labels
+
+```{r}
+
+midaffemo_pupil <-read_table('~/Desktop/midaffemo/cluster_table/tables/table_model33b_Z3.227.1D',
+    comment = "#") %>% 
+  mutate(contrast = "pupil",
+         z_threshold = 3.227)
+
+midaffemo_pupil2 <-read_table('~/Desktop/midaffemo/cluster_table/tables/table_model33c_Z3.227.1D',
+    comment = "#") %>% 
+  mutate(contrast = "pupil-covaried",
+         z_threshold = 3.227)
+
+midaffemo_arousal <-read_table('~/Desktop/midaffemo/cluster_table/tables/table_model27_Z3.227.1D',
+    comment = "#") %>% 
+  mutate(contrast = "arousal",
+         z_threshold = 3.227)
+
+
+mydf <- midaffemo_arousal %>% 
+  bind_rows(., midaffemo_pupil) %>% 
+  bind_rows(., midaffemo_pupil2) %>% 
+  dplyr::select(contrast, "n_voxels" = Volume, "x_afni" = MI_RL, "y_afni" = MI_AP, "z_afni" = MI_IS, "peak_Z" = Max_Int, "threshold" = z_threshold) %>% 
+  mutate(x = -x_afni, 
+         y = -y_afni,
+         z = z_afni)
+
+#get labels
+# mni_to_region_name(df$x, df$y, df$z)
+df_labels_list <- t(mapply(FUN = mni_to_region_name, x = mydf$x, y = mydf$y, z = mydf$z))
+
+write.csv(df_labels_list, "./cluserpeak_tables_temp.csv")
+
+# writing out and reading the df back in is the workaround for:
+# the written file has empty columns bc the label columns are lists rather than character/numeric!!!
+
+df_labels <- read_csv( "./cluserpeak_tables_temp.csv") %>% 
+  dplyr::select(-...1) %>% 
+  bind_cols(mydf, .)
+
+write_delim(x = df_labels, delim = ",", file = paste0("./cluserpeak_table_pupilaro.csv"))
+```
+

@@ -29,7 +29,7 @@ vrmid1_pupil_data <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/de
   ungroup()
 
 vrmid1_pupil_data <- vrmid1_pupil_data %>%
-  rename_with(~ str_replace(., "_scaled$", "_scaled"))
+  rename_with(~ str_replace(., "_scale$", "_scaled"))
 
 vrmid1_bad_participants <- read_delim("../../data/vrmid1/subjects_list/subject_to_drop_pupil.txt", col_names = F, delim = " ")
 
@@ -76,7 +76,7 @@ vrmid2_pupil_data <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/vrmid2/de
   ungroup()
 
 vrmid2_pupil_data <- vrmid2_pupil_data %>%
-  rename_with(~ str_replace(., "_scaled$", "_scaled"))
+  rename_with(~ str_replace(., "_scale$", "_scaled"))
 
 vrmid2_bad_participants <- read_delim("../../data/vrmid2/subjects_list/subject_to_drop_pupil.txt", col_names = F, delim = " ")
 
@@ -795,7 +795,14 @@ p2a<-ggplot(vrmid2_summary_nobc, aes(x = sample_in_trial_t,
   theme(legend.position = "none")
 
 fmri3_summary_nobc <- fmri3_pupil_data%>%
-  filter(sample_in_trial_t >= trial_duration-iti) %>%
+  filter(iti != 0) %>% 
+  ungroup() %>% 
+  filter(ifelse(probe == 1, sample_in_trial_t >= 18 & sample_in_trial_t <= 18+iti,
+          ifelse(probe == 2, sample_in_trial_t >= 16 & sample_in_trial_t <= 16+iti,
+                NA))) %>%
+  mutate(sample_in_trial_t = ifelse(probe == 1,sample_in_trial_t-2, #account for differences in trial length
+          ifelse(probe == 2, sample_in_trial_t,
+                NA))) %>%
   ungroup()%>%
   group_by(sample_in_trial_t,iti)%>%
   summarise(mean = mean(pupilDiameter_bc_scaled, na.rm = T),
@@ -803,7 +810,7 @@ fmri3_summary_nobc <- fmri3_pupil_data%>%
             upper = mean(pupilDiameter_bc_scaled, na.rm = T) + qt(0.975, df = n() - 1) * sd(pupilDiameter_bc_scaled, na.rm = T) / sqrt(n()))%>% 
   mutate(iti=as.factor(iti))
 
-p3a<-ggplot(fmri3_summary_nobc %>% filter(iti!=0), aes(x = sample_in_trial_t,
+p3a<-ggplot(fmri3_summary_nobc %>% filter(iti!=0, sample_in_trial_t <21.9), aes(x = sample_in_trial_t,
                        y = mean))+
   geom_line(aes(color=iti),size = 1)+
   geom_ribbon(aes(x = sample_in_trial_t,
@@ -2621,13 +2628,13 @@ title2 <- wrap_elements(full = grid::textGrob("Pupillometry", gp =  grid::gpar(f
   title2 /                        # Title for the second row
   (p1a + p2a + p3a)             # Second row
 ) + plot_layout(nrow = 5, heights = c(0.1, 1.5, 0.1, 1.5))  # Adjust heights for title rows
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig9_manipCheck.tiff"), height = 6, width = 9)
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig9_manipCheck.png"), height = 6, width = 9)
 
-fig1 <- image_read("~/Desktop/VRMID-analysis/mid-pupil/figures/fig9_manipCheck.tiff")
+fig1 <- image_read("~/Desktop/VRMID-analysis/mid-pupil/figures/fig9_manipCheck.png")
 fig1 <- image_annotate(fig1, "A", size = 55, location = "+400+00", color = "black", gravity = "northwest")
 fig1 <- image_annotate(fig1, "B", size = 55, location = "+400+950", color = "black", gravity = "northwest")
 
-image_write(fig1, "~/Desktop/VRMID-analysis/mid-pupil/figures/fig9_manipCheck.tiff")
+image_write(fig1, "~/Desktop/VRMID-analysis/mid-pupil/figures/fig9_manipCheck.png")
 ```
 
 ## treat these as numerical values
@@ -2871,45 +2878,48 @@ summary(lmer(mean_pupil_bc_scaled_out ~ as.factor(trial_outcome) + (1|subject),r
 ## How much of the ratings are explained by just the affective induction?
 ### anticipation
 ```{r}
-summary(l1<-lmer(arousal ~ trial_type + (1|Subject) + (1|condition),vrmid1_data_antprobe))
+summary(l1<-lmer(scale(arousal_scaled) ~ trial_type + (1|Subject) + (1|condition),vrmid1_data_antprobe))
 round(anova(l1),2)
 round(r.squaredGLMM(l1)*100,2)
 
-summary(l1<-lmer(arousal ~ trial_type + (1|Subject)+ (1|condition),vrmid2_data_antprobe))
+summary(l1<-lmer(scale(arousal_scaled) ~ trial_type + (1|Subject)+ (1|condition),vrmid2_data_antprobe))
 round(anova(l1),2)
 round(r.squaredGLMM(l1)*100,2)
 
-summary(l1<-lmer(arousal ~ cue_value + (1|subject)+ (1|cue_size),fmri3_data_antprobe))
+summary(l1<-lmer(scale(arousal_scaled) ~ cue_value + (1|subject)+ (1|cue_size),fmri3_data_antprobe))
 round(anova(l1),2)
 round(r.squaredGLMM(l1)*100,2)
 
-summary(l1<-lmer(valence ~ trial_type + (1|Subject) + (1|condition),vrmid1_data_antprobe))
+summary(l1<-lmer(valence_scaled ~ trial_type + (1|Subject) + (1|condition),vrmid1_data_antprobe))
 round(anova(l1),2)
 round(r.squaredGLMM(l1)*100,2)
 
-summary(l1<-lmer(valence ~ trial_type + (1|Subject) + (1|condition),vrmid2_data_antprobe))
+summary(l1<-lmer(valence_scaled ~ trial_type + (1|Subject) + (1|condition),vrmid2_data_antprobe))
 round(anova(l1),2)
 round(r.squaredGLMM(l1)*100,2)
 
-summary(l1<-lmer(valence ~ cue_value + (1|subject) + (1|cue_size),fmri3_data_antprobe))
+summary(l1<-lmer(valence_scaled ~ cue_value + (1|subject) + (1|cue_size),fmri3_data_antprobe))
 round(anova(l1),2)
 round(r.squaredGLMM(l1)*100,2)
 ```
 ### outcome
 ```{r}
-summary(l1<-lmer(arousal ~ trial_type * reaction_outcome + (1|Subject) + (1|condition),vrmid1_data_outprobe))
+summary(l1<-lmer(scale(arousal_scaled) ~ trial_type * reaction_outcome + (1|Subject) + (1|condition),vrmid1_data_outprobe))
 round(anova(l1),2)
 round(r.squaredGLMM(l1)*100,2)
+summary(lmer(scale(arousal_scaled) ~ as.factor(trial_outcome) + (1|Subject) + (1|condition),vrmid1_data_outprobe))
 
-summary(l1<-lmer(arousal ~ trial_type * reaction_outcome + (1|Subject) + (1|condition),vrmid2_data_outprobe))
+summary(l1<-lmer(scale(arousal_scaled) ~ trial_type * reaction_outcome + (1|Subject) + (1|condition),vrmid2_data_outprobe))
 plot_model(l1,type = "pred", terms = c("trial_type","reaction_outcome"))
 round(anova(l1),2)
 round(r.squaredGLMM(l1)*100,2)
+summary(lmer(scale(arousal_scaled) ~ as.factor(trial_outcome) + (1|Subject) + (1|condition),vrmid2_data_outprobe))
 
-summary(l1<-lmer(arousal ~ cue_value *  hit + (1|subject)+ (1|cue_size),fmri3_data_outprobe))
+summary(l1<-lmer(scale(arousal_scaled) ~ cue_value *  hit + (1|subject)+ (1|cue_size),fmri3_data_outprobe))
 round(anova(l1),2)
 round(r.squaredGLMM(l1)*100,2)
 plot_model(l1,type = "pred", terms = "hit")
+summary(lmer(scale(arousal_scaled) ~ as.factor(trial_outcome) + (1|subject) + (1|cue_size),fmri3_data_outprobe))
 
 summary(l1<-lmer(valence ~ trial_type * reaction_outcome + (1|Subject) + (1|condition),vrmid1_data_outprobe))
 plot_model(l1,type = "pred", terms = c("trial_type","reaction_outcome"))
@@ -2930,40 +2940,44 @@ r.squaredGLMM(l1)
 ## were affect induction effective for pupil diameter?
 ### anticipation
 ```{r}
-summary(l1<-lmer(mean_pupil_nobc_ant ~ trial_type + (1+trial_type|Subject) + (1|condition),vrmid1_data_antprobe))
+summary(l1<-lmer(scale(mean_pupil_nobc_ant) ~ trial_type + (1|Subject) + (1|condition),vrmid1_data_antprobe))
 round(anova(l1),2)
 round(r.squaredGLMM(l1)*100,2)
-anova(l2<-lmer(mean_pupil_nobc_ant ~ trial_type + arousal + (1+trial_type+arousal|Subject) + (1|condition),vrmid1_data_antprobe))
+anova(l2<-lmer(scale(mean_pupil_nobc_ant) ~ trial_type + arousal + (1+trial_type+arousal|Subject) + (1|condition),vrmid1_data_antprobe))
 
-summary(l1<-lmer(mean_pupil_nobc_ant ~ trial_type + (1|Subject)+ (1|condition),vrmid2_data_antprobe))
+summary(l1<-lmer(scale(mean_pupil_nobc_ant) ~ trial_type + (1|Subject)+ (1|condition),vrmid2_data_antprobe))
 round(anova(l1),2)
 round(r.squaredGLMM(l1)*100,2)
 anova(l2<-lmer(mean_pupil_nobc_ant ~ trial_type + arousal + (1+trial_type + arousal|Subject) + (1|condition),vrmid2_data_antprobe))
 
-summary(l1<-lmer(mean_pupil_nobc_scaled_ant ~ cue_value + (1|subject)+ (1|cue_size),fmri3_data_antprobe))
+summary(l1<-lmer(scale(mean_pupil_nobc_scaled_ant) ~ cue_value + (1|subject)+ (1|cue_size),fmri3_data_antprobe))
 round(anova(l1),2)
 round(r.squaredGLMM(l1)*100,2)
 anova(l2<-lmer(mean_pupil_nobc_scaled_ant ~ cue_value + arousal + (1+ cue_value + arousal|subject) + (1|cue_size),fmri3_data_antprobe))
 ```
 ### outcome
 ```{r}
-summary(l1<-lmer(mean_pupil_nobc_out ~ trial_type * reaction_outcome + (1|Subject) + (1|condition),vrmid1_data_outprobe))
+summary(l1<-lmer(scale(mean_pupil_nobc_out) ~ trial_type * reaction_outcome + (1|Subject) + (1|condition),vrmid1_data_outprobe))
 plot_model(l1, type = "pred", terms = "reaction_outcome")
 round(anova(l1),2)
 round(r.squaredGLMM(l1)*100,2)
 anova(lmer(mean_pupil_nobc_out ~ trial_type * reaction_outcome + arousal + (1|Subject) + (1|condition),vrmid1_data_outprobe))
+summary(lmer(scale(mean_pupil_nobc_out) ~ as.factor(trial_outcome) + (1|Subject) + (1|condition),vrmid1_data_outprobe))
 
-summary(l1<-lmer(mean_pupil_nobc_out ~ trial_type * reaction_outcome + (1|Subject)+ (1|condition),vrmid2_data_outprobe))
+summary(l1<-lmer(scale(mean_pupil_nobc_out) ~ trial_type * reaction_outcome + (1|Subject)+ (1|condition),vrmid2_data_outprobe))
 plot_model(l1, type = "pred", terms = "reaction_outcome")
 round(anova(l1),2)
 round(r.squaredGLMM(l1)*100,2)
 anova(lmer(mean_pupil_nobc_out ~ trial_type * reaction_outcome + arousal + (1|Subject) + (1|condition),vrmid2_data_outprobe))
+summary(lmer(scale(mean_pupil_nobc_out) ~ as.factor(trial_outcome) + (1|Subject) + (1|condition),vrmid2_data_outprobe))
 
-summary(l1<-lmer(mean_pupil_nobc_scaled_out ~ cue_value * hit + (1|subject)+ (1|cue_size),fmri3_data_antprobe))
+summary(l1<-lmer(scale(mean_pupil_nobc_scaled_out) ~ cue_value * hit + (1|subject)+ (1|cue_size),fmri3_data_antprobe))
 round(anova(l1),2)
 round(r.squaredGLMM(l1)*100,2)
 anova(lmer(mean_pupil_nobc_scaled_out ~ cue_value * hit +arousal + (1|subject)+ (1|cue_size),fmri3_data_antprobe))
+summary(lmer(scale(mean_pupil_nobc_scaled_out) ~ as.factor(trial_outcome) + (1|subject) + (1|cue_size),fmri3_data_antprobe))
 ```
+
 ## was luminance related to self-reported arousal? No
 
 ```{r}
@@ -2983,103 +2997,72 @@ summary(lmer(arousal_scaled ~ luminance_mean_out + (1|subject) + (1|probe),rbind
 ## is OBJECTIVE or SUBJECTIVE model better?
 
 ### ant probe
+#### pupil
 ```{r}
-# VR 1
-summary(l1<-lmer(mean_pupil_nobc_ant ~ trial_type + (1|Subject) + (1|condition),vrmid1_data_antprobe %>% filter(!is.na(arousal))))
-summary(l2<-lmer(mean_pupil_nobc_ant ~ trial_type + arousal + (1|Subject) + (1|condition),vrmid1_data_antprobe%>% filter(!is.na(arousal))))
-summary(l3<-lmer(mean_pupil_nobc_ant ~arousal + (1|Subject) + (1|condition) ,vrmid1_data_antprobe%>% filter(!is.na(arousal))))
-summary(l4<-lmer(mean_pupil_nobc_ant ~arousal + (1|Subject) + (1|condition) + (1|trial_type),vrmid1_data_antprobe%>% filter(!is.na(arousal))))
+summary(l1<-lmer(arousal ~ trial_type + (1|Subject) + (1|condition),vrmid1_data_antprobe %>% filter(!is.na(arousal))))
+summary(l2<-lmer(arousal ~ trial_type + mean_pupil_baseline_ant + (1|Subject) + (1|condition),vrmid1_data_antprobe%>% filter(!is.na(arousal))))
+summary(l3<-lmer(arousal ~ trial_type + mean_pupil_bc_ant + (1|Subject) + (1|condition),vrmid1_data_antprobe%>% filter(!is.na(arousal))))
+summary(l4<-lmer(arousal ~ trial_type + mean_pupil_nobc_ant + (1|Subject) + (1|condition) ,vrmid1_data_antprobe%>% filter(!is.na(arousal))))
+summary(l5<-lmer(arousal ~ mean_pupil_nobc_ant + (1|Subject) + (1|condition) ,vrmid1_data_antprobe%>% filter(!is.na(arousal))))
 
-anova(l1,l2)
-# # # Approximate adjusted R2
-# n <- nrow(vrmid1_data_antprobe) # sample size
-# p1 <- length(fixef(l1)) # number of fixed-effect predictors
-# p2<- length(fixef(l2))
-# r2al1 <- 1 - ((1 - r.squaredGLMM(l1)[1]) * (n - 1) / (n - p1 - 1))
-# r2al2 <- 1 - ((1 - r.squaredGLMM(l2)[1]) * (n - 1) / (n - p2 - 1))
-
-AIC(l1)
-AIC(l2)
-
-BIC(l1)
-BIC(l2)
-
+anova(l1,l2,l3,l4,l5)
+r.squaredGLMM(l2)-r.squaredGLMM(l1)
 # VR 2
-summary(l1<-lmer(mean_pupil_nobc_ant ~ trial_type + (1|Subject) + (1|condition),vrmid2_data_antprobe %>% filter(!is.na(arousal))))
-summary(l2<-lmer(mean_pupil_nobc_ant ~ trial_type + arousal + (1|Subject) + (1|condition),vrmid2_data_antprobe%>% filter(!is.na(arousal))))
-summary(l3<-lmer(mean_pupil_nobc_ant ~arousal + (1|Subject) + (1|condition) ,vrmid2_data_antprobe%>% filter(!is.na(arousal))))
-summary(l4<-lmer(mean_pupil_nobc_ant ~arousal + (1|Subject) + (1|condition) + (1|trial_type),vrmid2_data_antprobe%>% filter(!is.na(arousal))))
+summary(l1<-lmer(arousal ~ trial_type + (1|Subject) + (1|condition),vrmid2_data_antprobe %>% filter(!is.na(arousal))))
+summary(l2<-lmer(arousal ~ trial_type + mean_pupil_baseline_ant + (1|Subject) + (1|condition),vrmid2_data_antprobe%>% filter(!is.na(arousal))))
+summary(l3<-lmer(arousal ~ trial_type + mean_pupil_bc_ant + (1|Subject) + (1|condition),vrmid2_data_antprobe%>% filter(!is.na(arousal))))
+summary(l4<-lmer(arousal ~ trial_type + mean_pupil_nobc_ant + (1|Subject) + (1|condition) ,vrmid2_data_antprobe%>% filter(!is.na(arousal))))
+summary(l5<-lmer(arousal ~ mean_pupil_nobc_ant + (1|Subject) + (1|condition) ,vrmid2_data_antprobe%>% filter(!is.na(arousal))))
 
-anova(l1,l2)
-anova(l1,l3)
-AIC(l1)
-AIC(l2)
+r.squaredGLMM(l2)-r.squaredGLMM(l1)
 
-BIC(l1)
-BIC(l2)
+anova(l1,l2,l3,l4,l5)
 
 # FMRI 3
-summary(l1<-lmer(mean_pupil_nobc_scaled_ant ~ cue_value + (1|subject) + (1|cue_size),fmri3_data_antprobe %>% filter(!is.na(arousal))))
-summary(l2<-lmer(mean_pupil_nobc_scaled_ant ~ cue_value + arousal + (1|subject) + (1|cue_size),fmri3_data_antprobe%>% filter(!is.na(arousal))))
-summary(l3<-lmer(mean_pupil_nobc_scaled_ant ~arousal + (1|subject) + (1|cue_size) ,fmri3_data_antprobe%>% filter(!is.na(arousal))))
-summary(l4<-lmer(mean_pupil_nobc_scaled_ant ~arousal + (1|subject) + (1|cue_size) + (1|cue_value),fmri3_data_antprobe%>% filter(!is.na(arousal))))
+summary(l1<-lmer(arousal ~ cue_value + (1|subject) + (1|cue_size),fmri3_data_antprobe %>% filter(!is.na(arousal))))
+summary(l2<-lmer(arousal ~ cue_value + mean_pupil_baseline_scaled + (1|subject) + (1|cue_size),fmri3_data_antprobe%>% filter(!is.na(arousal))))
+summary(l3<-lmer(arousal ~ cue_value + mean_pupil_bc_scaled_ant + (1|subject) + (1|cue_size),fmri3_data_antprobe%>% filter(!is.na(arousal))))
+summary(l4<-lmer(arousal ~ cue_value + mean_pupil_nobc_scaled_ant + (1|subject) + (1|cue_size),fmri3_data_antprobe%>% filter(!is.na(arousal))))
+summary(l5<-lmer(arousal ~ mean_pupil_nobc_scaled_ant + (1|subject) + (1|cue_size),fmri3_data_antprobe%>% filter(!is.na(arousal))))
 
-anova(l1,l2)
-anova(l1,l3)
-AIC(l1)
-AIC(l2)
+r.squaredGLMM(l2)-r.squaredGLMM(l1)
 
-BIC(l1)
-BIC(l2)
+anova(l1,l2,l3,l4)
 ```
 
 ### out probe
 ```{r}
-# VR 1
-summary(l1<-lmer(mean_pupil_nobc_out ~ trial_type + (1|Subject) + (1|condition),vrmid1_data_outprobe %>% filter(!is.na(arousal))))
-summary(l2<-lmer(mean_pupil_nobc_out ~ trial_type + arousal + (1|Subject) + (1|condition),vrmid1_data_outprobe%>% filter(!is.na(arousal))))
-summary(l3<-lmer(mean_pupil_nobc_out ~arousal + (1|Subject) + (1|condition) ,vrmid1_data_outprobe%>% filter(!is.na(arousal))))
-summary(l4<-lmer(mean_pupil_nobc_out ~arousal + (1|Subject) + (1|condition) + (1|trial_type),vrmid1_data_outprobe%>% filter(!is.na(arousal))))
+common_data <- vrmid1_data_outprobe %>%
+  filter(!is.na(arousal),
+         !is.na(mean_pupil_bc_out),
+         !is.na(mean_pupil_baseline_out),
+         !is.na(mean_pupil_nobc_out))
 
-anova(l1,l2)
-# # # Approximate adjusted R2
-# n <- nrow(vrmid1_data_outprobe) # sample size
-# p1 <- length(fixef(l1)) # number of fixed-effect predictors
-# p2<- length(fixef(l2))
-# r2al1 <- 1 - ((1 - r.squaredGLMM(l1)[1]) * (n - 1) / (n - p1 - 1))
-# r2al2 <- 1 - ((1 - r.squaredGLMM(l2)[1]) * (n - 1) / (n - p2 - 1))
+summary(l1<-lmer(arousal ~ trial_type * reaction_outcome + (1|Subject) + (1|condition),common_data))
+summary(l2<-lmer(arousal ~ trial_type* reaction_outcome + mean_pupil_baseline_out + (1|Subject) + (1|condition),common_data))
+summary(l3<-lmer(arousal ~ trial_type* reaction_outcome + mean_pupil_bc_out + (1|Subject) + (1|condition),common_data))
+summary(l4<-lmer(arousal ~ trial_type* reaction_outcome + mean_pupil_nobc_out + (1|Subject) + (1|condition) ,common_data))
+summary(l5<-lmer(arousal ~ mean_pupil_nobc_out + (1|Subject) + (1|condition) ,common_data))
 
-AIC(l1)
-AIC(l2)
-
-BIC(l1)
-BIC(l2)
+anova(l1,l2,l3,l4,l5)
 
 # VR 2
-summary(l1<-lmer(mean_pupil_nobc_out ~ trial_type * reaction_outcome + (1|Subject) + (1|condition),vrmid2_data_outprobe %>% filter(!is.na(arousal))))
-summary(l2<-lmer(mean_pupil_nobc_out ~ trial_type * reaction_outcome + arousal + (1|Subject) + (1|condition),vrmid2_data_outprobe%>% filter(!is.na(arousal))))
-summary(l3<-lmer(mean_pupil_nobc_out ~arousal + (1|Subject) + (1|condition) ,vrmid2_data_outprobe%>% filter(!is.na(arousal))))
-summary(l4<-lmer(mean_pupil_nobc_out ~arousal + (1|Subject) + (1|condition) + (1|trial_type),vrmid2_data_outprobe%>% filter(!is.na(arousal))))
+summary(l1<-lmer(arousal ~ trial_type + (1|Subject) + (1|condition),vrmid2_data_outprobe %>% filter(!is.na(arousal))))
+summary(l2<-lmer(arousal ~ trial_type + mean_pupil_baseline_out + (1|Subject) + (1|condition),vrmid2_data_outprobe%>% filter(!is.na(arousal))))
+summary(l3<-lmer(arousal ~ trial_type + mean_pupil_bc_out + (1|Subject) + (1|condition),vrmid2_data_outprobe%>% filter(!is.na(arousal))))
+summary(l4<-lmer(arousal ~ trial_type + mean_pupil_nobc_out + (1|Subject) + (1|condition) ,vrmid2_data_outprobe%>% filter(!is.na(arousal))))
+summary(l5<-lmer(arousal ~ mean_pupil_nobc_out + (1|Subject) + (1|condition) ,vrmid2_data_outprobe%>% filter(!is.na(arousal))))
 
-anova(l1,l2)
-AIC(l1)
-AIC(l2)
-
-BIC(l1)
-BIC(l2)
+anova(l1,l2,l3,l4,l5)
 
 # FMRI 3
-summary(l1<-lmer(mean_pupil_nobc_scaled_out ~ cue_value * hit + (1|subject) + (1|cue_size),fmri3_data_outprobe %>% filter(!is.na(arousal))))
-summary(l2<-lmer(mean_pupil_nobc_scaled_out ~ cue_value* hit + arousal + (1|subject) + (1|cue_size),fmri3_data_outprobe%>% filter(!is.na(arousal))))
-summary(l3<-lmer(mean_pupil_nobc_scaled_out ~arousal + (1|subject) + (1|cue_size) ,fmri3_data_outprobe%>% filter(!is.na(arousal))))
-summary(l4<-lmer(mean_pupil_nobc_scaled_out ~arousal + (1|subject) + (1|cue_size) + (1|cue_value),fmri3_data_outprobe%>% filter(!is.na(arousal))))
+summary(l1<-lmer(arousal ~ cue_value + (1|subject) + (1|cue_size),fmri3_data_outprobe %>% filter(!is.na(arousal) & !is.na(mean_pupil_baseline_scaled))))
+summary(l2<-lmer(arousal ~ cue_value + mean_pupil_baseline_scaled + (1|subject) + (1|cue_size),fmri3_data_outprobe%>% filter(!is.na(arousal)& !is.na(mean_pupil_baseline_scaled))))
+summary(l3<-lmer(arousal ~ cue_value + mean_pupil_bc_scaled_out + (1|subject) + (1|cue_size),fmri3_data_outprobe%>% filter(!is.na(arousal)& !is.na(mean_pupil_baseline_scaled))))
+summary(l4<-lmer(arousal ~ cue_value + mean_pupil_nobc_scaled_out + (1|subject) + (1|cue_size),fmri3_data_outprobe%>% filter(!is.na(arousal)& !is.na(mean_pupil_baseline_scaled))))
+summary(l5<-lmer(arousal ~ mean_pupil_nobc_scaled_out + (1|subject) + (1|cue_size),fmri3_data_outprobe%>% filter(!is.na(arousal)& !is.na(mean_pupil_baseline_scaled))))
 
-anova(l1,l2)
-AIC(l1)
-AIC(l2)
-
-BIC(l1)
-BIC(l2)
+anova(l1,l2,l3,l4,l5)
 ```
 
 
@@ -4286,22 +4269,19 @@ ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/cross_study_validation
 ```{r}
 vrmid1_pupil_data_tonic <- vrmid1_pupil_data%>%
   filter(Time_sec >= vrmid1_ant_window[1], Time_sec <= vrmid1_ant_window[2])%>% 
-  select(Subject,probe,trial,pupil_Avg_baseline_scaled,pupil_Avg_bc_scaled,
+  select(Subject,probe,trial,pupil_Avg_baseline_scaled,pupil_Avg_bc_scaled,pupil_Avg_scaled,
          last_ITI,arousal_scaled,valence_scaled,reaction_outcome)%>%
-  group_by(Subject,trial,
+  group_by(Subject,trial,probe,
          arousal_scaled,valence_scaled,reaction_outcome)%>%
   summarise(pupil_Avg_baseline_scaled = mean(pupil_Avg_baseline_scaled,na.rm = T),
-                   pupil_Avg_bc_scaled = mean(pupil_Avg_bc_scaled,na.rm=T)) %>% 
+                   pupil_Avg_bc_scaled = mean(pupil_Avg_bc_scaled,na.rm=T),
+            pupil_Avg_scaled = mean(pupil_Avg_scaled, na.rm = T)) %>% 
+  mutate(hit = (reaction_outcome == "Hit"))%>%
+  ungroup() %>% 
   group_by(Subject) %>% 
-  mutate(pupilDiameter_baseline_scaled = as.numeric(scale(pupil_Avg_baseline_scaled)),
-         pupil_Avg_bc_scaled = as.numeric(scale(pupil_Avg_bc_scaled)))%>%
-  ungroup()%>%
-  group_by(Subject,trial,
-         arousal_scaled,valence_scaled,reaction_outcome)%>%
-  dplyr::summarise(pupil_Avg_baseline_scaled = mean(pupil_Avg_baseline_scaled,na.rm = T),
-                   pupil_Avg_bc_scaled = mean(pupil_Avg_bc_scaled,na.rm=T))%>%
   mutate(half = ifelse(trial >= 48,"second","first"),
-         hit = (reaction_outcome == "Hit"))
+         hit = zoo::rollmean(hit, k = 5, align = "right", fill = NA)
+  )
 
 vrmid1_pupil_data_phasicarousal <- vrmid1_pupil_data%>%
   mutate(half = ifelse(trial >= 48,"second","first"))%>%
@@ -4323,82 +4303,208 @@ vrmid1_pupil_data_phasicarousal <- vrmid1_pupil_data%>%
          minus5_minus0 = `-$5` - `-$0`,
          five_vs_zero = (plus5_plus0+minus5_minus0)/2)
   
-summary(lmer(hit ~ half + (1|Subject),vrmid1_pupil_data_tonic))
+summary(l1<-lmer(scale(pupil_Avg_baseline_scaled) ~ scale(trial)+scale(hit) + (1+scale(trial)+scale(hit)|Subject),vrmid1_pupil_data_tonic))
 
-mytext=summary(lmer(scale(pupil_Avg_baseline_scaled) ~ half + hit + (1|Subject),vrmid1_pupil_data_tonic))$coefficients
+mytext=summary(l1)$coefficients
 
-mytext = ifelse(mytext[2,5] >= 0.05/4, "n.s.",
-                ifelse(mytext[2,5] >= 0.01/4, "*",
-                       ifelse(mytext[2,5] >= 0.001/4, "**","***")))
+mytext = ifelse(mytext[2,5] >= 0.05, "n.s.",
+                ifelse(mytext[2,5] >= 0.01, "*",
+                       ifelse(mytext[2,5] >= 0.001, "**","***")))
 
-pt11 <- ggplot(vrmid1_pupil_data_tonic)+
-  geom_hline(yintercept = 0, linetype = 'dashed')+
-  stat_summary(aes(group = Subject, x = half, y = pupil_Avg_baseline_scaled),geom = "line",size = 0.3, alpha = 0.3,
-            color = "grey")+
-  stat_summary(aes(x = half, y = pupil_Avg_baseline_scaled),fun.data = "mean_cl_boot",geom = "pointrange",
-               size = 0.2)+
+# Extract random effects (BLUPs) for each participant
+# Extract fixed and random effects from model
+fixed_eff  <- fixef(l1)["scale(trial)"]
+rand_eff   <- ranef(l1)$Subject[,"scale(trial)"]
+
+# Combine into dataframe
+df_slopes <- data.frame(Subject = rownames(ranef(l1)$Subject),
+                        slope_trial = fixed_eff + rand_eff)
+
+# Prepare trial values (use your observed range)
+trial_seq <- 1:96
+
+# Build dataframe of all predicted lines
+df_lines <- do.call(rbind, lapply(unique(df_slopes$Subject), function(subj){
+  intercept <- fixef(l1)[1] + ranef(l1)$Subject[subj,"(Intercept)"]
+  slope     <- df_slopes[df_slopes$Subject == subj, "slope_trial"]
+  
+  data.frame(
+    Subject = subj,
+    trial   = trial_seq,
+    pred    = intercept + slope * scale(trial_seq))
+}))
+
+df_lines2 <- data.frame(
+    trial   = trial_seq,
+    pred    = fixef(l1)[1] + fixed_eff * scale(trial_seq))
+
+pt11 <- ggplot(data = df_lines) +
+  geom_hline(yintercept = 0, linetype = 'dashed') +
+  # add model-predicted lines
+  geom_line(
+            aes(x = trial, y = pred, group = Subject),
+            color = "grey", alpha = 0.4, size = 0.4) +
+  stat_summary(data = df_lines2,aes(x = trial, y = pred, group=1),
+               size =1, geom = "line")+
   labs(y = "z-scored pupil",
        title = "VR study 1",
-       subtitle = "Tonic pupil")+
- annotate("text",x = 1.5, y = 0.1,label = mytext)
-  # annotate("text",x = 1.5, y = 0.1,label = paste0("t = ", round(mytext[2,4],2),", p = ",round(mytext[2,5],4)))
+       subtitle = "Tonic pupil") +
+  annotate("text", x = 48, y = 1, label = mytext)+
+  scale_x_continuous(breaks = c(1,24,48,72,96))
 
-mytext=summary(lmer(scale(pupil_Avg_bc_scaled) ~ half + hit + (1|Subject),vrmid1_pupil_data_tonic))$coefficients
-mytext = ifelse(mytext[2,5] >= 0.05/4, "n.s.",
-                ifelse(mytext[2,5] >= 0.01/4, "*",
-                       ifelse(mytext[2,5] >= 0.001/4, "**","***")))
+summary(l1<-lmer(scale(pupil_Avg_bc_scaled) ~ scale(trial)+scale(hit) + (1+scale(trial)+scale(hit)|Subject),vrmid1_pupil_data_tonic))
 
-pt12 <- ggplot(vrmid1_pupil_data_tonic)+
-  geom_hline(yintercept = 0, linetype = 'dashed')+
-  stat_summary(aes(group = Subject, x = half, y = pupil_Avg_bc_scaled),geom = "line",size = 0.3, alpha = 0.3,
-            color = "grey")+
-  stat_summary(aes(x = half, y = pupil_Avg_bc_scaled),fun.data = "mean_cl_boot",geom = "pointrange",
-               size = 0.2)+
+mytext=summary(l1)$coefficients
+
+mytext = ifelse(mytext[2,5] >= 0.05, "n.s.",
+                ifelse(mytext[2,5] >= 0.01, "*",
+                       ifelse(mytext[2,5] >= 0.001, "**","***")))
+
+# Extract random effects (BLUPs) for each participant
+# Extract fixed and random effects from model
+fixed_eff  <- fixef(l1)["scale(trial)"]
+rand_eff   <- ranef(l1)$Subject[,"scale(trial)"]
+
+# Combine into dataframe
+df_slopes <- data.frame(Subject = rownames(ranef(l1)$Subject),
+                        slope_trial = fixed_eff + rand_eff)
+
+# Prepare trial values (use your observed range)
+trial_seq <- 1:96
+
+# Build dataframe of all predicted lines
+df_lines <- do.call(rbind, lapply(unique(df_slopes$Subject), function(subj){
+  intercept <- fixef(l1)[1] + ranef(l1)$Subject[subj,"(Intercept)"]
+  slope     <- df_slopes[df_slopes$Subject == subj, "slope_trial"]
+  
+  data.frame(
+    Subject = subj,
+    trial   = trial_seq,
+    pred    = intercept + slope * scale(trial_seq))
+}))
+
+
+df_lines2 <- data.frame(
+    trial   = trial_seq,
+    pred    = fixef(l1)[1] + fixed_eff * scale(trial_seq))
+
+pt12 <- ggplot(data = df_lines) +
+  geom_hline(yintercept = 0, linetype = 'dashed') +
+  # add model-predicted lines
+  geom_line(aes(x = trial, y = pred, group = Subject),
+            color = "grey", alpha = 0.4, size = 0.4) +
+  stat_summary(data = df_lines2,aes(x = trial, y = pred, group=1),
+               size =1, geom = "line")+
   labs(y = "z-scored pupil",
-       subtitle = "Phasic anticipatory pupil")+
-  annotate("text",x = 1.5, y = 0.1,label =mytext)+
-  theme(plot.subtitle = element_text(size = 10))
-  # annotate("text",x = 1.5, y = 0.1,label = paste0("t = ", round(mytext[2,4],2),", p = ",round(mytext[2,5],2)))
+       title = "VR study 1",
+       subtitle = "Corrected phasic pupil") +
+  annotate("text", x = 48, y = 1, label = mytext)+
+  scale_x_continuous(breaks = c(1,24,48,72,96))
 
-# summary(lmer(arousal_scaled ~ half + (1|Subject),vrmid1_pupil_data_tonic))
-# summary(lmer(valence_scaled ~ half + (1|Subject),vrmid1_pupil_data_tonic))
-mytext=summary(lmer(scale(arousal_scaled) ~ half + hit + (1|Subject),vrmid1_pupil_data_tonic))$coefficients
-mytext = ifelse(mytext[2,5] >= 0.05/4, "n.s.",
-                ifelse(mytext[2,5] >= 0.01/4, "*",
-                       ifelse(mytext[2,5] >= 0.001/4, "**","***")))
+summary(l1<-lmer(scale(arousal_scaled) ~ scale(trial)+scale(hit) + (1+scale(trial)+scale(hit)|Subject),vrmid1_pupil_data_tonic))
 
-pt13 <- ggplot(vrmid1_pupil_data_tonic)+
-  geom_hline(yintercept = 0, linetype = 'dashed')+
-  stat_summary(aes(group = Subject, x = half, y = arousal_scaled),geom = "line",size = 0.3, alpha = 0.3,
-            color = "grey")+
-  stat_summary(aes(x = half, y = arousal_scaled),fun.data = "mean_cl_boot",geom = "pointrange",
-               size = 0.2)+
-  labs(y = "z-scored arousal",
-       subtitle = "self-reported  arousal")+
-    annotate("text",x = 1.5, y = 0.1,label = mytext)
-  # annotate("text",x = 1.5, y = 0.1,label = paste0("t = ", round(mytext[2,4],2),", p = ",round(mytext[2,5],2)))
+mytext=summary(l1)$coefficients
 
-mytext=summary(lmer(valence_scaled ~ half + hit +  (1|Subject),vrmid1_pupil_data_tonic))$coefficients
-mytext = ifelse(mytext[2,5] >= 0.05/4, "n.s.",
-                ifelse(mytext[2,5] >= 0.01/4, "*",
-                       ifelse(mytext[2,5] >= 0.001/4, "**","***")))
+mytext = ifelse(mytext[2,5] >= 0.05, "n.s.",
+                ifelse(mytext[2,5] >= 0.01, "*",
+                       ifelse(mytext[2,5] >= 0.001, "**","***")))
 
-pt14 <- ggplot(vrmid1_pupil_data_tonic)+
-  geom_hline(yintercept = 0, linetype = 'dashed')+
-  stat_summary(aes(group = Subject, x = half, y = valence_scaled),geom = "line",size = 0.3, alpha = 0.3,
-            color = "grey")+
-  stat_summary(aes(x = half, y = valence_scaled),fun.data = "mean_cl_boot",geom = "pointrange",
-               size = 0.2)+
-  labs(y = "z-scored valence",
-       subtitle = "self-reported valence")+
-    annotate("text",x = 1.5, y = 0.1,label = mytext)
-  # annotate("text",x = 1.5, y = 0.1,label = paste0("t = ", round(mytext[2,4],2),", p = ",round(mytext[2,5],2)))
+# Extract random effects (BLUPs) for each participant
+# Extract fixed and random effects from model
+fixed_eff  <- fixef(l1)["scale(trial)"]
+rand_eff   <- ranef(l1)$Subject[,"scale(trial)"]
 
+# Combine into dataframe
+df_slopes <- data.frame(Subject = rownames(ranef(l1)$Subject),
+                        slope_trial = fixed_eff + rand_eff)
+
+# Prepare trial values (use your observed range)
+trial_seq <- 1:96
+
+# Build dataframe of all predicted lines
+df_lines <- do.call(rbind, lapply(unique(df_slopes$Subject), function(subj){
+  intercept <- fixef(l1)[1] + ranef(l1)$Subject[subj,"(Intercept)"]
+  slope     <- df_slopes[df_slopes$Subject == subj, "slope_trial"]
+  
+  data.frame(
+    Subject = subj,
+    trial   = trial_seq,
+    pred    = intercept + slope * scale(trial_seq))
+}))
+
+df_lines2 <- data.frame(
+    trial   = trial_seq,
+    pred    = fixef(l1)[1] + fixed_eff * scale(trial_seq))
+
+pt13 <- ggplot(data = df_lines) +
+  geom_hline(yintercept = 0, linetype = 'dashed') +
+  # add model-predicted lines
+  geom_line(
+            aes(x = trial, y = pred, group = Subject),
+            color = "grey", alpha = 0.4, size = 0.4) +
+  stat_summary(data = df_lines2,aes(x = trial, y = pred, group=1),
+               size =1, geom = "line")+
+  labs(y = "z-scored pupil",
+       title = "VR study 1",
+       subtitle = "Mean reported arousal") +
+  annotate("text", x = 48, y = 0.5, label = mytext)+
+  scale_x_continuous(breaks = c(1,24,48,72,96))
+
+summary(l1<-lmer(scale(valence_scaled) ~ scale(trial)+scale(hit) + (1+scale(trial)+scale(hit)|Subject),vrmid1_pupil_data_tonic))
+
+mytext=summary(l1)$coefficients
+
+mytext = ifelse(mytext[2,5] >= 0.05, "n.s.",
+                ifelse(mytext[2,5] >= 0.01, "*",
+                       ifelse(mytext[2,5] >= 0.001, "**","***")))
+
+# Extract random effects (BLUPs) for each participant
+# Extract fixed and random effects from model
+fixed_eff  <- fixef(l1)["scale(trial)"]
+rand_eff   <- ranef(l1)$Subject[,"scale(trial)"]
+
+# Combine into dataframe
+df_slopes <- data.frame(Subject = rownames(ranef(l1)$Subject),
+                        slope_trial = fixed_eff + rand_eff)
+
+# Prepare trial values (use your observed range)
+trial_seq <- 1:96
+
+# Build dataframe of all predicted lines
+df_lines <- do.call(rbind, lapply(unique(df_slopes$Subject), function(subj){
+  intercept <- fixef(l1)[1] + ranef(l1)$Subject[subj,"(Intercept)"]
+  slope     <- df_slopes[df_slopes$Subject == subj, "slope_trial"]
+  
+  data.frame(
+    Subject = subj,
+    trial   = trial_seq,
+    pred    = intercept + slope * scale(trial_seq))
+}))
+
+df_lines2 <- data.frame(
+    trial   = trial_seq,
+    pred    = fixef(l1)[1] + fixed_eff * scale(trial_seq))
+
+pt14 <- ggplot(data = df_lines) +
+  geom_hline(yintercept = 0, linetype = 'dashed') +
+  # add model-predicted lines
+  geom_line(
+            aes(x = trial, y = pred, group = Subject),
+            color = "grey", alpha = 0.4, size = 0.4) +
+  stat_summary(data = df_lines2,aes(x = trial, y = pred, group=1),
+               size =1, geom = "line")+
+  labs(y = "z-scored pupil",
+       title = "VR study 1",
+       subtitle = "Mean reported valence") +
+  annotate("text", x = 48, y = 0.5, label = mytext)+
+  scale_x_continuous(breaks = c(1,24,48,72,96))
+
+summary(lmer(scale(five_vs_zero) ~ half + scale(hit_rate) +  (1|Subject),
+             vrmid1_pupil_data_phasicarousal))
 mytext=summary(lmer(scale(five_vs_zero) ~ half +hit_rate +  (1|Subject),vrmid1_pupil_data_phasicarousal))$coefficients
-mytext = ifelse(mytext[2,5] >= 0.05/4, "n.s.",
-                ifelse(mytext[2,5] >= 0.01/4, "*",
-                       ifelse(mytext[2,5] >= 0.001/4, "**","***")))
-
+mytext = ifelse(mytext[2,5] >= 0.05, "n.s.",
+                ifelse(mytext[2,5] >= 0.01, "*",
+                       ifelse(mytext[2,5] >= 0.001, "**","***")))
 pt15 <- ggplot(vrmid1_pupil_data_phasicarousal)+
   geom_hline(yintercept = 0, linetype = 'dashed')+
   stat_summary(aes(group = Subject, x = half, y = five_vs_zero),geom = "line",size = 0.3, alpha = 0.3,
@@ -4406,29 +4512,26 @@ pt15 <- ggplot(vrmid1_pupil_data_phasicarousal)+
   stat_summary(aes(x = half, y = five_vs_zero),fun.data = "mean_cl_boot",geom = "pointrange",
                size = 0.2)+
   labs(y = "arousal ±$5-$0",
-       subtitle = "arousal $5 minus $0")+
-  annotate("text",x = 1.5, y = 0.4,label = mytext)+
+       subtitle = "arousal ±$5 minus ±$0",
+       title = "VR Study 1")+
+    annotate("text",x = 1.5, y = 1,label = mytext)+
   theme(plot.subtitle = element_text(size = 10))
-  # annotate("text",x = 1.5, y = 0.4,label = paste0("t = ", round(mytext[2,4],2),", p = ",round(mytext[2,5],2)))
 
 vrmid2_pupil_data_tonic <- vrmid2_pupil_data%>%
   filter(Time_sec >= vrmid2_ant_window[1], Time_sec <= vrmid2_ant_window[2])%>% 
-  select(Subject,probe,trial,pupil_Avg_baseline_scaled,pupil_Avg_bc_scaled,
+  select(Subject,probe,trial,pupil_Avg_baseline_scaled,pupil_Avg_bc_scaled,pupil_Avg_scaled,
          last_ITI,arousal_scaled,valence_scaled,reaction_outcome)%>%
-  group_by(Subject,trial,
+  group_by(Subject,trial,probe,
          arousal_scaled,valence_scaled,reaction_outcome)%>%
   summarise(pupil_Avg_baseline_scaled = mean(pupil_Avg_baseline_scaled,na.rm = T),
-                   pupil_Avg_bc_scaled = mean(pupil_Avg_bc_scaled,na.rm=T)) %>% 
+                   pupil_Avg_bc_scaled = mean(pupil_Avg_bc_scaled,na.rm=T),
+            pupil_Avg_scaled = mean(pupil_Avg_scaled,na.rm = T)) %>% 
+  mutate(hit = (reaction_outcome == "Hit"))%>%
+  ungroup() %>% 
   group_by(Subject) %>% 
-  mutate(pupilDiameter_baseline_scaled = as.numeric(scale(pupil_Avg_baseline_scaled)),
-         pupil_Avg_bc_scaled = as.numeric(scale(pupil_Avg_bc_scaled)),
-         hit = (reaction_outcome == "Hit"))%>%
-  ungroup()%>%
-  group_by(Subject,trial,
-         arousal_scaled,valence_scaled,hit)%>%
-  dplyr::summarise(pupil_Avg_baseline_scaled = mean(pupil_Avg_baseline_scaled,na.rm = T),
-                   pupil_Avg_bc_scaled = mean(pupil_Avg_bc_scaled,na.rm=T))%>%
-  mutate(half = ifelse(trial >= 48,"second","first"))
+  mutate(half = ifelse(trial >= 48,"second","first"),
+         hit = zoo::rollmean(hit, k = 5, align = "right", fill = NA)
+  )
 
 vrmid2_pupil_data_phasicarousal <- vrmid2_pupil_data%>%
   filter(rating_type == "affect") %>%
@@ -4453,103 +4556,239 @@ vrmid2_pupil_data_phasicarousal <- vrmid2_pupil_data%>%
          minus5_minus0 = `-$5` - `-$0`,
          five_vs_zero = (plus5_plus0+minus5_minus0)/2)
 
-mytext=summary(lmer(scale(pupil_Avg_baseline_scaled) ~ half + hit + (1|Subject),vrmid2_pupil_data_tonic))$coefficients
-mytext = ifelse(mytext[2,5] >= 0.05/4, "n.s.",
-                ifelse(mytext[2,5] >= 0.01/4, "*",
-                       ifelse(mytext[2,5] >= 0.001/4, "**","***")))
-pt21 <- ggplot(vrmid2_pupil_data_tonic)+
-  geom_hline(yintercept = 0, linetype = 'dashed')+
-  stat_summary(aes(group = Subject, x = half, y = pupil_Avg_baseline_scaled),geom = "line",size = 0.3, alpha = 0.3,
-            color = "grey")+
-  stat_summary(aes(x = half, y = pupil_Avg_baseline_scaled),fun.data = "mean_cl_boot",geom = "pointrange",
-               size = 0.2)+
+summary(l2<-lmer(scale(pupil_Avg_baseline_scaled) ~ scale(trial)+scale(hit) + (1+scale(trial)+scale(hit)|Subject),vrmid2_pupil_data_tonic))
+
+mytext=summary(l2)$coefficients
+
+mytext = ifelse(mytext[2,5] >= 0.05, "n.s.",
+                ifelse(mytext[2,5] >= 0.01, "*",
+                       ifelse(mytext[2,5] >= 0.001, "**","***")))
+
+# Extract random effects (BLUPs) for each participant
+# Extract fixed and random effects from model
+fixed_eff  <- fixef(l2)["scale(trial)"]
+rand_eff   <- ranef(l2)$Subject[,"scale(trial)"]
+
+# Combine into dataframe
+df_slopes <- data.frame(Subject = rownames(ranef(l2)$Subject),
+                        slope_trial = fixed_eff + rand_eff)
+
+# Prepare trial values (use your observed range)
+trial_seq <- 1:96
+
+# Build dataframe of all predicted lines
+df_lines <- do.call(rbind, lapply(unique(df_slopes$Subject), function(subj){
+  intercept <- fixef(l2)[1] + ranef(l2)$Subject[subj,"(Intercept)"]
+  slope     <- df_slopes[df_slopes$Subject == subj, "slope_trial"]
+  
+  data.frame(
+    Subject = subj,
+    trial   = trial_seq,
+    pred    = intercept + slope * scale(trial_seq))
+}))
+
+df_lines2 <- data.frame(
+    trial   = trial_seq,
+    pred    = fixef(l2)[1] + fixed_eff * scale(trial_seq))
+
+pt21 <- ggplot(data = df_lines) +
+  geom_hline(yintercept = 0, linetype = 'dashed') +
+  # add model-predicted lines
+  geom_line(
+            aes(x = trial, y = pred, group = Subject),
+            color = "grey", alpha = 0.4, size = 0.4) +
+  stat_summary(data = df_lines2,aes(x = trial, y = pred, group=1),
+               size =1, geom = "line")+
   labs(y = "z-scored pupil",
        title = "VR study 2",
-       subtitle = "Tonic pupil")+
-    annotate("text",x = 1.5, y = 0.1,label = mytext)
-  # annotate("text",x = 1.5, y = 0.1,label = paste0("t = ", round(mytext[2,4],2),", p = ",round(mytext[2,5],2)))
+       subtitle = "Tonic pupil") +
+  annotate("text", x = 48, y = 1, label = mytext)+
+  scale_x_continuous(breaks = c(1,24,48,72,96))
 
-mytext=summary(lmer(scale(pupil_Avg_bc_scaled) ~ half + hit + (1|Subject),vrmid2_pupil_data_tonic))$coefficients
-mytext = ifelse(mytext[2,5] >= 0.05/4, "n.s.",
-                ifelse(mytext[2,5] >= 0.01/4, "*",
-                       ifelse(mytext[2,5] >= 0.001/4, "**","***")))
-pt22 <- ggplot(vrmid2_pupil_data_tonic)+
-  geom_hline(yintercept = 0, linetype = 'dashed')+
-  stat_summary(aes(group = Subject, x = half, y = pupil_Avg_bc_scaled),geom = "line",size = 0.3, alpha = 0.3,
-            color = "grey")+
-  stat_summary(aes(x = half, y = pupil_Avg_bc_scaled),fun.data = "mean_cl_boot",geom = "pointrange",
-               size = 0.2)+
+summary(l2<-lmer(scale(pupil_Avg_bc_scaled) ~ scale(trial)+scale(hit) + (1+scale(trial)+scale(hit)|Subject),vrmid2_pupil_data_tonic))
+
+mytext=summary(l2)$coefficients
+
+mytext = ifelse(mytext[2,5] >= 0.05, "n.s.",
+                ifelse(mytext[2,5] >= 0.01, "*",
+                       ifelse(mytext[2,5] >= 0.001, "**","***")))
+
+# Extract random effects (BLUPs) for each participant
+# Extract fixed and random effects from model
+fixed_eff  <- fixef(l2)["scale(trial)"]
+rand_eff   <- ranef(l2)$Subject[,"scale(trial)"]
+
+# Combine into dataframe
+df_slopes <- data.frame(Subject = rownames(ranef(l2)$Subject),
+                        slope_trial = fixed_eff + rand_eff)
+
+# Prepare trial values (use your observed range)
+trial_seq <- 1:96
+
+# Build dataframe of all predicted lines
+df_lines <- do.call(rbind, lapply(unique(df_slopes$Subject), function(subj){
+  intercept <- fixef(l2)[1] + ranef(l2)$Subject[subj,"(Intercept)"]
+  slope     <- df_slopes[df_slopes$Subject == subj, "slope_trial"]
+  
+  data.frame(
+    Subject = subj,
+    trial   = trial_seq,
+    pred    = intercept + slope * scale(trial_seq))
+}))
+
+
+df_lines2 <- data.frame(
+    trial   = trial_seq,
+    pred    = fixef(l2)[1] + fixed_eff * scale(trial_seq))
+
+pt22 <- ggplot(data = df_lines) +
+  geom_hline(yintercept = 0, linetype = 'dashed') +
+  # add model-predicted lines
+  geom_line(
+            aes(x = trial, y = pred, group = Subject),
+            color = "grey", alpha = 0.4, size = 0.4) +
+  stat_summary(data = df_lines2,aes(x = trial, y = pred, group=1),
+               size =1, geom = "line")+
   labs(y = "z-scored pupil",
-       subtitle = "Phasic anticipatory pupil")+
-  annotate("text",x = 1.5, y = 0.1,label = mytext)+
-  theme(plot.subtitle = element_text(size = 10))
-  # annotate("text",x = 1.5, y = 0.1,label = paste0("t = ", round(mytext[2,4],2),", p = ",round(mytext[2,5],2)))
+       title = "VR study 2",
+       subtitle = "Corrected phasic pupil") +
+  annotate("text", x = 48, y = 1, label = mytext)+
+  scale_x_continuous(breaks = c(1,24,48,72,96))
 
-mytext=summary(lmer(scale(arousal_scaled) ~ half + hit+ (1|Subject),vrmid2_pupil_data_tonic %>% filter(!is.na(arousal_scaled))))$coefficients
-mytext = ifelse(mytext[2,5] >= 0.05/4, "n.s.",
-                ifelse(mytext[2,5] >= 0.01/4, "*",
-                       ifelse(mytext[2,5] >= 0.001/4, "**","***")))
-pt23 <- ggplot(vrmid2_pupil_data_tonic)+
-  geom_hline(yintercept = 0, linetype = 'dashed')+
-  stat_summary(aes(group = Subject, x = half, y = arousal_scaled),geom = "line",size = 0.3, alpha = 0.3,
-            color = "grey")+
-  stat_summary(aes(x = half, y = arousal_scaled),fun.data = "mean_cl_boot",geom = "pointrange",
-               size = 0.2)+
-  labs(y = "z-scored arousal",
-       subtitle = "self-reported  arousal")+
-    annotate("text",x = 1.5, y = 0.1,label = mytext)
-  # annotate("text",x = 1.5, y = 0.1,label = paste0("t = ", round(mytext[2,4],2),", p = ",round(mytext[2,5],2)))
+summary(l2<-lmer(scale(arousal_scaled) ~ scale(trial)+scale(hit) + (1+scale(trial)+scale(hit)|Subject),vrmid2_pupil_data_tonic))
 
-mytext=summary(lmer(valence_scaled ~ half + hit + (1|Subject),vrmid2_pupil_data_tonic))$coefficients
-mytext = ifelse(mytext[2,5] >= 0.05/4, "n.s.",
-                ifelse(mytext[2,5] >= 0.01/4, "*",
-                       ifelse(mytext[2,5] >= 0.001/4, "**","***")))
-pt24 <- ggplot(vrmid2_pupil_data_tonic)+
-  geom_hline(yintercept = 0, linetype = 'dashed')+
-  stat_summary(aes(group = Subject, x = half, y = valence_scaled),geom = "line",size = 0.3, alpha = 0.3,
-            color = "grey")+
-  stat_summary(aes(x = half, y = valence_scaled),fun.data = "mean_cl_boot",geom = "pointrange",
-               size = 0.2)+
-  labs(y = "z-scored valence",
-       subtitle = "self-reported  valence")+
- annotate("text",x = 1.5, y = 0.1,label =mytext)
+mytext=summary(l2)$coefficients
 
-  # annotate("text",x = 1.5, y = 0.1,label = paste0("t = ", round(mytext[2,4],2),", p = ",round(mytext[2,5],2)))
+mytext = ifelse(mytext[2,5] >= 0.05, "n.s.",
+                ifelse(mytext[2,5] >= 0.01, "*",
+                       ifelse(mytext[2,5] >= 0.001, "**","***")))
 
-mytext=summary(lmer(scale(five_vs_zero) ~ half + hit_rate + (1|Subject),vrmid2_pupil_data_phasicarousal))$coefficients
-mytext = ifelse(mytext[2,5] >= 0.05/4, "n.s.",
-                ifelse(mytext[2,5] >= 0.01/4, "*",
-                       ifelse(mytext[2,5] >= 0.001/4, "**","***")))
+# Extract random effects (BLUPs) for each participant
+# Extract fixed and random effects from model
+fixed_eff  <- fixef(l2)["scale(trial)"]
+rand_eff   <- ranef(l2)$Subject[,"scale(trial)"]
+
+# Combine into dataframe
+df_slopes <- data.frame(Subject = rownames(ranef(l2)$Subject),
+                        slope_trial = fixed_eff + rand_eff)
+
+# Prepare trial values (use your observed range)
+trial_seq <- 1:96
+
+# Build dataframe of all predicted lines
+df_lines <- do.call(rbind, lapply(unique(df_slopes$Subject), function(subj){
+  intercept <- fixef(l2)[1] + ranef(l2)$Subject[subj,"(Intercept)"]
+  slope     <- df_slopes[df_slopes$Subject == subj, "slope_trial"]
+  
+  data.frame(
+    Subject = subj,
+    trial   = trial_seq,
+    pred    = intercept + slope * scale(trial_seq))
+}))
+
+
+df_lines2 <- data.frame(
+    trial   = trial_seq,
+    pred    = fixef(l2)[1] + fixed_eff * scale(trial_seq))
+
+pt23 <- ggplot(data = df_lines) +
+  geom_hline(yintercept = 0, linetype = 'dashed') +
+  # add model-predicted lines
+  geom_line(
+            aes(x = trial, y = pred, group = Subject),
+            color = "grey", alpha = 0.4, size = 0.4) +
+  stat_summary(data = df_lines2,aes(x = trial, y = pred, group=1),
+               size =1, geom = "line")+
+  labs(y = "z-scored pupil",
+       title = "VR study 2",
+       subtitle = "Mean reported arousal") +
+  annotate("text", x = 48, y = 1, label = mytext)+
+  scale_x_continuous(breaks = c(1,24,48,72,96))
+
+summary(l2<-lmer(scale(valence_scaled) ~ scale(trial)+scale(hit) + (1+scale(trial)+scale(hit)|Subject),vrmid2_pupil_data_tonic))
+
+mytext=summary(l2)$coefficients
+
+mytext = ifelse(mytext[2,5] >= 0.05, "n.s.",
+                ifelse(mytext[2,5] >= 0.01, "*",
+                       ifelse(mytext[2,5] >= 0.001, "**","***")))
+
+# Extract random effects (BLUPs) for each participant
+# Extract fixed and random effects from model
+fixed_eff  <- fixef(l2)["scale(trial)"]
+rand_eff   <- ranef(l2)$Subject[,"scale(trial)"]
+
+# Combine into dataframe
+df_slopes <- data.frame(Subject = rownames(ranef(l2)$Subject),
+                        slope_trial = fixed_eff + rand_eff)
+
+# Prepare trial values (use your observed range)
+trial_seq <- 1:96
+
+# Build dataframe of all predicted lines
+df_lines <- do.call(rbind, lapply(unique(df_slopes$Subject), function(subj){
+  intercept <- fixef(l2)[1] + ranef(l2)$Subject[subj,"(Intercept)"]
+  slope     <- df_slopes[df_slopes$Subject == subj, "slope_trial"]
+  
+  data.frame(
+    Subject = subj,
+    trial   = trial_seq,
+    pred    = intercept + slope * scale(trial_seq))
+}))
+
+
+df_lines2 <- data.frame(
+    trial   = trial_seq,
+    pred    = fixef(l1)[1] + fixed_eff * scale(trial_seq))
+
+pt24 <- ggplot(data = df_lines) +
+  geom_hline(yintercept = 0, linetype = 'dashed') +
+  # add model-predicted lines
+  geom_line(
+            aes(x = trial, y = pred, group = Subject),
+            color = "grey", alpha = 0.4, size = 0.4) +
+  stat_summary(data = df_lines2,aes(x = trial, y = pred, group=1),
+               size =1, geom = "line")+
+  labs(y = "z-scored pupil",
+       title = "VR study 2",
+       subtitle = "Mean reported valence") +
+  annotate("text", x = 48, y = 1, label = mytext)+
+  scale_x_continuous(breaks = c(1,24,48,72,96))
+
+summary(lmer(scale(five_vs_zero) ~ half + scale(hit_rate) +  (1|Subject),
+             vrmid2_pupil_data_phasicarousal))
+
+mytext=summary(lmer(scale(five_vs_zero) ~ half +hit_rate +  (1|Subject),vrmid2_pupil_data_phasicarousal))$coefficients
+mytext = ifelse(mytext[2,5] >= 0.05, "n.s.",
+                ifelse(mytext[2,5] >= 0.01, "*",
+                       ifelse(mytext[2,5] >= 0.001, "**","***")))
 pt25 <- ggplot(vrmid2_pupil_data_phasicarousal)+
   geom_hline(yintercept = 0, linetype = 'dashed')+
   stat_summary(aes(group = Subject, x = half, y = five_vs_zero),geom = "line",size = 0.3, alpha = 0.3,
             color = "grey")+
   stat_summary(aes(x = half, y = five_vs_zero),fun.data = "mean_cl_boot",geom = "pointrange",
                size = 0.2)+
-  labs(y = "arousal ±$5-$0",
-       subtitle = "arousal $5 minus $0")+
-    annotate("text",x = 1.5, y = 0.4,label = mytext)+
+  labs(y = "arousal ±$5-±$0",
+       subtitle = "arousal ±$5 minus ±$0",
+       title = "VR Study 2")+
+    annotate("text",x = 1.5, y = 1,label = mytext)+
   theme(plot.subtitle = element_text(size = 10))
   # annotate("text",x = 1.5, y = 0.4,label = paste0("t = ", round(mytext[2,4],2),", p = ",round(mytext[2,5],2)))
 
 fmri3_pupil_data_tonic <- fmri3_pupil_data%>%
   filter(Time_sec >= fmri3_ant_window[1], Time_sec <= fmri3_ant_window[2])%>% 
   select(subject,probe,trial,pupilDiameter_baseline_scaled,pupilDiameter_bc_scaled,
+         pupilDiameter_scaled,
          last_iti,arousal_scaled,valence_scaled,hit)%>%
-  group_by(subject,trial,
-         arousal_scaled,valence_scaled,hit)%>%
+  group_by(subject,trial,probe,
+         arousal_scaled,valence_scaled,hit,)%>%
   filter(last_iti != 0) %>% 
   summarise(pupilDiameter_baseline_scaled = mean(pupilDiameter_baseline_scaled,na.rm = T),
-                   pupilDiameter_bc_scaled = mean(pupilDiameter_bc_scaled,na.rm=T)) %>% 
-  group_by(subject) %>% 
-  mutate(pupilDiameter_baseline_scaled = as.numeric(scale(pupilDiameter_baseline_scaled)),
-         pupilDiameter_bc_scaled = as.numeric(scale(pupilDiameter_bc_scaled)))%>%
+                   pupilDiameter_bc_scaled = mean(pupilDiameter_bc_scaled,na.rm=T),
+            pupilDiameter_scaled = mean(pupilDiameter_scaled, na.rm = T)) %>% 
   ungroup()%>%
-  group_by(subject,trial,
-         arousal_scaled,valence_scaled,hit)%>%
-  dplyr::summarise(pupilDiameter_baseline_scaled = mean(pupilDiameter_baseline_scaled,na.rm = T),
-                   pupilDiameter_bc_scaled = mean(pupilDiameter_bc_scaled,na.rm=T))%>%
-  mutate(half = ifelse(trial >= 48,"second","first"))
+  mutate(half = ifelse(trial >= 48,"second","first"),
+         hit = zoo::rollmean(hit, k = 5, align = "right", fill = NA))
 
 fmri3_pupil_data_phasicarousal <- fmri3_pupil_data%>% 
    filter(!subject %in% c("tc240311","st240312"))%>%
@@ -4570,73 +4809,208 @@ fmri3_pupil_data_phasicarousal <- fmri3_pupil_data%>%
          minus5_minus0 = `-$5` - `-$0`,
          five_vs_zero = (plus5_plus0+minus5_minus0)/2)
 
-mytext=summary(lmer(scale(pupilDiameter_baseline_scaled) ~ half + hit + (1|subject),fmri3_pupil_data_tonic))$coefficients
-mytext = ifelse(mytext[2,5] >= 0.05/4, "n.s.",
-                ifelse(mytext[2,5] >= 0.01/4, "*",
-                       ifelse(mytext[2,5] >= 0.001/4, "**","***")))
-pt31 <- ggplot(fmri3_pupil_data_tonic)+
-  geom_hline(yintercept = 0, linetype = 'dashed')+
-  stat_summary(aes(group = subject, x = half, y = pupilDiameter_baseline_scaled),geom = "line",size = 0.3, alpha = 0.3,
-            color = "grey")+
-  stat_summary(aes(x = half, y = pupilDiameter_baseline_scaled),fun.data = "mean_cl_boot",geom = "pointrange",
-               size = 0.2)+
-  labs(y = "z-score pupil",
-       title = "FMRI study",
-       subtitle = "Tonic pupil")+
-    annotate("text",x = 1.5, y = 0.1,label = mytext)
-  # annotate("text",x = 1.5, y = 0.1,label = paste0("t = ", round(mytext[2,4],2),", p = ",round(mytext[2,5],2)))
+summary(l3<-lmer(scale(pupilDiameter_baseline_scaled) ~ scale(trial)+scale(hit) + (1+scale(trial)+scale(hit)|subject),fmri3_pupil_data_tonic))
 
-mytext=summary(lmer(scale(pupilDiameter_bc_scaled) ~ half + hit + (1|subject),fmri3_pupil_data_tonic))$coefficients
-mytext = ifelse(mytext[2,5] >= 0.05/4, "n.s.",
-                ifelse(mytext[2,5] >= 0.01/4, "*",
-                       ifelse(mytext[2,5] >= 0.001/4, "**","***")))
-pt32 <- ggplot(fmri3_pupil_data_tonic)+ #these two people had problematic ratings (missed too much)
-  geom_hline(yintercept = 0, linetype = 'dashed')+
-  stat_summary(aes(group = subject, x = half, y = pupilDiameter_bc_scaled),geom = "line",size = 0.3, alpha = 0.3,
-            color = "grey")+
-  stat_summary(aes(x = half, y = pupilDiameter_bc_scaled),fun.data = "mean_cl_boot",geom = "pointrange",
-               size = 0.2)+
+mytext=summary(l3)$coefficients
+
+mytext = ifelse(mytext[2,5] >= 0.05, "n.s.",
+                ifelse(mytext[2,5] >= 0.01, "*",
+                       ifelse(mytext[2,5] >= 0.001, "**","***")))
+
+# Extract random effects (BLUPs) for each participant
+# Extract fixed and random effects from model
+fixed_eff  <- fixef(l3)["scale(trial)"]
+rand_eff   <- ranef(l3)$subject[,"scale(trial)"]
+
+# Combine into dataframe
+df_slopes <- data.frame(subject = rownames(ranef(l3)$subject),
+                        slope_trial = fixed_eff + rand_eff)
+
+# Prepare trial values (use your observed range)
+trial_seq <- 1:96
+
+# Build dataframe of all predicted lines
+df_lines <- do.call(rbind, lapply(unique(df_slopes$subject), function(subj){
+  intercept <- fixef(l3)[1] + ranef(l3)$subject[subj,"(Intercept)"]
+  slope     <- df_slopes[df_slopes$subject == subj, "slope_trial"]
+  
+  data.frame(
+    subject = subj,
+    trial   = trial_seq,
+    pred    = intercept + slope * scale(trial_seq))
+}))
+
+
+df_lines2 <- data.frame(
+    trial   = trial_seq,
+    pred    = fixef(l3)[1] + fixed_eff * scale(trial_seq))
+
+pt31 <- ggplot(data = df_lines) +
+  geom_hline(yintercept = 0, linetype = 'dashed') +
+  # add model-predicted lines
+  geom_line(
+            aes(x = trial, y = pred, group = subject),
+            color = "grey", alpha = 0.4, size = 0.4) +
+  stat_summary(data = df_lines2,aes(x = trial, y = pred, group=1),
+               size =1, geom = "line")+
   labs(y = "z-scored pupil",
-       subtitle = "Phasic anticipatory pupil")+
-  theme(plot.subtitle = element_text(size = 10))+
-    annotate("text",x = 1.5, y = 0.1,label = mytext)
-  # annotate("text",x = 1.5, y = 0.1,label = paste0("t = ", round(mytext[2,4],2),", p = ",round(mytext[2,5],2)))
+       title = "FMRI Study",
+       subtitle = "Tonic pupil") +
+  annotate("text", x = 48, y = 1, label = mytext)+
+  scale_x_continuous(breaks = c(1,24,48,72,96))
 
-# summary(lmer(arousal_scaled ~ half + (1|subject),fmri3_pupil_data_tonic))
-mytext=summary(lmer(scale(arousal_scaled) ~ half + hit + (1|subject),fmri3_pupil_data_tonic%>% 
-                 filter(!subject %in% c("tc240311","st240312"))))$coefficients
-mytext = ifelse(mytext[2,5] >= 0.05/4, "n.s.",
-                ifelse(mytext[2,5] >= 0.01/4, "*",
-                       ifelse(mytext[2,5] >= 0.001/4, "**","***")))
-pt33 <- ggplot(fmri3_pupil_data_tonic %>% 
-                 filter(!subject %in% c("tc240311","st240312")))+
-  geom_hline(yintercept = 0, linetype = 'dashed')+
-  stat_summary(aes(group = subject, x = half, y = arousal_scaled),geom = "line",size = 0.3, alpha = 0.3,
-            color = "grey")+
-  stat_summary(aes(x = half, y = arousal_scaled),fun.data = "mean_cl_boot",geom = "pointrange",
-               size = 0.2)+
-  labs(y = "z-scored arousal",
-       subtitle = "self-reported  arousal")+
-    annotate("text",x = 1.5, y = 0.1,label = mytext)
-  # annotate("text",x = 1.5, y = 0.1,label = paste0("t = ", round(mytext[2,4],2),", p = ",round(mytext[2,5],2)))
+summary(l3<-lmer(scale(pupilDiameter_bc_scaled) ~ scale(trial)+scale(hit) + (1+scale(trial)+scale(hit)|subject),fmri3_pupil_data_tonic))
 
-mytext=summary(lmer(valence_scaled ~ half + hit + (1|subject),fmri3_pupil_data_tonic%>% 
-                 filter(!subject %in% c("tc240311","st240312"))))$coefficients
-mytext = ifelse(mytext[2,5] >= 0.05/4, "n.s.",
-                ifelse(mytext[2,5] >= 0.01/4, "*",
-                       ifelse(mytext[2,5] >= 0.001/4, "**","***")))
-pt34 <- ggplot(fmri3_pupil_data_tonic %>% 
-                 filter(!subject %in% c("tc240311","st240312")))+
-  geom_hline(yintercept = 0, linetype = 'dashed')+
-  stat_summary(aes(group = subject, x = half, y = valence_scaled),geom = "line",size = 0.3, alpha = 0.3,
-            color = "grey")+
-  stat_summary(aes(x = half, y = valence_scaled),fun.data = "mean_cl_boot",geom = "pointrange",
-               size = 0.2)+
-  labs(y = "z-scored valence",
-       subtitle = "self-reported  valence")+
-    annotate("text",x = 1.5, y = 0.1,label = mytext)
-  # annotate("text",x = 1.5, y = 0.1,label = paste0("t = ", round(mytext[2,4],2),", p = ",round(mytext[2,5],2)))
+mytext=summary(l3)$coefficients
 
+mytext = ifelse(mytext[2,5] >= 0.05, "n.s.",
+                ifelse(mytext[2,5] >= 0.01, "*",
+                       ifelse(mytext[2,5] >= 0.001, "**","***")))
+
+# Extract random effects (BLUPs) for each participant
+# Extract fixed and random effects from model
+fixed_eff  <- fixef(l3)["scale(trial)"]
+rand_eff   <- ranef(l3)$subject[,"scale(trial)"]
+
+# Combine into dataframe
+df_slopes <- data.frame(subject = rownames(ranef(l3)$subject),
+                        slope_trial = fixed_eff + rand_eff)
+
+# Prepare trial values (use your observed range)
+trial_seq <- 1:96
+
+# Build dataframe of all predicted lines
+df_lines <- do.call(rbind, lapply(unique(df_slopes$subject), function(subj){
+  intercept <- fixef(l3)[1] + ranef(l3)$subject[subj,"(Intercept)"]
+  slope     <- df_slopes[df_slopes$subject == subj, "slope_trial"]
+  
+  data.frame(
+    subject = subj,
+    trial   = trial_seq,
+    pred    = intercept + slope * scale(trial_seq))
+}))
+
+
+df_lines2 <- data.frame(
+    trial   = trial_seq,
+    pred    = fixef(l3)[1] + fixed_eff * scale(trial_seq))
+
+pt32 <- ggplot(data = df_lines) +
+  geom_hline(yintercept = 0, linetype = 'dashed') +
+  # add model-predicted lines
+  geom_line(
+            aes(x = trial, y = pred, group = subject),
+            color = "grey", alpha = 0.4, size = 0.4) +
+  stat_summary(data = df_lines2,aes(x = trial, y = pred, group=1),
+               size =1, geom = "line")+
+  labs(y = "z-scored pupil",
+       title = "FMRI Study",
+       subtitle = "Corrected phasic pupil") +
+  annotate("text", x = 48, y = 1, label = mytext)+
+  scale_x_continuous(breaks = c(1,24,48,72,96))
+
+summary(l3<-lmer(scale(arousal_scaled) ~ scale(trial)+scale(hit) + (1+scale(trial)+scale(hit)|subject),fmri3_pupil_data_tonic))
+
+mytext=summary(l3)$coefficients
+
+mytext = ifelse(mytext[2,5] >= 0.05, "n.s.",
+                ifelse(mytext[2,5] >= 0.01, "*",
+                       ifelse(mytext[2,5] >= 0.001, "**","***")))
+
+# Extract random effects (BLUPs) for each participant
+# Extract fixed and random effects from model
+fixed_eff  <- fixef(l3)["scale(trial)"]
+rand_eff   <- ranef(l3)$subject[,"scale(trial)"]
+
+# Combine into dataframe
+df_slopes <- data.frame(subject = rownames(ranef(l3)$subject),
+                        slope_trial = fixed_eff + rand_eff)
+
+# Prepare trial values (use your observed range)
+trial_seq <- 1:96
+
+# Build dataframe of all predicted lines
+df_lines <- do.call(rbind, lapply(unique(df_slopes$subject), function(subj){
+  intercept <- fixef(l3)[1] + ranef(l3)$subject[subj,"(Intercept)"]
+  slope     <- df_slopes[df_slopes$subject == subj, "slope_trial"]
+  
+  data.frame(
+    subject = subj,
+    trial   = trial_seq,
+    pred    = intercept + slope * scale(trial_seq))
+}))
+
+
+df_lines2 <- data.frame(
+    trial   = trial_seq,
+    pred    = fixef(l3)[1] + fixed_eff * scale(trial_seq))
+
+pt33 <- ggplot(data = df_lines) +
+  geom_hline(yintercept = 0, linetype = 'dashed') +
+  # add model-predicted lines
+  geom_line(
+            aes(x = trial, y = pred, group = subject),
+            color = "grey", alpha = 0.4, size = 0.4) +
+  stat_summary(data = df_lines2,aes(x = trial, y = pred, group=1),
+               size =1, geom = "line")+
+  labs(y = "z-scored pupil",
+       title = "FMRI Study",
+       subtitle = "Mean reported arousal") +
+  annotate("text", x = 48, y = 1, label = mytext)+
+  scale_x_continuous(breaks = c(1,24,48,72,96))
+
+summary(l3<-lmer(scale(valence_scaled) ~ scale(trial)+scale(hit) + (1+scale(trial)+scale(hit)|subject),fmri3_pupil_data_tonic))
+
+mytext=summary(l3)$coefficients
+
+mytext = ifelse(mytext[2,5] >= 0.05, "n.s.",
+                ifelse(mytext[2,5] >= 0.01, "*",
+                       ifelse(mytext[2,5] >= 0.001, "**","***")))
+
+# Extract random effects (BLUPs) for each participant
+# Extract fixed and random effects from model
+fixed_eff  <- fixef(l3)["scale(trial)"]
+rand_eff   <- ranef(l3)$subject[,"scale(trial)"]
+
+# Combine into dataframe
+df_slopes <- data.frame(subject = rownames(ranef(l3)$subject),
+                        slope_trial = fixed_eff + rand_eff)
+
+# Prepare trial values (use your observed range)
+trial_seq <- 1:96
+
+# Build dataframe of all predicted lines
+df_lines <- do.call(rbind, lapply(unique(df_slopes$subject), function(subj){
+  intercept <- fixef(l3)[1] + ranef(l3)$subject[subj,"(Intercept)"]
+  slope     <- df_slopes[df_slopes$subject == subj, "slope_trial"]
+  
+  data.frame(
+    subject = subj,
+    trial   = trial_seq,
+    pred    = intercept + slope * scale(trial_seq))
+}))
+
+
+df_lines2 <- data.frame(
+    trial   = trial_seq,
+    pred    = fixef(l3)[1] + fixed_eff * scale(trial_seq))
+
+pt34 <- ggplot(data = df_lines) +
+  geom_hline(yintercept = 0, linetype = 'dashed') +
+  # add model-predicted lines
+  geom_line(
+            aes(x = trial, y = pred, group = subject),
+            color = "grey", alpha = 0.4, size = 0.4) +
+  stat_summary(data = df_lines2,aes(x = trial, y = pred, group=1),
+               size =1, geom = "line")+
+  labs(y = "z-scored pupil",
+       title = "FMRI Study",
+       subtitle = "Mean reported valence") +
+  annotate("text", x = 48, y = 1, label = mytext)+
+  scale_x_continuous(breaks = c(1,24,48,72,96))
+
+summary(lmer(scale(five_vs_zero) ~ half + scale(hit_rate) +  (1|subject),
+             fmri3_pupil_data_phasicarousal))
 mytext=summary(lmer(five_vs_zero ~ half + hit_rate + (1|subject),fmri3_pupil_data_phasicarousal))$coefficients
 mytext = ifelse(mytext[2,5] >= 0.05/4, "n.s.",
                 ifelse(mytext[2,5] >= 0.01/4, "*",
@@ -4647,8 +5021,9 @@ pt35 <- ggplot(fmri3_pupil_data_phasicarousal)+
             color = "grey")+
   stat_summary(aes(x = half, y = five_vs_zero),fun.data = "mean_cl_boot",geom = "pointrange",
                size = 0.2)+
-  labs(y = "arousal ±$5-$0",
-       subtitle = "arousal $5 minus $0")+
+  labs(y = "arousal ±$5-±$0",
+       subtitle = "arousal ±$5 minus ±$0",
+       title = "FMRI Study")+
     annotate("text",x = 1.5, y = 0.4,label = mytext)+
    theme(plot.subtitle = element_text(size = 10))
   # annotate("text",x = 1.5, y = 0.4,label = paste0("t = ", round(mytext[2,4],2),", p = ",round(mytext[2,5],2)))
@@ -4672,30 +5047,42 @@ vrmid1_pupil_data_tonic_history <- vrmid1_pupil_data_tonic_history %>%
 dftemp1 <- NULL
 
 for (l in 0:9){
-  l1<-summary(lmer(arousal ~ pupil_Avg_baseline_scaled + (1|Subject),
+  l1<-summary(lmer(arousal ~ pupil_Avg_baseline_scaled + (1|Subject) + (1|probe),
                vrmid1_pupil_data_tonic_history %>% filter(lag == l)))
-  l2<-summary(lmer(arousal ~ pupil_Avg_bc_scaled + (1|Subject),
+  l2<-summary(lmer(arousal ~ pupil_Avg_bc_scaled + (1|Subject)+ (1|probe),
                vrmid1_pupil_data_tonic_history %>% filter(lag == l)))
-  
+  l3<-summary(lmer(arousal ~ pupil_Avg_scaled + (1|Subject)+ (1|probe),
+               vrmid1_pupil_data_tonic_history %>% filter(lag == l)))
   dftemp1 <- rbind(dftemp1,
-                  rbind(l1$coefficients[2,],l2$coefficients[2,]))
+                  rbind(l1$coefficients[2,],
+                        l2$coefficients[2,],
+                        l3$coefficients[2,]))
 }
   
 dftemp1 <- as.data.frame(dftemp1)
-dftemp1$lag <- rep(0:9,each=2)
-dftemp1$measure <- rep(c("tonic","phasic"),10)
+dftemp1$lag <- rep(0:9,each=3)
+dftemp1$measure <- rep(c("tonic","corrected phasic","uncorrected phasic"),10)
+dftemp1 <- dftemp1 %>% 
+  mutate(p_corrected = `Pr(>|t|)`*10,
+         shape = ifelse(`Pr(>|t|)` < .05/10, 19, 1))  # numeric alpha
 
-p1<-ggplot(dftemp1, aes(x = lag, y = Estimate, color = measure))+
-  annotate("rect",xmin = -0.5, ymin = -0.1, xmax = 0.5, ymax = 0.3,
-           alpha = 0.1)+
-  geom_hline(yintercept = 0, linetype = "dashed")+
-  geom_line()+
+p1 <- ggplot(dftemp1 %>% filter(measure != "uncorrected phasic"), aes(x = lag, y = Estimate, color = measure,shape = shape)) +
+  annotate("rect", xmin = -0.5, ymin = -0.1, xmax = 0.5, ymax = 0.3, alpha = 0.1) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_line() +
+  geom_point() +
   geom_errorbar(aes(ymin = Estimate - `Std. Error`,
                     ymax = Estimate + `Std. Error`),
-                width = 0.1)+
-  scale_x_continuous(breaks = 0:9)+
-  labs(x = "arousal rating lag")+
-  theme(legend.position = "left")
+                width = 0.1) +
+  scale_x_continuous(breaks = 0:9) +
+  labs(x = "arousal rating __ trials ago",
+       y = "std. beta",
+       title = "VR Study 1",
+       color = NULL) +
+  theme(legend.position = "top") +
+  scale_color_manual(values = c("red4", "steelblue")) +
+  scale_shape_identity()+
+  guides(color = guide_legend(nrow = 2))
 
 vrmid2_pupil_data_tonic_history <- vrmid2_pupil_data_tonic %>% 
   group_by(Subject) %>%
@@ -4713,30 +5100,40 @@ vrmid2_pupil_data_tonic_history <- vrmid2_pupil_data_tonic_history %>%
 dftemp2 <- NULL
 
 for (l in 0:9){
-  l1<-summary(lmer(arousal ~ pupil_Avg_baseline_scaled + (1|Subject),
+  l1<-summary(lmer(arousal ~ pupil_Avg_baseline_scaled + (1|Subject)+ (1|probe),
                vrmid2_pupil_data_tonic_history %>% filter(lag == l)))
-  l2<-summary(lmer(arousal ~ pupil_Avg_bc_scaled + (1|Subject),
+  l2<-summary(lmer(arousal ~ pupil_Avg_bc_scaled + (1|Subject)+ (1|probe),
                vrmid2_pupil_data_tonic_history %>% filter(lag == l)))
-  
+  l3<-summary(lmer(arousal ~ pupil_Avg_scaled + (1|Subject)+ (1|probe),
+               vrmid2_pupil_data_tonic_history %>% filter(lag == l)))
   dftemp2 <- rbind(dftemp2,
-                  rbind(l1$coefficients[2,],l2$coefficients[2,]))
+                  rbind(l1$coefficients[2,],
+                        l2$coefficients[2,],
+                        l3$coefficients[2,]))
 }
   
 dftemp2 <- as.data.frame(dftemp2)
-dftemp2$lag <- rep(0:9,each=2)
-dftemp2$measure <- rep(c("tonic","phasic"),10)
+dftemp2$lag <- rep(0:9,each=3)
+dftemp2$measure <- rep(c("tonic","corrected phasic","uncorrected phasic"),10)
+dftemp2 <- dftemp2  %>% 
+  mutate(p_corrected = `Pr(>|t|)`*10,
+         shape = ifelse(`Pr(>|t|)` < .05/10, 19, 1))  # numeric alpha
 
-p2<-ggplot(dftemp2, aes(x = lag, y = Estimate, color = measure))+
-  annotate("rect",xmin = -0.5, ymin = -0.1, xmax = 0.5, ymax = 0.3,
-           alpha = 0.1)+
-  geom_hline(yintercept = 0, linetype = "dashed")+
-  geom_line()+
+p2 <- ggplot(dftemp2%>% filter(measure != "uncorrected phasic"), aes(x = lag, y = Estimate, color = measure, shape = shape)) +
+  annotate("rect", xmin = -0.5, ymin = -0.1, xmax = 0.5, ymax = 0.3, alpha = 0.1) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_line() +
+  geom_point() +
   geom_errorbar(aes(ymin = Estimate - `Std. Error`,
                     ymax = Estimate + `Std. Error`),
-                width = 0.1)+
-  scale_x_continuous(breaks = 0:9)+
-  labs(x = "arousal rating lag")+
-  theme(legend.position = "none")
+                width = 0.1) +
+  scale_x_continuous(breaks = 0:9) +
+  labs(x = "arousal rating __ trials ago",
+       y = "std. beta",
+       title = "VR Study 2") +
+  theme(legend.position = "none") +
+  scale_color_manual(values = c("red4", "steelblue")) +
+  scale_shape_identity()   # use alpha directly
 
 fmri3_pupil_data_tonic_history <- fmri3_pupil_data_tonic %>% 
   group_by(subject) %>%
@@ -4751,33 +5148,44 @@ fmri3_pupil_data_tonic_history <- fmri3_pupil_data_tonic_history %>%
                names_to = "lag", values_to = "arousal",
                names_prefix = "arousal_scaled_lag")
 
+
 dftemp3 <- NULL
 
 for (l in 0:9){
-  l1<-summary(lmer(arousal ~ pupilDiameter_baseline_scaled + (1|subject),
+  l1<-summary(lmer(arousal ~ pupilDiameter_baseline_scaled + (1|subject)+ (1|probe),
                fmri3_pupil_data_tonic_history %>% filter(lag == l)))
-  l2<-summary(lmer(arousal ~ pupilDiameter_bc_scaled + (1|subject),
+  l2<-summary(lmer(arousal ~ pupilDiameter_bc_scaled + (1|subject)+ (1|probe),
                fmri3_pupil_data_tonic_history %>% filter(lag == l)))
-  
+  l3<-summary(lmer(arousal ~ pupilDiameter_scaled + (1|subject)+ (1|probe),
+               fmri3_pupil_data_tonic_history %>% filter(lag == l)))
   dftemp3 <- rbind(dftemp3,
-                  rbind(l1$coefficients[2,],l2$coefficients[2,]))
+                  rbind(l1$coefficients[2,],
+                        l2$coefficients[2,],
+                        l3$coefficients[2,]))
 }
   
 dftemp3 <- as.data.frame(dftemp3)
-dftemp3$lag <- rep(0:9,each=2)
-dftemp3$measure <- rep(c("tonic","phasic"),10)
+dftemp3$lag <- rep(0:9,each=3)
+dftemp3$measure <- rep(c("tonic","corrected phasic","uncorrected phasic"),10)
+dftemp3 <- dftemp3  %>% 
+  mutate(p_corrected = `Pr(>|t|)`*10,
+         shape = ifelse(`Pr(>|t|)` < .05/10, 19, 1))  # numeric alpha
 
-p3<-ggplot(dftemp3, aes(x = lag, y = Estimate, color = measure))+
-  annotate("rect",xmin = -0.5, ymin = -0.1, xmax = 0.5, ymax = 0.3,
-           alpha = 0.1)+
-  geom_hline(yintercept = 0, linetype = "dashed")+
-  geom_line()+
+p3 <- ggplot(dftemp3%>% filter(measure != "uncorrected phasic"), aes(x = lag, y = Estimate, color = measure,shape=shape)) +
+  annotate("rect", xmin = -0.5, ymin = -0.1, xmax = 0.5, ymax = 0.4, alpha = 0.1) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_line() +
+  geom_point() +
   geom_errorbar(aes(ymin = Estimate - `Std. Error`,
                     ymax = Estimate + `Std. Error`),
-                width = 0.1)+
-  scale_x_continuous(breaks = 0:9)+
-  labs(x = "arousal rating lag")+
-  theme(legend.position = "none")
+                width = 0.1) +
+  scale_x_continuous(breaks = 0:9) +
+  labs(x = "arousal rating __ trials ago",
+       y = "std. beta",
+       title = "FMRI study") +
+  theme(legend.position = "none") +
+  scale_color_manual(values = c("red4", "steelblue")) +
+  scale_shape_identity()   # use alpha directly
 
 p1+p2+p3+
   plot_layout(nrow = 1)
@@ -4857,12 +5265,12 @@ rt_reg_coef$study <- c("VRstudy1","VRstudy1","VRstudy1","VRstudy2","VRstudy2","V
 rt_reg_coef$predictor <- rep(c("phasic_pupil","tonic_pupil","arousal"),3)
 
 rt_reg_coef<-rt_reg_coef %>% 
-  mutate(sig = ifelse(`Pr(>|t|)` >= .05/4, "n.s.",
-                      ifelse(`Pr(>|t|)` >= .01/4, "*",
-                             ifelse(`Pr(>|t|)` >= .005/4,"**","***"))))
+  mutate(sig = ifelse(`Pr(>|t|)` >= .05, "n.s.",
+                      ifelse(`Pr(>|t|)` >= .01, "*",
+                             ifelse(`Pr(>|t|)` >= .005,"**","***"))))
 
 rt_reg_coef$predictor <- factor(rt_reg_coef$predictor, levels = c("phasic_pupil","tonic_pupil","arousal"),
-                                labels = c("phasic pupil","tonic pupil","subjective arousal"))
+                                labels = c("corrected phasic pupil","tonic pupil","subjective arousal"))
 rt_reg_coef$study <- factor(rt_reg_coef$study, levels = c("VRstudy1","VRstudy2","FMRIstudy"),
                                 labels = c("VR study 1","VR study 2","FMRI study"))
 pp<-ggplot(rt_reg_coef %>% filter(predictor != "subjective arousal"), aes(x = study, y = Estimate,
@@ -4882,14 +5290,23 @@ pp<-ggplot(rt_reg_coef %>% filter(predictor != "subjective arousal"), aes(x = st
   labs(y = "std. beta",
        x = "",
        title = "rt ~ tonic + phasic")
+```
 
+```{r}
 (pt11+pt21+pt31)/
 (pt12+pt22+pt32)/
-pp
+pp/
+(p1+p2+p3)
   # plot_annotation(tag_levels = "a")
 
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig5_beh.png"),dpi = 300, height = 8, width = 7)
-# ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig5_beh.svg"), height = 10, width = 9)
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig5_beh.png"),dpi = 300, height = 11, width = 8)
+
+fig5 <- image_read("~/Desktop/VRMID-analysis/mid-pupil/figures/fig5_beh.png")
+fig5 <- image_annotate(fig5, "A", size = 55, location = "+50+00", color = "black", gravity = "northwest")
+fig5 <- image_annotate(fig5, "B", size = 55, location = "+50+800", color = "black", gravity = "northwest")
+fig5 <- image_annotate(fig5, "C", size = 55, location = "+50+1500", color = "black", gravity = "northwest")
+fig5 <- image_annotate(fig5, "D", size = 55, location = "+50+2300", color = "black", gravity = "northwest")
+image_write(fig5, "~/Desktop/VRMID-analysis/mid-pupil/figures/fig5_beh.png")
 ```
 
 ```{r}
@@ -4919,220 +5336,337 @@ pp
 ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig5_beh2.png"),dpi = 300, height = 8, width = 7)
 ```
 
-
-
-# is arousal better explained by pupil dilation than emotion categories?
-(Can't make this comparison because they are not the same trials)
-
-## vrmid2
+## do the reverse: were arousal related to previous tonic / phasic?
 ```{r}
-summary(la<-lmer(mean_pupil_nobc_ant ~  arousal_scaled +(1|Subject) + (1|condition),
-         vrmid2_data_antprobe))
-summary(lv<-lmer(mean_pupil_nobc_ant ~  valence_scaled +(1|Subject) + (1|condition),
-         vrmid2_data_antprobe))
-summary(le<-lmer(mean_pupil_nobc_ant ~  emotion +(1|Subject) + (1|condition),
-         vrmid2_data_antprobe))
-summary(lec<-lmer(mean_pupil_nobc_ant ~  emotion_cat +(1|Subject) + (1|condition),
-         vrmid2_data_antprobe))
+vrmid1_pupil_data_arousal_history <- vrmid1_pupil_data_tonic %>% 
+  group_by(Subject) %>%
+  mutate(    # Generate recent average win percentages for windows 1 to 20
+    map_dfc(0:9, function(k) {
+      col <- lag(pupil_Avg_baseline_scaled, k)
+      setNames(data.frame(col), paste0("pupil_Avg_baseline_scaled_lag", k))
+    }),
+    # Generate recent average for pupil_Avg_bc_scaled for lags 0 to 9
+    map_dfc(0:9, function(k) {
+      col <- lag(pupil_Avg_bc_scaled, k)
+      setNames(data.frame(col), paste0("pupil_Avg_bc_scaled_lag", k))
+    }),
+    # Generate recent average for pupil_Avg_bc_scaled for lags 0 to 9
+    map_dfc(0:9, function(k) {
+      col <- lag(pupil_Avg_scaled, k)
+      setNames(data.frame(col), paste0("pupil_Avg_scaled_lag", k))
+    }))
 
-modcomp_results <- data.frame(
-  anova = anova(la),
-  r_squaredGLMM = r.squaredGLMM(la)*100,
-  AIC = AIC(la),
-  BIC = BIC(la)
-)
+vrmid1_pupil_data_arousal_history <- vrmid1_pupil_data_arousal_history %>%
+  pivot_longer(pupil_Avg_baseline_scaled_lag0:pupil_Avg_scaled_lag9,
+               names_to = c("measure","lag"),names_pattern = "(.*)_lag(\\d+)", values_to = "pupil_size",
+               names_prefix = "pupil_lag")
 
-modcomp_results<- 
-  rbind(modcomp_results,
-data.frame(
-  anova = anova(lv),
-  r_squaredGLMM = r.squaredGLMM(lv)*100,
-  AIC = AIC(lv),
-  BIC = BIC(lv)
-))
+dftemp4 <- NULL
 
-modcomp_results<- 
-  rbind(modcomp_results,
-data.frame(
-  anova = anova(le),
-  r_squaredGLMM = r.squaredGLMM(le)*100,
-  AIC = AIC(le),
-  BIC = BIC(le)
-))
+for (l in 0:9){
+  l1<-summary(lmer(pupil_size ~ arousal_scaled + (1|Subject),
+               vrmid1_pupil_data_arousal_history %>% filter(lag == l, 
+                                                          measure == "pupil_Avg_baseline_scaled")))
+  l2<-summary(lmer(pupil_size ~ arousal_scaled + (1|Subject),
+               vrmid1_pupil_data_arousal_history %>% filter(lag == l, 
+                                                          measure == "pupil_Avg_bc_scaled")))
+  l3<-summary(lmer(pupil_size ~ arousal_scaled + (1|Subject),
+               vrmid1_pupil_data_arousal_history %>% filter(lag == l, 
+                                                          measure == "pupil_Avg_scaled")))
+  dftemp4 <- rbind(dftemp4,
+                  rbind(l1$coefficients[2,],
+                        l2$coefficients[2,],
+                        l3$coefficients[2,]))
+}
+  
+dftemp4 <- as.data.frame(dftemp4)
+dftemp4$lag <- rep(0:9,each=3)
+dftemp4$measure <- rep(c("tonic","corrected phasic","uncorrected phasic"),10)
+dftemp4 <- dftemp4 %>% 
+  mutate(alpha_sig = ifelse(`Pr(>|t|)` < .05/30, 1, 0.2))  # numeric alpha
 
-modcomp_results<- 
-  rbind(modcomp_results,
-data.frame(
-  anova = anova(lec),
-  r_squaredGLMM = r.squaredGLMM(lec)*100,
-  AIC = AIC(lec),
-  BIC = BIC(lec)
-))
-modcomp_results1 <- modcomp_results %>% 
-  rownames_to_column()
-
-modcomp_results1$probe = "anticipation"
-
-summary(la<-lmer(mean_pupil_nobc_out ~  arousal_scaled +(1|Subject) + (1|condition),
-         vrmid2_data_outprobe))
-summary(lv<-lmer(mean_pupil_nobc_out ~  valence_scaled +(1|Subject) + (1|condition),
-         vrmid2_data_outprobe))
-summary(le<-lmer(mean_pupil_nobc_out ~  emotion +(1|Subject) + (1|condition),
-         vrmid2_data_outprobe))
-summary(lec<-lmer(mean_pupil_nobc_out ~  emotion_cat +(1|Subject) + (1|condition),
-         vrmid2_data_outprobe))
-
-modcomp_results <- data.frame(
-  anova = anova(la),
-  r_squaredGLMM = r.squaredGLMM(la)*100,
-  AIC = AIC(la),
-  BIC = BIC(la)
-)
-
-modcomp_results<- 
-  rbind(modcomp_results,
-data.frame(
-  anova = anova(lv),
-  r_squaredGLMM = r.squaredGLMM(lv)*100,
-  AIC = AIC(lv),
-  BIC = BIC(lv)
-))
-
-modcomp_results<- 
-  rbind(modcomp_results,
-data.frame(
-  anova = anova(le),
-  r_squaredGLMM = r.squaredGLMM(le)*100,
-  AIC = AIC(le),
-  BIC = BIC(le)
-))
-
-modcomp_results<- 
-  rbind(modcomp_results,
-data.frame(
-  anova = anova(lec),
-  r_squaredGLMM = r.squaredGLMM(lec)*100,
-  AIC = AIC(lec),
-  BIC = BIC(lec)
-))
-modcomp_results2 <- modcomp_results %>% 
-  rownames_to_column()
-
-modcomp_results2$probe = "outcome"
-
-
-modcomp_results <- rbind(modcomp_results1,modcomp_results2)
-
-modcomp_results %>% 
-  kable(digits = 2) %>% 
-  kable_styling()%>%
-  save_kable(file = "../../data/modelcomp_vrmid2.html", self_contained = T)
+p4 <- ggplot(dftemp1, aes(x = lag, y = Estimate, color = measure, alpha = alpha_sig)) +
+  annotate("rect", xmin = -0.5, ymin = -0.1, xmax = 0.5, ymax = 0.4, alpha = 0.1) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_line(alpha = 0.2) +
+  geom_point() +
+  geom_errorbar(aes(ymin = Estimate - `Std. Error`,
+                    ymax = Estimate + `Std. Error`),
+                width = 0.1) +
+  scale_x_continuous(breaks = 0:9) +
+  labs(x = "pupil size __ trials ago",
+       y = "std. beta",
+       title = "VR Study 1",
+       color = NULL) +
+  theme(legend.position = "top") +
+  scale_color_manual(values = c("red4", "grey40", "steelblue")) +
+  scale_alpha_identity()+
+  guides(color = guide_legend(nrow = 2))
 ```
 
-## fmri3
+
+# is pupil dilation  explained by valence or emotion categories?
+(Can't make comparison between emotion vs. arousal because they are not the same trials)
+## the valence bit
+### vrmid1
 ```{r}
-summary(la<-lmer(mean_pupil_nobc_scaled_ant ~  arousal_scaled +(1|subject) + (1|cue_size),
-         fmri3_data_antprobe))
-summary(lv<-lmer(mean_pupil_nobc_scaled_ant ~  valence_scaled +(1|subject) + (1|cue_size),
-         fmri3_data_antprobe))
-summary(le<-lmer(mean_pupil_nobc_scaled_ant ~  emotion +(1|subject) + (1|cue_size),
-         fmri3_data_antprobe))
-summary(lec<-lmer(mean_pupil_nobc_scaled_ant ~  emotion_cat +(1|subject) + (1|cue_size),
-         fmri3_data_antprobe))
+summary(lv1<-lmer(scale(mean_pupil_nobc_ant) ~  valence_scaled +(1|Subject) + (1|condition),
+         vrmid1_data_antprobe))
+summary(lv2<-lmer(scale(mean_pupil_bc_ant) ~  valence_scaled +(1|Subject) + (1|condition),
+         vrmid1_data_antprobe))
+summary(lv3<-lmer(scale(mean_pupil_baseline_ant) ~  valence_scaled +(1|Subject) + (1|condition),
+         vrmid1_data_antprobe))
 
-modcomp_results <- data.frame(
-  anova = anova(la),
-  r_squaredGLMM = r.squaredGLMM(la)*100,
-  AIC = AIC(la),
-  BIC = BIC(la)
-)
+# Create a list of models for easy looping
+models <- list(nobc = lv1, bc = lv2, baseline = lv3)
 
-modcomp_results<- 
-  rbind(modcomp_results,
-data.frame(
-  anova = anova(lv),
-  r_squaredGLMM = r.squaredGLMM(lv)*100,
-  AIC = AIC(lv),
-  BIC = BIC(lv)
-))
+# Extract statistics into a dataframe
+modcomp_results1 <- do.call(rbind, lapply(names(models), function(name) {
+  model <- models[[name]]
+  data.frame(
+    model = name,
+    coef = summary(model)$coefficients[2,1],
+    t_val = summary(model)$coefficients[2,4],
+    p_val = summary(model)$coefficients[2,5],
+    R2_marginal = r.squaredGLMM(model)[1] * 100,  # Fixed-effects variance explained
+    R2_conditional = r.squaredGLMM(model)[2] * 100 # Full model variance explained
+  )
+}))
 
-modcomp_results<- 
-  rbind(modcomp_results,
-data.frame(
-  anova = anova(le),
-  r_squaredGLMM = r.squaredGLMM(le)*100,
-  AIC = AIC(le),
-  BIC = BIC(le)
-))
+summary(lv1<-lmer(scale(mean_pupil_nobc_out) ~  valence_scaled +(1|Subject) + (1|condition),
+         vrmid1_data_outprobe))
+summary(lv2<-lmer(scale(mean_pupil_bc_out) ~  valence_scaled +(1|Subject) + (1|condition),
+         vrmid1_data_outprobe))
+summary(lv3<-lmer(scale(mean_pupil_baseline_out) ~  valence_scaled +(1|Subject) + (1|condition),
+         vrmid1_data_outprobe))
 
-modcomp_results<- 
-  rbind(modcomp_results,
-data.frame(
-  anova = anova(lec),
-  r_squaredGLMM = r.squaredGLMM(lec)*100,
-  AIC = AIC(lec),
-  BIC = BIC(lec)
-))
-modcomp_results1 <- modcomp_results %>% 
-  rownames_to_column()
+models <- list(nobc = lv1, bc = lv2, baseline = lv3)
+# Extract statistics into a dataframe
+modcomp_results2 <- do.call(rbind, lapply(names(models), function(name) {
+  model <- models[[name]]
+  data.frame(
+    model = name,
+    coef = summary(model)$coefficients[2,1],
+    t_val = summary(model)$coefficients[2,4],
+    p_val = summary(model)$coefficients[2,5],
+    R2_marginal = r.squaredGLMM(model)[1] * 100,  # Fixed-effects variance explained
+    R2_conditional = r.squaredGLMM(model)[2] * 100 # Full model variance explained
+  )
+}))
 
-modcomp_results1$probe = "anticipation"
-
-summary(la<-lmer(mean_pupil_nobc_scaled_out ~  arousal_scaled +(1|subject) + (1|cue_size),
-         fmri3_data_outprobe))
-summary(lv<-lmer(mean_pupil_nobc_scaled_out ~  valence_scaled +(1|subject) + (1|cue_size),
-         fmri3_data_outprobe))
-summary(le<-lmer(mean_pupil_nobc_scaled_out ~  emotion +(1|subject) + (1|cue_size),
-         fmri3_data_outprobe))
-summary(lec<-lmer(mean_pupil_nobc_scaled_out ~  emotion_cat +(1|subject) + (1|cue_size),
-         fmri3_data_outprobe))
-
-modcomp_results <- data.frame(
-  anova = anova(la),
-  r_squaredGLMM = r.squaredGLMM(la)*100,
-  AIC = AIC(la),
-  BIC = BIC(la)
-)
-
-modcomp_results<- 
-  rbind(modcomp_results,
-data.frame(
-  anova = anova(lv),
-  r_squaredGLMM = r.squaredGLMM(lv)*100,
-  AIC = AIC(lv),
-  BIC = BIC(lv)
-))
-
-modcomp_results<- 
-  rbind(modcomp_results,
-data.frame(
-  anova = anova(le),
-  r_squaredGLMM = r.squaredGLMM(le)*100,
-  AIC = AIC(le),
-  BIC = BIC(le)
-))
-
-modcomp_results<- 
-  rbind(modcomp_results,
-data.frame(
-  anova = anova(lec),
-  r_squaredGLMM = r.squaredGLMM(lec)*100,
-  AIC = AIC(lec),
-  BIC = BIC(lec)
-))
-modcomp_results2 <- modcomp_results %>% 
-  rownames_to_column()
-
-modcomp_results2$probe = "outcome"
-
-
-modcomp_results <- rbind(modcomp_results1,modcomp_results2)
-
-modcomp_results %>% 
-  kable(digits = 2) %>% 
-  kable_styling()%>%
-  save_kable(file = "../../data/modelcomp_fmri3.html", self_contained = T)
+modcomp_results <- rbind(modcomp_results1 %>% 
+                           mutate(probe = "anti"),
+                         modcomp_results2 %>% 
+                           mutate(probe = "out"))
+kable(modcomp_results,digits = 3)
 ```
+
+
+### vrmid2
+```{r}
+summary(lv1<-lmer(scale(mean_pupil_nobc_ant) ~  valence_scaled +(1|Subject) + (1|condition),
+         vrmid2_data_antprobe))
+summary(lv2<-lmer(scale(mean_pupil_bc_ant) ~  valence_scaled +(1|Subject) + (1|condition),
+         vrmid2_data_antprobe))
+summary(lv3<-lmer(scale(mean_pupil_baseline_ant) ~  valence_scaled +(1|Subject) + (1|condition),
+         vrmid2_data_antprobe))
+
+# Create a list of models for easy looping
+models <- list(nobc = lv1, bc = lv2, baseline = lv3)
+
+# Extract statistics into a dataframe
+modcomp_results1 <- do.call(rbind, lapply(names(models), function(name) {
+  model <- models[[name]]
+  data.frame(
+    model = name,
+    coef = summary(model)$coefficients[2,1],
+    t_val = summary(model)$coefficients[2,4],
+    p_val = summary(model)$coefficients[2,5],
+    R2_marginal = r.squaredGLMM(model)[1] * 100,  # Fixed-effects variance explained
+    R2_conditional = r.squaredGLMM(model)[2] * 100 # Full model variance explained
+  )
+}))
+
+summary(lv1<-lmer(scale(mean_pupil_nobc_out) ~  valence_scaled +(1|Subject) + (1|condition),
+         vrmid2_data_outprobe))
+summary(lv2<-lmer(scale(mean_pupil_bc_out) ~  valence_scaled +(1|Subject) + (1|condition),
+         vrmid2_data_outprobe))
+summary(lv3<-lmer(scale(mean_pupil_baseline_out) ~  valence_scaled +(1|Subject) + (1|condition),
+         vrmid2_data_outprobe))
+
+models <- list(nobc = lv1, bc = lv2, baseline = lv3)
+# Extract statistics into a dataframe
+modcomp_results2 <- do.call(rbind, lapply(names(models), function(name) {
+  model <- models[[name]]
+  data.frame(
+    model = name,
+    coef = summary(model)$coefficients[2,1],
+    t_val = summary(model)$coefficients[2,4],
+    p_val = summary(model)$coefficients[2,5],
+    R2_marginal = r.squaredGLMM(model)[1] * 100,  # Fixed-effects variance explained
+    R2_conditional = r.squaredGLMM(model)[2] * 100 # Full model variance explained
+  )
+}))
+
+modcomp_results <- rbind(modcomp_results1 %>% 
+                           mutate(probe = "anti"),
+                         modcomp_results2 %>% 
+                           mutate(probe = "out"))
+kable(modcomp_results)
+```
+
+### fmri3
+```{r}
+summary(lv1<-lmer(scale(mean_pupil_nobc_scaled_ant) ~  valence_scaled +(1|subject) + (1|cue_size),
+         fmri3_data_antprobe))
+summary(lv2<-lmer(scale(mean_pupil_bc_scaled_ant) ~  valence_scaled +(1|subject) + (1|cue_size),
+         fmri3_data_antprobe))
+summary(lv3<-lmer(scale(mean_pupil_baseline_scaled) ~  valence_scaled +(1|subject) + (1|cue_size),
+         fmri3_data_antprobe))
+
+# Create a list of models for easy looping
+models <- list(nobc = lv1, bc = lv2, baseline = lv3)
+
+# Extract statistics into a dataframe
+modcomp_results1 <- do.call(rbind, lapply(names(models), function(name) {
+  model <- models[[name]]
+  data.frame(
+    model = name,
+    coef = summary(model)$coefficients[2,1],
+    t_val = summary(model)$coefficients[2,4],
+    p_val = summary(model)$coefficients[2,5],
+    R2_marginal = r.squaredGLMM(model)[1] * 100,  # Fixed-effects variance explained
+    R2_conditional = r.squaredGLMM(model)[2] * 100 # Full model variance explained
+  )
+}))
+
+summary(lv1<-lmer(scale(mean_pupil_nobc_scaled_out) ~  valence_scaled +(1|subject) + (1|cue_size),
+         fmri3_data_outprobe))
+summary(lv2<-lmer(scale(mean_pupil_bc_scaled_out) ~  valence_scaled +(1|subject) + (1|cue_size),
+         fmri3_data_outprobe))
+summary(lv3<-lmer(scale(mean_pupil_baseline_scaled) ~  valence_scaled +(1|subject) + (1|cue_size),
+         fmri3_data_outprobe))
+
+
+models <- list(nobc = lv1, bc = lv2, baseline = lv3)
+
+# Extract statistics into a dataframe
+modcomp_results2 <- do.call(rbind, lapply(names(models), function(name) {
+  model <- models[[name]]
+  data.frame(
+    model = name,
+    coef = summary(model)$coefficients[2,1],
+    t_val = summary(model)$coefficients[2,4],
+    p_val = summary(model)$coefficients[2,5],
+    R2_marginal = r.squaredGLMM(model)[1] * 100,  # Fixed-effects variance explained
+    R2_conditional = r.squaredGLMM(model)[2] * 100 # Full model variance explained
+  )
+}))
+
+modcomp_results <- rbind(modcomp_results1 %>% 
+                           mutate(probe = "anti"),
+                         modcomp_results2 %>% 
+                           mutate(probe = "out"))
+kable(modcomp_results)
+```
+
+## the categorical emotion bit
+
+### vrmid2
+```{r}
+vrmid2_data_antprobe <- vrmid2_data_antprobe %>% mutate(emotion = factor(emotion, levels = c("Angry","Anxious","Sad","Calm","Happy","Excited")))
+
+#uncorrected
+summary(lea1<-lmer(mean_pupil_nobc_ant ~  emotion +(1|Subject) + (1|condition),
+         vrmid2_data_antprobe))
+r.squaredGLMM(lea1)
+cld_results <- multcomp::cld(emmeans(lea1, ~ emotion), Letters = letters, adjust = "tukey")
+
+cld_df <- as.data.frame(cld_results)
+
+pe1<-ggplot(cld_df, aes(x = emotion, y = emmean, color = emotion)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = emmean - SE, ymax = emmean + SE), width = 0.15) +
+  geom_text(aes(label = .group, y = emmean + SE + 0.02), vjust = 0) +
+  scale_color_manual(values = emotions_palette6)+
+  labs(x = "Emotion", y = "Estimated marginal mean (pupil)",
+       subtitle = "VR Study 2",
+       title = "Anticipatory pupil size")+
+  theme(legend.position = "left")+
+  ylim(-0.4,0.8)
+
+vrmid2_data_outprobe <- vrmid2_data_outprobe %>% mutate(emotion = factor(emotion, levels = c("Angry","Anxious","Sad","Calm","Happy","Excited")))
+
+summary(leo1<-lmer(mean_pupil_nobc_out ~  emotion +(1|Subject) + (1|condition),
+         vrmid2_data_outprobe))
+r.squaredGLMM(leo1)
+cld_results <- multcomp::cld(emmeans(leo1, ~ emotion), Letters = letters, adjust = "tukey")
+
+cld_df <- as.data.frame(cld_results)
+
+pe2<-ggplot(cld_df, aes(x = emotion, y = emmean, color = emotion)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = emmean - SE, ymax = emmean + SE), width = 0.15) +
+  geom_text(aes(label = .group, y = emmean + SE + 0.02), vjust = 0) +
+  scale_color_manual(values = emotions_palette6)+
+  labs(x = "Emotion", y = "Estimated marginal mean (pupil)",
+       subtitle = "VR Study 2",
+       title = "Outcome pupil size")+
+  theme(legend.position = "none")+
+  ylim(-0.4,0.8)
+
+```
+
+### fmri3
+```{r}
+fmri3_data_antprobe <- fmri3_data_antprobe %>% mutate(emotion = factor(emotion, levels = c("Angry","Anxious","Sad","Calm","Happy","Excited")))
+fmri3_data_outprobe <- fmri3_data_outprobe %>% mutate(emotion = factor(emotion, levels = c("Angry","Anxious","Sad","Calm","Happy","Excited")))
+
+summary(lea1<-lmer(mean_pupil_nobc_scaled_ant ~  emotion +(1|subject) + (1|cue_size),
+         fmri3_data_antprobe))
+r.squaredGLMM(lea1)
+cld_results <- multcomp::cld(emmeans(lea1, ~ emotion), Letters = letters, adjust = "tukey")
+
+cld_df <- as.data.frame(cld_results)
+
+pe3<-ggplot(cld_df, aes(x = emotion, y = emmean, color = emotion)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = emmean - SE, ymax = emmean + SE), width = 0.15) +
+  geom_text(aes(label = .group, y = emmean + SE + 0.02), vjust = 0) +
+  scale_color_manual(values = emotions_palette6)+
+  labs(x = "Emotion", y = "Estimated marginal mean (pupil)",
+       subtitle = "FMRI Study",
+       title = "Anticipatory pupil size")+
+  theme(legend.position = "left")+
+  ylim(-0.4,0.8)
+
+summary(leo1<-lmer(mean_pupil_nobc_scaled_ant ~  emotion +(1|subject) + (1|cue_size),
+         fmri3_data_outprobe))
+r.squaredGLMM(leo1)
+cld_results <- multcomp::cld(emmeans(leo1, ~ emotion), Letters = letters, adjust = "tukey")
+
+cld_df <- as.data.frame(cld_results)
+
+pe4<-ggplot(cld_df, aes(x = emotion, y = emmean, color = emotion)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = emmean - SE, ymax = emmean + SE), width = 0.15) +
+  geom_text(aes(label = .group, y = emmean + SE + 0.02), vjust = 0) +
+  scale_color_manual(values = emotions_palette6)+
+  labs(x = "Emotion", y = "Estimated marginal mean (pupil)",
+       subtitle = "FMRI Study",
+       title = "Outcome pupil size")+
+  theme(legend.position = "none")+
+  ylim(-0.4,0.8)
+
+```
+
+```{r}
+pe1+pe2+pe3+pe4+
+  plot_annotation(tag_levels = "A")
+
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig_emo.png"),dpi = 300, height = 7, width = 8)
+```
+
 # finding the affective dimension that best matches pupil dilation (full signal)
 ```{r message = F, warning=F}
 da <- vrmid1_data_antprobe
@@ -5526,7 +6060,7 @@ p1<-ggplot(vrmid1_axes%>%
   geom_segment(aes(x = 0,y = 0,
                    xend = cos, yend = sin,
                    color = condition),
-               size = 2, arrow = arrow(length = unit(0.03, "npc")))+
+               size = 1, arrow = arrow(length = unit(0.03, "npc")))+
   geom_segment(aes(x = 0, y = 0,
                    xend = -0.3, yend = 0.3),
                size = 1, linetype = "dashed",
@@ -5537,7 +6071,8 @@ p1<-ggplot(vrmid1_axes%>%
   scale_y_continuous()+
   labs(x = "",
        y = "",
-       title = "VR study 1")+
+       subtitle = "VR study 1",
+       title = "all trials combined")+
   theme_blank()+
   theme(legend.position = "none",
          axis.ticks = element_blank(),
@@ -5566,13 +6101,13 @@ p2<-ggplot(vrmid2_axes%>%
   geom_segment(aes(x = 0,y = 0,
                    xend = cos, yend = sin,
                    color = condition),
-               size = 2, arrow = arrow(length = unit(0.03, "npc")))+
+               size = 1, arrow = arrow(length = unit(0.03, "npc")))+
   geom_text(aes(x = cos * 1.2, y = sin * 1.2, color = condition, label = round(Estimate,2)),
             size = 5,check_overlap = F)+
   scale_color_manual(values = c("purple","skyblue"))+
   labs(x = "",
        y = "",
-       title = "VR study 2")+
+       subtitle = "VR study 2")+
   theme_blank() +
   theme(legend.position = "none",
          axis.ticks = element_blank(),
@@ -5598,13 +6133,13 @@ p3<-ggplot(fmri3_axes%>%
   geom_segment(aes(x = 0,y = 0,
                    xend = cos, yend = sin,
                    color = condition),
-               size = 2, arrow = arrow(length = unit(0.03, "npc")))+
+               size = 1, arrow = arrow(length = unit(0.03, "npc")))+
   geom_text(aes(x = cos * 1.2, y = sin * 1.2, color = condition, label = round(Estimate,2)),
             size = 5,check_overlap = F)+
   scale_color_manual(values = c("purple","skyblue"))+
   labs(x = "",
        y = "",
-       title = "FMRI study")+
+       subtitle = "FMRI study")+
   theme_blank()+
   theme(legend.position = "none",
          axis.ticks = element_blank(),
@@ -5619,17 +6154,17 @@ ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig2_axes.png"),dpi = 
 
 ```
 
-```{r}
-fig3a <- image_read("~/Desktop/VRMID-analysis/mid-pupil/figures/fig4_pooled_effects.tiff")
-fig3b <- image_read("~/Desktop/VRMID-analysis/mid-pupil/figures/fig2_axes.tiff")
-fig3a <- image_annotate(fig3a, "A", size = 60, location = "+30+10", color = "black", gravity = "northwest")
-fig3b <- image_annotate(fig3b, "B", size = 60, location = "+30+10", color = "black", gravity = "northwest")
-# Stack the images vertically
-combined <- image_append(c(fig3a, fig3b), stack = TRUE)
+<!-- ```{r} -->
+<!-- fig3a <- image_read("~/Desktop/VRMID-analysis/mid-pupil/figures/fig4_pooled_effects.tiff") -->
+<!-- fig3b <- image_read("~/Desktop/VRMID-analysis/mid-pupil/figures/fig2_axes.tiff") -->
+<!-- fig3a <- image_annotate(fig3a, "A", size = 60, location = "+30+10", color = "black", gravity = "northwest") -->
+<!-- fig3b <- image_annotate(fig3b, "B", size = 60, location = "+30+10", color = "black", gravity = "northwest") -->
+<!-- # Stack the images vertically -->
+<!-- combined <- image_append(c(fig3a, fig3b), stack = TRUE) -->
 
-# Save the combined image
-image_write(combined, "~/Desktop/VRMID-analysis/mid-pupil/figures/reg_rot_combine.tiff")
-```
+<!-- # Save the combined image -->
+<!-- image_write(combined, "~/Desktop/VRMID-analysis/mid-pupil/figures/reg_rot_combine.tiff") -->
+<!-- ``` -->
 
 
 # finding the affective dimension that best matches pupil dilation, dependent on valence
@@ -5956,7 +6491,7 @@ p1<-ggplot(vrmid1_axes_v%>%
                    xend = cos, yend = sin,
                    color = condition,
                    linetype = valence),
-               size = 2, arrow = arrow(length = unit(0.03, "npc")))+
+               size = 1, arrow = arrow(length = unit(0.03, "npc")))+
   geom_segment(aes(x = 0, y = 0,
                    xend = -0.3, yend = 0.3),
                size = 1, linetype = "dashed",
@@ -5968,7 +6503,8 @@ p1<-ggplot(vrmid1_axes_v%>%
   scale_y_continuous()+
   labs(x = "",
        y = "",
-       title = "VR study 1")+
+       title = "By cue valence",
+       subtitle = "VR study 1")+
   theme_blank()+
   theme(legend.position = "none",
          axis.ticks = element_blank(),
@@ -5999,14 +6535,14 @@ p2<-ggplot(vrmid2_axes_v%>%
                    xend = cos, yend = sin,
                    color = condition,
                    linetype = valence),
-               size = 2, arrow = arrow(length = unit(0.03, "npc")))+
+               size = 1, arrow = arrow(length = unit(0.03, "npc")))+
   # geom_text(aes(x = cos * 1.2, y = sin * 1.2, color = condition, label = round(Estimate,2)),
   #           size = 5,check_overlap = F)+
   scale_linetype_manual(values = c("pos" = "solid", "neg" = "dotted")) +
   scale_color_manual(values = c("purple","skyblue"))+
   labs(x = "",
        y = "",
-       title = "VR study 2")+
+       subtitle = "VR study 2")+
   theme_blank() +
   theme(legend.position = "none",
          axis.ticks = element_blank(),
@@ -6033,28 +6569,45 @@ p3<-ggplot(fmri3_axes_v%>%
                    xend = cos, yend = sin,
                    color = condition,
                    linetype = valence),
-               size = 2, arrow = arrow(length = unit(0.03, "npc")))+
+               size = 1, arrow = arrow(length = unit(0.03, "npc")))+
   # geom_text(aes(x = cos * 1.2, y = sin * 1.2, color = condition, label = round(Estimate,2)),
   #           size = 5,check_overlap = F)+
   scale_color_manual(values = c("purple","skyblue"))+
   scale_linetype_manual(values = c("pos" = "solid", "neg" = "dotted")) +
   labs(x = "",
        y = "",
-       title = "FMRI study",
-       caption = "solid = positive, dashed = negative")+
+       subtitle = "FMRI study",
+       caption = "solid = positive, dotted = negative")+
   theme_blank()+
   theme(legend.position = "none",
          axis.ticks = element_blank(),
     axis.text = element_blank())+
   annotate("text",x=0.43,y = 0, label = "z-scored valence rating", color = "grey", angle = 90)+
   annotate("text",x=-0.04,y = -0.43, label = "z-scored arousal rating", color = "grey")
+```
 
+```{r}
 p1+p2+p3
 
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig2_axes2.tiff"),dpi = 300, height = 3.5, width = 9)
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig2_axes2.png"),dpi = 300, height = 3.5, width = 9)
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig2_axes2.png"),dpi = 300, height = 3.7, width = 9)
 
+fig2a <- image_read("~/Desktop/VRMID-analysis/mid-pupil/figures/fig2_axes.png")
+fig2b <- image_read("~/Desktop/VRMID-analysis/mid-pupil/figures/fig2_axes2.png")
+fig2a <- image_annotate(fig2a, "A", size = 60, location = "+30+10", color = "black", gravity = "northwest")
+fig2b <- image_annotate(fig2b, "B", size = 60, location = "+30+10", color = "black", gravity = "northwest")
+# Stack the images vertically
+combined <- image_append(c(fig2a, fig2b), stack = TRUE)
+
+# Save the combined image
+image_write(combined, "~/Desktop/VRMID-analysis/mid-pupil/figures/fig2_axes3.png")
 ```
+
+
+```{r}
+vrmid1_axes
+vrmid1_axes_v
+```
+
 # time course correlation
 
 ## get the correlation time series
@@ -6213,47 +6766,113 @@ fmri3_regression_coefs_out_nobc <- fmri3_regression_coefs_out_nobc%>%
     rename(p_val = `Pr(>|t|)`) %>% 
   mutate(p_val_fdr = p.adjust(p_val, method = "fdr")) #applies the Benjamini–Hochberg correction
 
-write.csv(fmri3_regression_coefs_out_nobc,  "../../data/fmri3/derivatives/fmri3_regression_coefs_out_bc.csv")
+write.csv(fmri3_regression_coefs_out_nobc,  "../../data/fmri3/derivatives/fmri3_regression_coefs_out_nobc.csv")
 ```
 ## make clusters
 ```{r}
 
 # threshold and min cluster length
 p_thresh <- 1e-3
-
-# Define helper function
-mark_clusters <- function(df, p_thresh, min_cluster_length) {
-  df %>%
+mark_clusters <- function(df, p_thresh, min_cluster_length, merge_gap) {
+  # df must contain columns: p_val_fdr and sample_in_sec (or any per-row index)
+  # min_cluster_length and merge_gap are in SAMPLES (not seconds).
+  
+  # Ensure ordering and create sample index (1..N)
+  df <- df %>%
     arrange(Time_sec, sample_in_sec) %>%
+    mutate(.row_idx = seq_len(n()))
+  
+  # Logical vector: below threshold
+  below <- df$p_val_fdr < p_thresh
+  
+  # Identify runs of TRUE / FALSE using rle
+  r <- rle(below)
+  lens <- r$lengths
+  vals <- r$values
+  ends <- cumsum(lens)
+  starts <- ends - lens + 1
+  runs <- tibble(
+    run_id = seq_along(lens),
+    start_idx = starts,
+    end_idx = ends,
+    length = lens,
+    is_true = vals
+  )
+  
+  # Keep only TRUE runs (candidate significant clusters)
+  true_runs <- runs %>% filter(is_true)
+  
+  if (nrow(true_runs) == 0) {
+    df$sig_cluster <- NA
+    return(df %>% select(-.row_idx))
+  }
+  
+  # Compute gaps between consecutive TRUE runs
+  true_runs <- true_runs %>%
+    arrange(start_idx) %>%
     mutate(
-      below_thresh = p_val_fdr < p_thresh,
-      cluster_id = with(rle(below_thresh), rep(seq_along(values), lengths))
+      prev_end = lag(end_idx),
+      gap = if_else(is.na(prev_end), NA, start_idx - prev_end - 1L)
+    )
+  
+  # ✅ FIXED: Start new merge group whenever gap > merge_gap or NA
+  true_runs <- true_runs %>%
+    mutate(new_group = cumsum(if_else(is.na(gap) | gap > merge_gap, 1L, 0L)))
+  
+  # Summarize merged groups
+  merged <- true_runs %>%
+    group_by(new_group) %>%
+    summarise(
+      start_idx = first(start_idx),
+      end_idx = last(end_idx),
+      size = sum(length),
+      .groups = "drop"
     ) %>%
-    group_by(cluster_id) %>%
-    mutate(
-      cluster_size = n(),
-      sig_cluster = ifelse(all(below_thresh) & cluster_size >= min_cluster_length, 1, NA)
-    ) %>%
-    ungroup() %>%
-    select(-below_thresh, -cluster_id, -cluster_size)
+    filter(size >= min_cluster_length)
+  
+  # If no merged cluster passes min length, return NA sig_cluster
+  if (nrow(merged) == 0) {
+    df$sig_cluster <- NA
+    return(df %>% select(-.row_idx))
+  }
+  
+  # Create logical mask of significant samples
+  sig_mask <- rep(FALSE, nrow(df))
+  for (i in seq_len(nrow(merged))) {
+    si <- merged$start_idx[i]
+    ei <- merged$end_idx[i]
+    si <- max(1L, as.integer(si))
+    ei <- min(nrow(df), as.integer(ei))
+    sig_mask[si:ei] <- TRUE
+  }
+  
+  # Assign sig_cluster column (1 = significant, NA = not)
+  df$sig_cluster <- ifelse(sig_mask, 1L, NA)
+  
+  # Drop helper column and return
+  df <- df %>% select(-.row_idx)
+  return(df)
 }
 
-min_cluster_length <- 0.5 * 120  # 0.5s * 200 samples/sec = 100 samples
+
+
+min_cluster_length <- 1 * 120  # 1s
+merge_gap <- 0.3 * 120          # 0.1s
 
 # Apply to all datasets
-vrmid1_regression_coefs_out_nobc <- mark_clusters(vrmid1_regression_coefs_out_nobc, p_thresh, min_cluster_length)
-vrmid2_regression_coefs_out_nobc <- mark_clusters(vrmid2_regression_coefs_out_nobc, p_thresh, min_cluster_length)
-vrmid1_regression_coefs_ant_nobc <- mark_clusters(vrmid1_regression_coefs_ant_nobc, p_thresh, min_cluster_length)
-vrmid2_regression_coefs_ant_nobc <- mark_clusters(vrmid2_regression_coefs_ant_nobc, p_thresh, min_cluster_length)
+vrmid1_regression_coefs_out_nobc <- mark_clusters(vrmid1_regression_coefs_out_nobc, p_thresh, min_cluster_length,merge_gap)
+vrmid2_regression_coefs_out_nobc <- mark_clusters(vrmid2_regression_coefs_out_nobc, p_thresh, min_cluster_length,merge_gap)
+vrmid1_regression_coefs_ant_nobc <- mark_clusters(vrmid1_regression_coefs_ant_nobc, p_thresh, min_cluster_length,merge_gap)
+vrmid2_regression_coefs_ant_nobc <- mark_clusters(vrmid2_regression_coefs_ant_nobc, p_thresh, min_cluster_length,merge_gap)
 
-min_cluster_length <- 0.5 * 200  # 0.5s * 200 samples/sec = 100 samples
-fmri3_regression_coefs_ant_nobc  <- mark_clusters(fmri3_regression_coefs_ant_nobc,  p_thresh, min_cluster_length)
-fmri3_regression_coefs_out_nobc  <- mark_clusters(fmri3_regression_coefs_out_nobc,  p_thresh, min_cluster_length)
+min_cluster_length <- 1 * 200  # 0.5s * 200 samples/sec = 100 samples
+merge_gap <- 0.3 * 200          # 0.1s * 200 samples/sec = 20 samples
+fmri3_regression_coefs_ant_nobc  <- mark_clusters(fmri3_regression_coefs_ant_nobc,  p_thresh, min_cluster_length,merge_gap)
+fmri3_regression_coefs_out_nobc  <- mark_clusters(fmri3_regression_coefs_out_nobc,  p_thresh, min_cluster_length,merge_gap)
 ```
 
 ## plots
 ```{r}
-
 axis_range=c(min(c(vrmid1_regression_coefs_ant_nobc$Estimate-vrmid1_regression_coefs_ant_nobc$`Std. Error`,
                    vrmid2_regression_coefs_ant_nobc$Estimate-vrmid2_regression_coefs_ant_nobc$`Std. Error`,
                    fmri3_regression_coefs_ant_nobc$Estimate-fmri3_regression_coefs_ant_nobc$`Std. Error`,
@@ -6269,6 +6888,7 @@ axis_range=c(min(c(vrmid1_regression_coefs_ant_nobc$Estimate-vrmid1_regression_c
 
 p1a<-ggplot(vrmid1_regression_coefs_ant_nobc, aes(x = sample_point,y = Estimate))+
     geom_vline(xintercept = c(0,4,6,14,16,18)*120, size = 1, color = "grey")+
+  geom_vline(xintercept = c(2037, 906), size = 1, color = "orange", linetype = "dashed")+
   annotate("text", x = 2*120,y = 0.1, label = "C",
           color = "black",size = unit(4,"pt"))+
   annotate("text", x = 5*120,y = 0.1, label = "F",
@@ -6299,6 +6919,7 @@ p1a<-ggplot(vrmid1_regression_coefs_ant_nobc, aes(x = sample_point,y = Estimate)
 
 p1b<-ggplot(vrmid1_regression_coefs_out_nobc, aes(x = sample_point,y = Estimate))+
   geom_vline(xintercept = c(0,4,6,8,10,18)*120, size = 1, color = "grey")+
+  geom_vline(xintercept = c(1134), size = 1, color = "orange", linetype = "dashed")+
   geom_point(aes(x = sample_point, y = sig_cluster-1),
              size = 0.1)+
   geom_ribbon(aes(x = sample_point, y = Estimate, ymin = Estimate - `Std. Error`,
@@ -6328,6 +6949,7 @@ p1b<-ggplot(vrmid1_regression_coefs_out_nobc, aes(x = sample_point,y = Estimate)
 
 p2a<-ggplot(vrmid2_regression_coefs_ant_nobc, aes(x = sample_point,y = Estimate))+
     geom_vline(xintercept = c(0,4,6,14,16,18)*120, size = 1, color = "grey")+
+  geom_vline(xintercept = c(821, 1885), size = 1, color = "orange", linetype = "dashed")+
   geom_point(aes(x = sample_point, y = sig_cluster-1),
              size = 0.1)+
    geom_ribbon(aes(x = sample_point, y = Estimate, ymin = Estimate - `Std. Error`,
@@ -6357,6 +6979,7 @@ p2a<-ggplot(vrmid2_regression_coefs_ant_nobc, aes(x = sample_point,y = Estimate)
 
 p2b<-ggplot(vrmid2_regression_coefs_out_nobc, aes(x = sample_point,y = Estimate))+
     geom_vline(xintercept = c(0,4,6,8,10,18)*120, size = 1, color = "grey")+
+  geom_vline(xintercept = c(997), size = 1, color = "orange", linetype = "dashed")+
   geom_point(aes(x = sample_point, y = sig_cluster-1),
              size = 0.1)+
      geom_ribbon(aes(x = sample_point, y = Estimate, ymin = Estimate - `Std. Error`,
@@ -6386,6 +7009,7 @@ p2b<-ggplot(vrmid2_regression_coefs_out_nobc, aes(x = sample_point,y = Estimate)
 
 p3a<-ggplot(fmri3_regression_coefs_ant_nobc, aes(x = sample_point,y = Estimate))+
   geom_vline(xintercept = c(0,2,4,12,14,16,18)*200, size = 1, color = "grey")+
+  geom_vline(xintercept = c(826,3291), size = 1, color = "orange", linetype = "dashed")+
   geom_point(aes(x = sample_point, y = sig_cluster-1),
              size = 0.1)+
      geom_ribbon(aes(x = sample_point, y = Estimate, ymin = Estimate - `Std. Error`,
@@ -6417,6 +7041,7 @@ p3a<-ggplot(fmri3_regression_coefs_ant_nobc, aes(x = sample_point,y = Estimate))
 
 p3b<-ggplot(fmri3_regression_coefs_out_nobc %>% filter(sample_point <= 18*200), aes(x = sample_point,y = Estimate))+
   geom_vline(xintercept = c(0,2,4,6,8,16)*200, size = 1, color = "grey")+
+  geom_vline(xintercept = c(1294), size = 1, color = "orange", linetype = "dashed")+
   geom_point(aes(x = sample_point, y = sig_cluster-1),
              size = 0.1)+
    geom_ribbon(aes(x = sample_point, y = Estimate, ymin = Estimate - `Std. Error`,
@@ -6777,7 +7402,7 @@ wrap_elements(full = grid::textGrob("Separated by probe type", gp = grid::gpar(f
 (p1a+p1b)/(p2a+p2b)/(p3a+p3b)+
 plot_layout(heights = c(0.2,1.5,1.5,1.5))
 
-# ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig7_howlongago2.tiff"),dpi = 300, height = 12, width = 8)
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig7_howlongago2.tiff"),dpi = 300, height = 12, width = 8)
 
 ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig7_howlongago2.png"),dpi = 300, height = 12, width = 8)
 
@@ -6821,6 +7446,32 @@ ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig7_howlongago3.tiff"
 
 #brain pattern stuff
 
+## first, look at correlation between two regressors
+```{r}
+subjects_list<-read_delim('~/Desktop/midaffemo/analyses/subjects-pupil-fmri.txt',delim = '\t', col_names = F)
+
+reg_corr_list <- NULL
+all_reg <- NULL
+for (sub in subjects_list$X1){
+  file_pupil <- paste0("~/Desktop/midaffemo/regs_corr/",sub,"_pupil_scaled_c.1D")
+  pupil_reg <- read_delim(file_pupil,delim = '\t', col_names = F)
+  file_rating <- paste0("~/Desktop/midaffemo/regs_corr/",sub,"_report_param_arous_c.1D")
+  rating_reg <- read_delim(file_rating,delim = '\t', col_names = F)
+  reg_corr_list <- rbind(reg_corr_list,
+                         summary(lm(scale(pupil_reg$X1)~scale(rating_reg$X1)))$coefficients[2,])
+  all_reg <- rbind(all_reg, cbind(pupil_reg,rating_reg, subject = sub))
+}
+
+reg_corr_list <- as.data.frame(reg_corr_list)
+reg_corr_list$subject <- subjects_list$X1
+mean(reg_corr_list$Estimate)
+sd(reg_corr_list$Estimate)
+t.test(reg_corr_list$Estimate,mu=0)
+
+all_reg <- as.data.frame(all_reg)
+names(all_reg) <- c("pupil","rating","subject")
+summary(lmer(scale(pupil)~scale(rating)+ (1|subject),all_reg))
+```
 
 ## midaffemo 1 (only pupil GLM; in SI)
 
@@ -6832,6 +7483,7 @@ thresh <- c(0,0.5,1,1.5,2,2.5,3,3.5)
 
 glmArousal_array <- NULL
 glmPupil_array <- NULL
+glmPupil_posonly_array <- NULL
 pupil_array <- NULL
 
 for (t in 1:length(thresh_str)){
@@ -6851,6 +7503,13 @@ for (t in 1:length(thresh_str)){
     mutate(type = "glmPupil", tr = row_number(), 
                                    threshold = thresh[t])) #pupil GLM
   
+  filepath = paste0("~/Desktop/midaffemo/glm_maps/glm33b_posonly_array_threshold",thresh_str[t],".csv")
+  glmPupil_posonly_array<-rbind(glmPupil_posonly_array,
+                        as.data.frame(t(read_csv(filepath, 
+             col_names = F))) %>% 
+    mutate(type = "glmPupil_posonly", tr = row_number(), 
+                                   threshold = thresh[t])) #pupil GLM (pos only)
+  
   pupil_array<-rbind(pupil_array,
                      as.data.frame(t(read_csv("~/Desktop/midaffemo/glm_maps/pupil_array.csv", col_names = F))) %>% 
     mutate(type = "pupil", tr = row_number(), 
@@ -6858,7 +7517,7 @@ for (t in 1:length(thresh_str)){
 }
 
 
-my_array<-Reduce(rbind,list(glmArousal_array,glmPupil_array,pupil_array))
+my_array<-Reduce(rbind,list(glmArousal_array,glmPupil_array,glmPupil_posonly_array,pupil_array))
 names(my_array) <- c(subjects_list$X1,"type","tr","threshold")
 my_array<-my_array%>% 
   pivot_longer(ab240324:yz240312,names_to = "subject",values_to = "val") %>% 
@@ -7013,6 +7672,15 @@ ggplot(df_performance, aes(x = tr, y = Estimate))+
   labs(title = "FMRI study")+
   scale_x_continuous(breaks = 1:14)
 
+ggplot(df_performance, aes(x = threshold, y = Estimate))+
+  geom_line(aes(color= probe))+
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey",
+             size = 1)+
+  facet_wrap(~tr)+
+    scale_color_manual(values = c("purple","skyblue"))+
+  scale_fill_manual(values = c("purple","skyblue"))+
+  labs(title = "FMRI study")+
+  scale_x_continuous(breaks = 1:14)
 ```
 
 ```{r warning=F}
@@ -7226,8 +7894,6 @@ p4b<-ggplot(coefs%>% filter(probe == "outcome probe"),aes(x = TR, y =Estimate))+
 p4a+p4b
 ```
 
-
-
 ### pupil glm template
 ```{r}
 my_array_ <- my_array%>% 
@@ -7263,6 +7929,98 @@ my_array_ <- my_array_ %>%
          time = (tr_in_trial-1) * 2)
 ```
 
+#### diffentiating cue vs. outcome
+```{r}
+d1<-my_array_ %>% 
+         filter(!is.na(hit)) %>% 
+         group_by(tr_in_trial,subject,threshold,probe) %>% 
+         summarise(glmPupil = mean(glmPupil,na.rm = T)) %>% 
+         group_by(tr_in_trial,threshold,probe) %>% 
+         summarise(mean = mean(glmPupil,na.rm = T),
+                   se = sd(glmPupil,na.rm = T)/sqrt(n())) %>% 
+  filter(tr_in_trial <= 14)
+
+p1<-ggplot(d1 %>% filter(probe == "anticipation probe",threshold == 0.5),
+       aes(x = tr_in_trial, y = mean))+
+  geom_vline(xintercept = c(3.5,4.5,5.5,9.5,10.5,11.5,12.5), size = 1, color = "grey")+
+  annotate("text",x = 4, y = 0.05, label = "C")+
+  annotate("text",x = 5, y = 0.05, label = "F")+
+  annotate("text",x = 10, y = 0.05, label = "F")+
+  annotate("text",x = 11, y = 0.05, label = "T")+
+  annotate("text",x = 12, y = 0.05, label = "O")+
+  annotate("text",x = 7.5, y = 0.05, label = "R")+
+  geom_line(size = 0.5) +
+  geom_point()+
+  geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
+  labs(y = "Simalirty to pupil template",
+       x = "time (s)",
+       subtitle = "anticipation probe")+
+  scale_color_manual(values = redOrange_palette6)+
+  theme(legend.position = "top")+
+  ylim(-0.1,0.15)+
+ggplot(d1 %>% filter(probe == "outcome probe",threshold == 0.5),
+       aes(x = tr_in_trial, y = mean))+
+  geom_vline(xintercept = c(3.5,4.5,5.5,6.5,7.5,11.5), size = 1, color = "grey")+
+  annotate("text",x = 4, y = 0.05, label = "C")+
+  annotate("text",x = 5, y = 0.05, label = "F")+
+  annotate("text",x = 6, y = 0.05, label = "T")+
+  annotate("text",x = 7, y = 0.05, label = "O")+
+  annotate("text",x = 10, y = 0.05, label = "R")+
+  geom_line(size = 0.5) +
+  geom_point()+
+  geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
+  labs(y = "Simalirty to self-report template",
+       x = "time (s)",
+       subtitle = "outcome probe")+
+  scale_color_manual(values = redOrange_palette6)+
+  theme(legend.position = "top")+
+  ylim(-0.1,0.15)
+
+d2<-my_array_ %>% 
+         filter(!is.na(hit),
+                tr_in_trial == 5) %>% 
+         group_by(subject,threshold,cue_value) %>% 
+         summarise(glmPupil = mean(glmPupil,na.rm = T)) %>% 
+         group_by(threshold,cue_value) %>% 
+         summarise(mean = mean(glmPupil,na.rm = T),
+                   se = sd(glmPupil,na.rm = T)/sqrt(n()))
+
+p2<-ggplot(d2 %>% filter(threshold == 0.5),
+       aes(x = cue_value, y = mean,color = cue_value))+
+  geom_point(size = 0.5) +
+  geom_point()+
+  geom_errorbar(aes(x = cue_value, ymin = mean-se,ymax = mean+se), width = 0.3)+
+  labs(y = "Simalirty to self-report template",
+       x = "time (s)",
+       subtitle = "TR 5 arousal index")+
+  scale_color_manual(values = redOrange_palette6)+
+  theme(legend.position = "none")
+
+d3<-my_array_ %>% 
+         filter(!is.na(hit),
+                ifelse(probe == "anticipation probe", tr_in_trial == 12,
+                       ifelse(probe == "outcome probe",tr_in_trial == 7,NA))) %>% 
+         group_by(subject,threshold,hit,cue_value) %>% 
+         summarise(glmPupil = mean(glmPupil,na.rm = T)) %>% 
+         group_by(threshold,hit,cue_value) %>% 
+         summarise(mean = mean(glmPupil,na.rm = T),
+                   se = sd(glmPupil,na.rm = T)/sqrt(n())) %>% 
+  mutate(hit = factor(hit, levels = c(0,1), labels = c("Miss","Hit")))
+
+ggplot(d3 %>% filter(threshold == 0.5),
+       aes(x = cue_value, y = mean, color = cue_value, shape = hit)) +
+  geom_point(position = position_dodge(width = 0.5)) +
+  geom_errorbar(aes(x = cue_value, group = hit, ymin = mean - se, ymax = mean + se),
+                width = 0.3, position = position_dodge(width = 0.5)) +
+  labs(y = "Similarity to self-report template",
+       x = "time (s)",
+       subtitle = "arousal index during outcome") +
+  theme(legend.position = "top") +
+  scale_color_manual(values = redOrange_palette6) +
+  guides(color = "none",  # hide color legend
+         shape = guide_legend())  # show shape legend
+
+```
 
 #### predicting performance
 ```{r warning=F}
@@ -7308,7 +8066,15 @@ ggplot(df_performance %>% filter(tr == 5), aes(x = threshold, y = Estimate))+
     scale_color_manual(values = c("purple","skyblue"))+
   scale_fill_manual(values = c("purple","skyblue"))+
   labs(title = "FMRI study")+
-  scale_x_continuous(breaks = 1:14)
+  scale_x_continuous(breaks = 1:14)+
+  geom_vline(xintercept = 0.5)
+
+summary(l1<-glm(hit_num ~ scale(glmPupil),family = binomial,
+                    my_array_ %>% 
+                      filter(tr_in_trial == 5,threshold == 0.5) %>% 
+                      mutate(hit_num = as.factor(hit == 1))))
+
+plot_model(l1,type = "pred", terms = "glmPupil [all]")
 ```
 
 ```{r warning=F}
@@ -7354,6 +8120,10 @@ ggplot(df_performance %>% filter(tr == 5), aes(x = threshold, y = Estimate))+
   scale_fill_manual(values = c("purple","skyblue"))+
   labs(title = "FMRI study")+
   scale_x_continuous(breaks = 1:14)
+
+summary(l1<-lm(scale(rt) ~ scale(glmPupil),
+                   my_array_ %>% 
+                   filter(tr_in_trial == 5, hit == 1,threshold == 0.5)))
 ```
 
 
@@ -7466,6 +8236,186 @@ ggplot(df_rating %>% filter(tr == 5), aes(x = threshold, y = Estimate))+
 ```{r}
 coefs1 = NULL
 for (t in 1:14){
+  l1<-summary(lm(scale(glmPupil) ~ scale(arousal),my_array_ %>% filter(tr_in_trial == t, probe == "anticipation probe", threshold == 0.5)))
+  coefs1 <- rbind(coefs1,l1$coefficients[2,])
+}
+coefs1<-as.data.frame(coefs1)
+coefs1$TR <- 1:14
+coefs1$probe = "anticipation probe"
+
+coefs2 = NULL
+for (t in 1:14){
+  l1<-summary(lm(scale(glmPupil) ~ scale(arousal),my_array_ %>% filter(tr_in_trial == t, probe == "outcome probe", threshold == 0.5)))
+  coefs2 <- rbind(coefs2,l1$coefficients[2,])
+}
+coefs2<-as.data.frame(coefs2)
+coefs2$TR <- 1:14
+coefs2$probe = "outcome probe"
+
+coefs <- rbind(coefs1,coefs2) %>% 
+  mutate(sig = ifelse(`Pr(>|t|)` >= 0.05, "",
+                      ifelse(`Pr(>|t|)` >= 0.01, "*",
+                             ifelse(`Pr(>|t|)` >= 0.001, "**","***"))))
+
+p_m1_pupil_a<-ggplot(coefs %>% filter(probe == "anticipation probe"),aes(x = TR, y =Estimate))+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  geom_vline(xintercept = c(3.5,4.5,5.5,9.5,10.5,11.5,12.5), size = 1, color = "grey")+
+  annotate("text",x = 4, y = 0.05, label = "C")+
+  annotate("text",x = 5, y = 0.05, label = "F")+
+  annotate("text",x = 10, y = 0.05, label = "F")+
+  annotate("text",x = 11, y = 0.05, label = "T")+
+  annotate("text",x = 12, y = 0.05, label = "O")+
+  annotate("text",x = 7.5, y = 0.05, label = "R")+
+  scale_x_continuous(breaks = seq(0,14,2), labels = seq(0,28,4))+
+  scale_color_manual(values = c("purple"))+
+  scale_fill_manual(values = c("purple"))+
+  geom_line(aes(color = probe), size = 2, alpha = 0.5)+
+  geom_ribbon(aes(fill = probe, ymin = Estimate - `Std. Error`,
+                  ymax = Estimate + `Std. Error`), alpha = 0.1)+
+  geom_line(aes(color = probe), size = 2, alpha = 0.5)+
+  geom_segment(aes(x = 7, y = 0.15,
+                   xend =7, yend = 0.1),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")),
+               color = "darkgrey")+
+  annotate("text",x = 7, y = 0.16, label ="arousal rating")+
+  geom_text(aes(x = TR, y = Estimate+0.01, label = sig, color = probe))+
+  labs(x = "time (s)",
+       y = "std. beta",
+       title = "Regression weights on arousal",
+       subtitle = "anticipation probe")+
+  theme(legend.position = "none")
+
+p_m1_pupil_b<-ggplot(coefs%>% filter(probe == "outcome probe"),aes(x = TR, y =Estimate))+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  geom_vline(xintercept = c(3.5,4.5,5.5,6.5,7.5), size = 1, color = "grey")+
+  annotate("text",x = 4, y = 0.05, label = "C")+
+  annotate("text",x = 5, y = 0.05, label = "F")+
+  annotate("text",x = 6, y = 0.05, label = "T")+
+  annotate("text",x = 7, y = 0.05, label = "O")+
+  annotate("text",x = 10, y = 0.05, label = "R")+
+  scale_x_continuous(breaks = seq(0,14,2), labels = seq(0,28,4))+
+  scale_color_manual(values = c("skyblue"))+
+  scale_fill_manual(values = c("skyblue"))+
+  geom_line(aes(color = probe), size = 2, alpha = 0.5)+
+  geom_ribbon(aes(fill = probe, ymin = Estimate - `Std. Error`,
+                  ymax = Estimate + `Std. Error`), alpha = 0.1)+
+  geom_line(aes(color = probe), size = 2, alpha = 0.5)+
+  geom_segment(aes(x = 10, y = 0.17,
+                   xend =10, yend = 0.12),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")),
+               color = "darkgrey")+
+  annotate("text",x = 10, y = 0.18, label ="arousal rating")+
+  geom_segment(aes(x = 10, y = 0.17,
+                   xend =10, yend = 0.12),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")),
+               color = "darkgrey")+
+  annotate("text",x = 10, y = 0.18, label ="arousal rating")+
+  geom_text(aes(x = TR, y = Estimate+0.01, label = sig, color = probe))+
+  labs(x = "time (s)",
+        y = "std. beta",
+       subtitle = "outcome probe")+
+  theme(legend.position = "none")
+
+p_m1_pupil_a+p_m1_pupil_b
+```
+```{r}
+(p1+p2+plot_layout(nrow = 1,widths = c(2,2,1)))/
+(p_m1_pupil_a+p_m1_pupil_b)
+```
+
+
+### pupil glm template (positive values only)
+```{r}
+my_array_ <- my_array%>% 
+  ungroup() %>% 
+  select(trial,subject,tr_in_trial,glmPupil_posonly,trial_tr,threshold) %>% 
+  pivot_wider(names_from = c(tr_in_trial), values_from = c(glmPupil_posonly), names_prefix = "glmPupil_TR_") %>% 
+  arrange(subject,trial)
+
+for (t in thresh){
+  for (sub in unique(my_array_$subject)){
+    for(tr in 9:11){
+      replace_idx = my_array_$subject == sub & my_array_$trial_tr == tr & my_array_$threshold == t & is.na(my_array_[,paste0("glmPupil_TR_",tr+1)])
+      #early TRs were TRs from the previous trial
+      my_array_[replace_idx,paste0("glmPupil_TR_",(tr+1):TR_DELAY)] <- my_array_[lag(replace_idx) %>% replace_na(FALSE),paste0("glmPupil_TR_",1:(TR_DELAY-tr))]
+  } # tr loop
+  }
+}
+
+TR_DELAY = 14
+my_array_ <- my_array_ %>% mutate(glmPupil_TR_17 = NA, glmPupil_TR_18 = NA, glmPupil_TR_19 = NA, glmPupil_TR_20 = NA)
+
+my_array_<-left_join(my_array_ %>% 
+                        pivot_longer(glmPupil_TR_1:glmPupil_TR_20,
+                                     names_to = "tr_in_trial",names_prefix = "glmPupil_TR_",
+                                     values_to = "glmPupil"),fmri3_data_2probes,
+                      by = c("subject","trial")) %>% 
+  filter(tr <= 975)%>%
+  mutate(half = ifelse(trial >= 48,"second","first"))%>% #last bit was interpolated
+  mutate(probe = ifelse(probe == 1, "anticipation probe","outcome probe"))
+
+my_array_ <- my_array_ %>% 
+  mutate(tr_in_trial = as.numeric(tr_in_trial),
+         time = (tr_in_trial-1) * 2)
+```
+
+
+### predicting self-reports
+```{r}
+df_rating <- NULL
+for (t in thresh){
+  for (tr in 1:14){
+    l1<-summary(lm(scale(arousal) ~ scale(glmPupil),
+                    my_array_ %>% 
+                      filter(tr_in_trial == tr,threshold == t, probe == "anticipation probe")))
+    l2<-summary(lm(scale(arousal) ~ scale(glmPupil),
+                   my_array_ %>% 
+                   filter(tr_in_trial == tr, threshold == t, probe == "outcome probe")))
+  
+    df_rating <- rbind(df_rating,
+                          l1$coefficients[2,],
+                          l2$coefficients[2,])
+  }
+  
+}
+
+df_rating <- as.data.frame(df_rating)
+df_rating$probe <- rep(c("anticipation","outcome"), length(thresh))
+df_rating$threshold <- rep(thresh, each = 2*14)
+df_rating$tr <- rep(rep(1:14,each=2),2)
+
+ggplot(df_rating, aes(x = tr, y = Estimate))+
+  geom_line(aes(color= probe))+
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey",
+             size = 1)+
+  geom_ribbon(aes(x = tr, ymin = Estimate - `Std. Error`,
+                    ymax = Estimate + `Std. Error`,fill = probe),
+              alpha = 0.1)+
+  facet_wrap(~threshold)+
+  labs(title = "FMRI study")+
+  scale_color_manual(values = c("purple","skyblue"))+
+  scale_fill_manual(values = c("purple","skyblue"))+
+  scale_x_continuous(breaks = 1:14)+
+  geom_vline(xintercept = 5, color = "purple",label = "F")+
+  geom_vline(xintercept = 6, color = "skyblue",label = "T")+
+  geom_vline(xintercept = 7, color = "purple", linetype = "dashed")+
+  geom_vline(xintercept = 9, color = "skyblue", linetype = "dashed")
+
+
+ggplot(df_rating %>% filter(tr == 5), aes(x = threshold, y = Estimate))+
+  geom_line(aes(color= probe))+
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey",
+             size = 1)+
+    scale_color_manual(values = c("purple","skyblue"))+
+  scale_fill_manual(values = c("purple","skyblue"))+
+  labs(title = "FMRI study")+
+  scale_x_continuous(breaks = 1:14)
+```
+
+### visualize peak correlation
+```{r}
+coefs1 = NULL
+for (t in 1:14){
   l1<-summary(lm(scale(glmPupil) ~ scale(arousal),my_array_ %>% filter(tr_in_trial == t, probe == "anticipation probe", threshold == 3.5)))
   coefs1 <- rbind(coefs1,l1$coefficients[2,])
 }
@@ -7487,7 +8437,7 @@ coefs <- rbind(coefs1,coefs2) %>%
                       ifelse(`Pr(>|t|)` >= 0.01, "*",
                              ifelse(`Pr(>|t|)` >= 0.001, "**","***"))))
 
-p4a<-ggplot(coefs %>% filter(probe == "anticipation probe"),aes(x = TR, y =Estimate))+
+p_m1_pupil_posonly_a<-ggplot(coefs %>% filter(probe == "anticipation probe"),aes(x = TR, y =Estimate))+
   geom_hline(yintercept = 0, linetype = "dashed")+
   geom_vline(xintercept = c(3.5,4.5,5.5,9.5,10.5,11.5,12.5), size = 1, color = "grey")+
   annotate("text",x = 4, y = 0.05, label = "C")+
@@ -7515,7 +8465,7 @@ p4a<-ggplot(coefs %>% filter(probe == "anticipation probe"),aes(x = TR, y =Estim
        subtitle = "anticipation probe")+
   theme(legend.position = "none")
 
-p4b<-ggplot(coefs%>% filter(probe == "outcome probe"),aes(x = TR, y =Estimate))+
+p_m1_pupil_posonly_b<-ggplot(coefs%>% filter(probe == "outcome probe"),aes(x = TR, y =Estimate))+
   geom_hline(yintercept = 0, linetype = "dashed")+
   geom_vline(xintercept = c(3.5,4.5,5.5,6.5,7.5), size = 1, color = "grey")+
   annotate("text",x = 4, y = 0.05, label = "C")+
@@ -7545,7 +8495,7 @@ p4b<-ggplot(coefs%>% filter(probe == "outcome probe"),aes(x = TR, y =Estimate))+
        subtitle = "outcome probe")+
   theme(legend.position = "none")
 
-p4a+p4b
+p_m1_pupil_posonly_a+p_m1_pupil_posonly_b
 ```
 
 ## based on midaffemo 2 (validation sample)
@@ -7553,6 +8503,14 @@ p4a+p4b
 ### load fmri study 4
 ```{r}
 fmri4_data_2probes <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/fmri4/derivatives/fmri4_data_2probes.csv")
+
+# demonstrate baseline association
+
+summary(lmer(scale(mean_pupil_nobc) ~ scale(arousal_scaled) + (1|subject),fmri4_data_2probes %>% 
+               filter(probe == 1)))
+
+summary(lmer(scale(mean_pupil_nobc) ~ scale(arousal_scaled) + (1|subject),fmri4_data_2probes %>% 
+               filter(probe == 2)))
 ```
 
 ### make dataframe of all similarities, all thresholds
@@ -7563,6 +8521,7 @@ thresh <- c(0,0.5,1,1.5,2,2.5,3,3.5)
 
 glmArousal_array <- NULL
 glmPupil_array <- NULL
+glmPupil_posonly_array <- NULL
 pupil_array <- NULL
 
 for (t in 1:length(thresh_str)){
@@ -7582,6 +8541,13 @@ for (t in 1:length(thresh_str)){
     mutate(type = "glmPupil", tr = row_number(), 
                                    threshold = thresh[t])) #pupil GLM
   
+  filepath = paste0("~/Desktop/midaffemo2/glm_maps/glm33b_posonly_array_templatefromstudy1_threshold",thresh_str[t],".csv")
+  glmPupil_posonly_array<-rbind(glmPupil_posonly_array,
+                        as.data.frame(t(read_csv(filepath, 
+             col_names = F))) %>% 
+    mutate(type = "glmPupil_posonly", tr = row_number(), 
+                                   threshold = thresh[t])) #pupil GLM
+  
   pupil_array<-rbind(pupil_array,
                      as.data.frame(t(read_csv("~/Desktop/midaffemo2/glm_maps/pupil_array.csv", col_names = F))) %>% 
     mutate(type = "pupil", tr = row_number(), 
@@ -7589,7 +8555,7 @@ for (t in 1:length(thresh_str)){
 }
 
 
-my_array<-Reduce(rbind,list(glmArousal_array,glmPupil_array,pupil_array))
+my_array<-Reduce(rbind,list(glmArousal_array,glmPupil_array,glmPupil_posonly_array,pupil_array))
 names(my_array) <- c(subjects_list$X1,"type","tr","threshold")
 my_array<-my_array%>% 
   pivot_longer(ad241211:yc250206,names_to = "subject",values_to = "val") %>% 
@@ -7654,118 +8620,85 @@ my_array <- left_join(my_array,df.1sub %>%
   mutate(tr_in_trial = row_number())%>% 
   relocate(tr_in_trial,.after = tr)%>%
   mutate(half = ifelse(trial >= 24,"second","first"))
+
+my_array$cue_value <- factor(my_array$cue_value, levels = c("-$5","-$1","-$0","+$0","+$1","+$5"))
 ```
 
-#### examine some basic features
+## plot as function of cue value / outcome value
 ```{r}
 d1<-my_array %>% 
-         filter(!is.na(hit)) %>% 
-         group_by(tr_in_trial,subject,threshold,probe) %>% 
-         summarise(glmPupil = mean(glmPupil,na.rm = T)) %>% 
-         group_by(tr_in_trial,threshold,probe) %>% 
-         summarise(mean = mean(glmPupil,na.rm = T),
-                   se = sd(glmPupil,na.rm = T)/sqrt(n())) %>% 
+         filter(!is.na(hit),
+                threshold == 3.5) %>% 
+         group_by(tr_in_trial,subject,probe,cue_value) %>% 
+         summarise(glmPupil_posonly= mean(glmPupil_posonly,na.rm = T)) %>% 
+         group_by(tr_in_trial,cue_value,probe) %>% 
+         summarise(mean = mean(glmPupil_posonly,na.rm = T),
+                   se = sd(glmPupil_posonly,na.rm = T)/sqrt(n())) %>% 
   filter(tr_in_trial <= 14)
 
 ggplot(d1 %>% filter(probe == 1),
-       aes(x = tr_in_trial, y = mean,color = threshold))+
+       aes(x = tr_in_trial, y = mean,color = cue_value))+
   geom_vline(xintercept = c(4.5,5.5), size = 1, color = "grey")+
   annotate("text",x = 5, y = 0.05, label = "fixation",angle = 90)+
-  geom_line(aes(group=threshold),size = 0.5) +
+  geom_line(aes(group=cue_value),size = 0.5) +
   geom_point()+
   geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
-  labs(y = "Simalirty to self-report template",
+  labs(y = "Simalirty to pupil template",
        x = "time (s)",
        subtitle = "anticipation probe",
        title = )+
-  scale_color_bluebrown_c()+
+  scale_color_manual(values = redOrange_palette6)+
   theme(legend.position = "top")+
 ggplot(d1 %>% filter(probe == 2),
-       aes(x = tr_in_trial, y = mean,color = threshold))+
+       aes(x = tr_in_trial, y = mean,color = cue_value))+
   geom_vline(xintercept = c(4.5,5.5), size = 1, color = "grey")+
   annotate("text",x = 5, y = 0.05, label = "fixation",angle = 90)+
-  geom_line(aes(group=threshold),size = 0.5) +
+  geom_line(aes(group=cue_value),size = 0.5) +
   geom_point()+
   geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
-  labs(y = "Simalirty to self-report template",
+  labs(y = "Simalirty to pupil template",
        x = "time (s)",
        subtitle = "outcome probe",
        title = )+
-  scale_color_bluebrown_c()+
+  scale_color_manual(values = redOrange_palette6)+
   theme(legend.position = "top")
-
 
 d2<-my_array %>% 
-         filter(!is.na(hit)) %>% 
-         group_by(tr_in_trial,subject,threshold,probe) %>% 
-         summarise(glmArousal= mean(glmArousal,na.rm = T)) %>% 
-         group_by(tr_in_trial,threshold,probe) %>% 
-         summarise(mean = mean(glmArousal,na.rm = T),
-                   se = sd(glmArousal,na.rm = T)/sqrt(n())) %>% 
-  filter(tr_in_trial <= 14)
+         filter(!is.na(hit),
+                threshold == 3.5) %>% 
+         group_by(tr_in_trial,subject,hit,probe) %>% 
+         summarise(glmPupil= mean(glmPupil,na.rm = T)) %>% 
+         group_by(tr_in_trial,probe,hit) %>% 
+         summarise(mean = mean(glmPupil_posonly,na.rm = T),
+                   se = sd(glmPupil_posonly,na.rm = T)/sqrt(n())) %>% 
+  filter(tr_in_trial <= 14) %>% 
+  mutate(hit = as.factor(hit))
 
 ggplot(d2 %>% filter(probe == 1),
-       aes(x = tr_in_trial, y = mean,color = threshold))+
+       aes(x = tr_in_trial, y = mean,color = hit))+
   geom_vline(xintercept = c(4.5,5.5), size = 1, color = "grey")+
   annotate("text",x = 5, y = 0.05, label = "fixation",angle = 90)+
-  geom_line(aes(group=threshold),size = 0.5) +
+  geom_line(aes(group=hit),size = 0.5) +
   geom_point()+
   geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
   labs(y = "Simalirty to pupil template",
        x = "time (s)",
        subtitle = "anticipation probe",
        title = )+
-  scale_color_bluebrown_c()+
+  scale_color_manual(values = redOrange_palette2)+
   theme(legend.position = "top")+
 ggplot(d2 %>% filter(probe == 2),
-       aes(x = tr_in_trial, y = mean,color = threshold))+
+       aes(x = tr_in_trial, y = mean,color = hit))+
   geom_vline(xintercept = c(4.5,5.5), size = 1, color = "grey")+
   annotate("text",x = 5, y = 0.05, label = "fixation",angle = 90)+
-  geom_line(aes(group=threshold),size = 0.5) +
+  geom_line(aes(group=hit),size = 0.5) +
   geom_point()+
   geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
   labs(y = "Simalirty to pupil template",
        x = "time (s)",
        subtitle = "outcome probe",
        title = )+
-  scale_color_bluebrown_c()+
-  theme(legend.position = "top")
-
-
-d3<-my_array %>% 
-         filter(!is.na(hit)) %>% 
-         group_by(tr_in_trial,subject,probe) %>% 
-         summarise(pupil= mean(pupil,na.rm = T)) %>% 
-         group_by(tr_in_trial,probe) %>% 
-         summarise(mean = mean(pupil,na.rm = T),
-                   se = sd(pupil,na.rm = T)/sqrt(n())) %>% 
-  filter(tr_in_trial <= 14)
-
-ggplot(d3 %>% filter(probe == 1),
-       aes(x = tr_in_trial, y = mean))+
-  geom_vline(xintercept = c(1.5,2.5), size = 1, color = "grey")+
-  annotate("text",x = 2, y = 0.05, label = "fixation",angle = 90)+
-  geom_line(aes(group=1),size = 0.5) +
-  geom_point()+
-  geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
-  labs(y = "Simalirty to pupil template",
-       x = "time (s)",
-       subtitle = "anticipation probe",
-       title = )+
-  scale_color_bluebrown_c()+
-  theme(legend.position = "top")+
-ggplot(d3 %>% filter(probe == 2),
-       aes(x = tr_in_trial, y = mean))+
-  geom_vline(xintercept = c(1.5,2.5), size = 1, color = "grey")+
-  annotate("text",x = 2, y = 0.05, label = "fixation",angle = 90)+
-  geom_line(aes(group=1),size = 0.5) +
-  geom_point()+
-  geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
-  labs(y = "Simalirty to pupil template",
-       x = "time (s)",
-       subtitle = "outcome probe",
-       title = )+
-  scale_color_bluebrown_c()+
+  scale_color_manual(values = redOrange_palette2)+
   theme(legend.position = "top")
 ```
 
@@ -8027,7 +8960,7 @@ coefs <- rbind(coefs1,coefs2) %>%
                       ifelse(`Pr(>|t|)` >= 0.01, "*",
                              ifelse(`Pr(>|t|)` >= 0.001, "**","***"))))
 
-p4a<-ggplot(coefs %>% filter(probe == "anticipation probe"),aes(x = TR, y =Estimate))+
+p_m2_arousal_a<-ggplot(coefs %>% filter(probe == "anticipation probe"),aes(x = TR, y =Estimate))+
   geom_hline(yintercept = 0, linetype = "dashed")+
   geom_vline(xintercept = c(3.5,4.5,5.5,9.5,10.5,11.5,12.5), size = 1, color = "grey")+
   annotate("text",x = 4, y = 0.05, label = "C")+
@@ -8055,7 +8988,7 @@ p4a<-ggplot(coefs %>% filter(probe == "anticipation probe"),aes(x = TR, y =Estim
        subtitle = "anticipation probe")+
   theme(legend.position = "none")
 
-p4b<-ggplot(coefs%>% filter(probe == "outcome probe"),aes(x = TR, y =Estimate))+
+p_m2_arousal_b<-ggplot(coefs%>% filter(probe == "outcome probe"),aes(x = TR, y =Estimate))+
   geom_hline(yintercept = 0, linetype = "dashed")+
   geom_vline(xintercept = c(3.5,4.5,5.5,6.5,7.5), size = 1, color = "grey")+
   annotate("text",x = 4, y = 0.05, label = "C")+
@@ -8085,7 +9018,9 @@ p4b<-ggplot(coefs%>% filter(probe == "outcome probe"),aes(x = TR, y =Estimate))+
        subtitle = "outcome probe")+
   theme(legend.position = "none")
 
-p4a+p4b
+p_m2_arousal_a+p_m2_arousal_b
+
+summary(lm(scale(glmArousal) ~ scale(arousal_scaled),my_array__ %>% filter(tr_in_trial == 5, threshold == 1.5)))
 ```
 
 ### pupil glm template
@@ -8094,6 +9029,441 @@ my_array_ <- my_array%>%
   ungroup() %>% 
   select(trial,subject,tr_in_trial,glmPupil,trial_tr,threshold) %>% 
   pivot_wider(names_from = c(tr_in_trial), values_from = c(glmPupil), names_prefix = "glmPupil_TR_") %>% 
+  arrange(subject,trial)
+
+for (t in thresh){
+  for (sub in unique(my_array_$subject)){
+    for(tr in 9:11){
+      replace_idx = my_array_$subject == sub & my_array_$trial_tr == tr & my_array_$threshold == t & is.na(my_array_[,paste0("glmPupil_TR_",tr+1)])
+      #early TRs were TRs from the previous trial
+      my_array_[replace_idx,paste0("glmPupil_TR_",(tr+1):TR_DELAY)] <- my_array_[lag(replace_idx) %>% replace_na(FALSE),paste0("glmPupil_TR_",1:(TR_DELAY-tr))]
+  } # tr loop
+  }
+}
+
+TR_DELAY = 14
+my_array_ <- my_array_ %>% mutate(glmPupil_TR_17 = NA, glmPupil_TR_18 = NA, glmPupil_TR_19 = NA, glmPupil_TR_20 = NA)
+
+my_array_<-left_join(my_array_ %>% 
+                        pivot_longer(glmPupil_TR_1:glmPupil_TR_20,
+                                     names_to = "tr_in_trial",names_prefix = "glmPupil_TR_",
+                                     values_to = "glmPupil"),fmri4_data_2probes,
+                      by = c("subject","trial")) %>% 
+  filter(tr <= 975)%>%
+  mutate(half = ifelse(trial >= 48,"second","first"))%>% #last bit was interpolated
+  mutate(probe = ifelse(probe == 1, "anticipation probe","outcome probe"))
+
+my_array_ <- my_array_ %>% 
+  mutate(tr_in_trial = as.numeric(tr_in_trial),
+         time = (tr_in_trial-1) * 2)
+```
+
+#### diffentiating cue vs. outcome
+```{r}
+d1<-my_array_ %>% 
+         filter(!is.na(hit)) %>% 
+         group_by(tr_in_trial,subject,threshold,probe) %>% 
+         summarise(glmPupil = mean(glmPupil,na.rm = T)) %>% 
+         group_by(tr_in_trial,threshold,probe) %>% 
+         summarise(mean = mean(glmPupil,na.rm = T),
+                   se = sd(glmPupil,na.rm = T)/sqrt(n())) %>% 
+  filter(tr_in_trial <= 14)
+
+p1m2<-ggplot(d1 %>% filter(probe == "anticipation probe",threshold == 0.5),
+       aes(x = tr_in_trial, y = mean))+
+  geom_vline(xintercept = c(3.5,4.5,5.5,9.5,10.5,11.5,12.5), size = 1, color = "grey")+
+  annotate("text",x = 4, y = 0.05, label = "C")+
+  annotate("text",x = 5, y = 0.05, label = "F")+
+  annotate("text",x = 10, y = 0.05, label = "F")+
+  annotate("text",x = 11, y = 0.05, label = "T")+
+  annotate("text",x = 12, y = 0.05, label = "O")+
+  annotate("text",x = 7.5, y = 0.05, label = "R")+
+  geom_line(size = 0.5) +
+  geom_point()+
+  geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
+  labs(y = "Simalirty to pupil template",
+       x = "time (s)",
+       subtitle = "anticipation probe")+
+  scale_color_manual(values = redOrange_palette6)+
+  theme(legend.position = "top")+
+  ylim(-0.1,0.15)+
+ggplot(d1 %>% filter(probe == "outcome probe",threshold == 0.5),
+       aes(x = tr_in_trial, y = mean))+
+  geom_vline(xintercept = c(3.5,4.5,5.5,6.5,7.5,11.5), size = 1, color = "grey")+
+  annotate("text",x = 4, y = 0.05, label = "C")+
+  annotate("text",x = 5, y = 0.05, label = "F")+
+  annotate("text",x = 6, y = 0.05, label = "T")+
+  annotate("text",x = 7, y = 0.05, label = "O")+
+  annotate("text",x = 10, y = 0.05, label = "R")+
+  geom_line(size = 0.5) +
+  geom_point()+
+  geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
+  labs(y = "Simalirty to self-report template",
+       x = "time (s)",
+       subtitle = "outcome probe")+
+  scale_color_manual(values = redOrange_palette6)+
+  theme(legend.position = "top")+
+  ylim(-0.1,0.15)
+
+d2<-my_array_ %>% 
+         filter(!is.na(hit),
+                tr_in_trial == 5) %>% 
+         group_by(subject,threshold,cue_value) %>% 
+         summarise(glmPupil = mean(glmPupil,na.rm = T)) %>% 
+         group_by(threshold,cue_value) %>% 
+         summarise(mean = mean(glmPupil,na.rm = T),
+                   se = sd(glmPupil,na.rm = T)/sqrt(n()))
+
+p2m2<-ggplot(d2 %>% filter(threshold == 0.5),
+       aes(x = cue_value, y = mean,color = cue_value))+
+  geom_point(size = 0.5) +
+  geom_point()+
+  geom_errorbar(aes(x = cue_value, ymin = mean-se,ymax = mean+se), width = 0.3)+
+  labs(y = "Simalirty to self-report template",
+       x = "time (s)",
+       subtitle = "TR 5 arousal index")+
+  scale_color_manual(values = redOrange_palette6)+
+  theme(legend.position = "none")
+
+d3<-my_array_ %>% 
+         filter(!is.na(hit),
+                ifelse(probe == "anticipation probe", tr_in_trial == 12,
+                       ifelse(probe == "outcome probe",tr_in_trial == 7,NA))) %>% 
+         group_by(subject,threshold,hit,cue_value) %>% 
+         summarise(glmPupil = mean(glmPupil,na.rm = T)) %>% 
+         group_by(threshold,hit,cue_value) %>% 
+         summarise(mean = mean(glmPupil,na.rm = T),
+                   se = sd(glmPupil,na.rm = T)/sqrt(n())) %>% 
+  mutate(hit = factor(hit, levels = c(0,1), labels = c("Miss","Hit")))
+
+ggplot(d3 %>% filter(threshold == 0.5),
+       aes(x = cue_value, y = mean, color = cue_value, shape = hit)) +
+  geom_point(position = position_dodge(width = 0.5)) +
+  geom_errorbar(aes(x = cue_value, group = hit, ymin = mean - se, ymax = mean + se),
+                width = 0.3, position = position_dodge(width = 0.5)) +
+  labs(y = "Similarity to self-report template",
+       x = "time (s)",
+       subtitle = "arousal index during outcome") +
+  theme(legend.position = "top") +
+  scale_color_manual(values = redOrange_palette6) +
+  guides(color = "none",  # hide color legend
+         shape = guide_legend())  # show shape legend
+
+```
+
+#### predicting performance
+```{r warning=F}
+df_performance <- NULL
+for (t in thresh){
+  for (tr in 1:14){
+    l1<-summary(glm(hit_num ~ scale(glmPupil),family = binomial,
+                    my_array_ %>% 
+                      filter(tr_in_trial == tr,threshold == t, probe == "anticipation probe") %>% 
+                      mutate(hit_num = as.factor(hit == 1))))
+    
+    l2<-summary(glm(hit_num ~ scale(glmPupil),family = binomial,
+                    my_array_ %>% 
+                      filter(tr_in_trial == tr,threshold == t, probe == "outcome probe") %>% 
+                      mutate(hit_num = as.factor(hit == 1))))
+  
+    df_performance <- rbind(df_performance,
+                          l1$coefficients[2,],
+                          l2$coefficients[2,])
+  }
+  
+}
+
+df_performance <- as.data.frame(df_performance)
+df_performance$probe <- rep(c("anticipation","outcome"), length(thresh))
+df_performance$threshold <- rep(thresh, each = 2*14)
+df_performance$tr <- rep(rep(1:14,each=2),2)
+
+ggplot(df_performance, aes(x = tr, y = Estimate))+
+  geom_line(aes(color= probe))+
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey",
+             size = 1)+
+  facet_wrap(~threshold)+
+    scale_color_manual(values = c("purple","skyblue"))+
+  scale_fill_manual(values = c("purple","skyblue"))+
+  labs(title = "FMRI study")+
+  scale_x_continuous(breaks = 1:14)
+
+
+ggplot(df_performance %>% filter(tr == 5), aes(x = threshold, y = Estimate))+
+  geom_line(aes(color= probe))+
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey",
+             size = 1)+
+    scale_color_manual(values = c("purple","skyblue"))+
+  scale_fill_manual(values = c("purple","skyblue"))+
+  labs(title = "FMRI study")+
+  scale_x_continuous(breaks = 1:14)
+
+summary(l1<-glm(hit_num ~ scale(glmPupil),family = binomial,
+                    my_array_ %>% 
+                      filter(tr_in_trial == 5,threshold == 0.5) %>% 
+                      mutate(hit_num = as.factor(hit == 1))))
+
+plot_model(l1, type = "pred", terms = "glmPupil")
+```
+
+```{r warning=F}
+df_performance <- NULL
+
+for (t in thresh){
+  for (tr in 1:14){
+    l1<-summary(lm(scale(rt) ~ scale(glmPupil),
+                   my_array_ %>% 
+                   filter(tr_in_trial == tr, hit == 1,threshold == t, probe == "anticipation probe")))
+    
+    l2<-summary(lm(scale(rt) ~ scale(glmPupil),
+                   my_array_ %>% 
+                   filter(tr_in_trial == tr, hit == 1,threshold == t, probe == "outcome probe")))
+  
+    df_performance <- rbind(df_performance,
+                          l1$coefficients[2,],
+                          l2$coefficients[2,])
+  }
+  
+}
+
+df_performance <- as.data.frame(df_performance)
+df_performance$probe <- rep(c("anticipation","outcome"), length(thresh))
+df_performance$threshold <- rep(thresh, each = 2*14)
+df_performance$tr <- rep(rep(1:14,each=2),2)
+
+ggplot(df_performance, aes(x = tr, y = Estimate))+
+  geom_line(aes(color= probe))+
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey",
+             size = 1)+
+  facet_wrap(~threshold)+
+    scale_color_manual(values = c("purple","skyblue"))+
+  scale_fill_manual(values = c("purple","skyblue"))+
+  labs(title = "FMRI study")+
+  scale_x_continuous(breaks = 1:14)
+
+ggplot(df_performance %>% filter(tr == 5), aes(x = threshold, y = Estimate))+
+  geom_line(aes(color= probe))+
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey",
+             size = 1)+
+    scale_color_manual(values = c("purple","skyblue"))+
+  scale_fill_manual(values = c("purple","skyblue"))+
+  labs(title = "FMRI study")+
+  scale_x_continuous(breaks = 1:14)
+
+summary(l1<-lm(scale(rt) ~ scale(glmPupil),
+                   my_array_ %>% 
+                   filter(tr_in_trial == 5, hit == 1,threshold == 0.5)))
+
+plot_model(l1, type = "pred", terms = "glmPupil")
+```
+
+
+#### predicting cue value (abs)
+```{r warning=F}
+df_cue <- NULL
+for (t in thresh){
+  for (tr in 1:14){
+    l1<-summary(lm(cue_value_abs ~ scale(glmPupil),
+                    my_array_ %>% 
+                      filter(tr_in_trial == tr,threshold == t, probe == "anticipation probe") %>% 
+                      mutate(cue_value_abs = ifelse(cue_value %in% c("+$5","-$5"),5,
+                                                    ifelse(cue_value %in% c("+$1","-$1"),1,
+                                                           ifelse(cue_value %in% 
+                                                                    c("+$0","-$0"),1,NA))))))
+    
+    l2<-summary(lm(cue_value_abs ~ scale(glmPupil),
+                    my_array_ %>% 
+                      filter(tr_in_trial == tr,threshold == t, probe == "outcome probe") %>% 
+                      mutate(cue_value_abs = ifelse(cue_value %in% c("+$5","-$5"),5,
+                                                    ifelse(cue_value %in% c("+$1","-$1"),1,
+                                                           ifelse(cue_value %in% 
+                                                                    c("+$0","-$0"),1,NA))))))
+  
+    df_cue <- rbind(df_cue,
+                          l1$coefficients[2,],
+                          l2$coefficients[2,])
+  }
+  
+}
+
+df_cue <- as.data.frame(df_cue)
+df_cue$probe <- rep(c("anticipation","outcome"), length(thresh))
+df_cue$threshold <- rep(thresh, each = 2*14)
+df_cue$tr <- rep(rep(1:14,each=2),2)
+
+ggplot(df_cue, aes(x = tr, y = Estimate))+
+  geom_line(aes(color= probe))+
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey",
+             size = 1)+
+  scale_color_manual(values = c("purple","skyblue"))+
+  scale_fill_manual(values = c("purple","skyblue"))+
+  facet_wrap(~threshold)+
+  labs(title = "FMRI study")+
+  scale_x_continuous(breaks = 1:14)
+
+ggplot(df_cue %>% filter(tr == 5), aes(x = threshold, y = Estimate))+
+  geom_line(aes(color= probe))+
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey",
+             size = 1)+
+    scale_color_manual(values = c("purple","skyblue"))+
+  scale_fill_manual(values = c("purple","skyblue"))+
+  labs(title = "FMRI study")+
+  scale_x_continuous(breaks = 1:14)
+```
+
+### predicting self-reports
+```{r}
+df_rating <- NULL
+for (t in thresh){
+  for (tr in 1:14){
+    l1<-summary(lm(scale(arousal_scaled) ~ scale(glmPupil),
+                    my_array_ %>% 
+                      filter(tr_in_trial == tr,threshold == t, probe == "anticipation probe")))
+    l2<-summary(lm(scale(arousal_scaled) ~ scale(glmPupil),
+                   my_array_ %>% 
+                   filter(tr_in_trial == tr, threshold == t, probe == "outcome probe")))
+  
+    df_rating <- rbind(df_rating,
+                          l1$coefficients[2,],
+                          l2$coefficients[2,])
+  }
+  
+}
+
+df_rating <- as.data.frame(df_rating)
+df_rating$probe <- rep(c("anticipation","outcome"), length(thresh))
+df_rating$threshold <- rep(thresh, each = 2*14)
+df_rating$tr <- rep(rep(1:14,each=2),2)
+
+ggplot(df_rating, aes(x = tr, y = Estimate))+
+  geom_line(aes(color= probe))+
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey",
+             size = 1)+
+  geom_ribbon(aes(x = tr, ymin = Estimate - `Std. Error`,
+                    ymax = Estimate + `Std. Error`,fill = probe),
+              alpha = 0.1)+
+  facet_wrap(~threshold)+
+  labs(title = "FMRI study")+
+  scale_color_manual(values = c("purple","skyblue"))+
+  scale_fill_manual(values = c("purple","skyblue"))+
+  scale_x_continuous(breaks = 1:14)+
+  geom_vline(xintercept = 5, color = "purple",label = "F")+
+  geom_vline(xintercept = 6, color = "skyblue",label = "T")+
+  geom_vline(xintercept = 7, color = "purple", linetype = "dashed")+
+  geom_vline(xintercept = 9, color = "skyblue", linetype = "dashed")
+  
+  ggplot(df_rating %>% filter(tr == 5), aes(x = threshold, y = Estimate))+
+  geom_line(aes(color= probe))+
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey",
+             size = 1)+
+    scale_color_manual(values = c("purple","skyblue"))+
+  scale_fill_manual(values = c("purple","skyblue"))+
+  labs(title = "FMRI study")+
+  scale_x_continuous(breaks = 1:14)
+```
+
+### visualize peak correlation
+```{r}
+coefs1 = NULL
+for (t in 1:14){
+  l1<-summary(lm(scale(glmPupil) ~ scale(arousal_scaled),my_array_ %>% filter(tr_in_trial == t, probe == "anticipation probe", threshold == 0.5)))
+  coefs1 <- rbind(coefs1,l1$coefficients[2,])
+}
+
+coefs1<-as.data.frame(coefs1)
+coefs1$TR <- 1:14
+coefs1$probe = "anticipation probe"
+
+coefs2 = NULL
+for (t in 1:14){
+  l1<-summary(lm(scale(glmPupil) ~ scale(arousal_scaled),my_array_ %>% filter(tr_in_trial == t, probe == "outcome probe", threshold == 0.5)))
+  coefs2 <- rbind(coefs2,l1$coefficients[2,])
+}
+coefs2<-as.data.frame(coefs2)
+coefs2$TR <- 1:14
+coefs2$probe = "outcome probe"
+
+coefs <- rbind(coefs1,coefs2) %>% 
+  mutate(sig = ifelse(`Pr(>|t|)` >= 0.05, "",
+                      ifelse(`Pr(>|t|)` >= 0.01, "*",
+                             ifelse(`Pr(>|t|)` >= 0.001, "**","***"))))
+
+p_m2_pupil_a<-ggplot(coefs %>% filter(probe == "anticipation probe"),aes(x = TR, y =Estimate))+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  geom_vline(xintercept = c(3.5,4.5,5.5,9.5,10.5,11.5,12.5), size = 1, color = "grey")+
+  annotate("text",x = 4, y = 0.05, label = "C")+
+  annotate("text",x = 5, y = 0.05, label = "F")+
+  annotate("text",x = 10, y = 0.05, label = "F")+
+  annotate("text",x = 11, y = 0.05, label = "T")+
+  annotate("text",x = 12, y = 0.05, label = "O")+
+  annotate("text",x = 7.5, y = 0.05, label = "R")+
+  scale_x_continuous(breaks = seq(0,14,2), labels = seq(0,28,4))+
+  scale_color_manual(values = c("purple"))+
+  scale_fill_manual(values = c("purple"))+
+  geom_line(aes(color = probe), size = 2, alpha = 0.5)+
+  geom_ribbon(aes(fill = probe, ymin = Estimate - `Std. Error`,
+                  ymax = Estimate + `Std. Error`), alpha = 0.1)+
+  geom_line(aes(color = probe), size = 2, alpha = 0.5)+
+  geom_segment(aes(x = 7, y = 0.15,
+                   xend =7, yend = 0.1),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")),
+               color = "darkgrey")+
+  annotate("text",x = 7, y = 0.16, label ="arousal rating")+
+  geom_text(aes(x = TR, y = Estimate+0.01, label = sig, color = probe))+
+  labs(x = "time (s)",
+       y = "Correlation with arousal ratings",
+       title = "Regression weights on arousal",
+       subtitle = "anticipation probe")+
+  theme(legend.position = "none")
+
+p_m2_pupil_b<-ggplot(coefs%>% filter(probe == "outcome probe"),aes(x = TR, y =Estimate))+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  geom_vline(xintercept = c(3.5,4.5,5.5,6.5,7.5), size = 1, color = "grey")+
+  annotate("text",x = 4, y = 0.05, label = "C")+
+  annotate("text",x = 5, y = 0.05, label = "F")+
+  annotate("text",x = 6, y = 0.05, label = "T")+
+  annotate("text",x = 7, y = 0.05, label = "O")+
+  annotate("text",x = 10, y = 0.05, label = "R")+
+  scale_x_continuous(breaks = seq(0,14,2), labels = seq(0,28,4))+
+  scale_color_manual(values = c("skyblue"))+
+  scale_fill_manual(values = c("skyblue"))+
+  geom_line(aes(color = probe), size = 2, alpha = 0.5)+
+  geom_ribbon(aes(fill = probe, ymin = Estimate - `Std. Error`,
+                  ymax = Estimate + `Std. Error`), alpha = 0.1)+
+  geom_line(aes(color = probe), size = 2, alpha = 0.5)+
+  geom_segment(aes(x = 10, y = 0.17,
+                   xend =10, yend = 0.12),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")),
+               color = "darkgrey")+
+  annotate("text",x = 10, y = 0.18, label ="arousal rating")+
+  geom_segment(aes(x = 10, y = 0.17,
+                   xend =10, yend = 0.12),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")),
+               color = "darkgrey")+
+  annotate("text",x = 10, y = 0.18, label ="arousal rating")+
+  geom_text(aes(x = TR, y = Estimate+0.01, label = sig, color = probe))+
+  labs(x = "time (s)",
+       subtitle = "outcome probe")+
+  theme(legend.position = "none")
+
+p_m2_pupil_a+p_m2_pupil_b
+
+summary(lm(scale(glmPupil) ~ scale(arousal_scaled),my_array_ %>% filter(tr_in_trial == 5, threshold == 0.5)))
+
+summary(lm(scale(glmPupil) ~ scale(arousal_scaled),my_array_ %>% filter(tr_in_trial == 5, threshold == 0.5, probe == "anticipation probe")))
+
+summary(lm(scale(glmPupil) ~ scale(arousal_scaled),my_array_ %>% 
+             filter(ifelse(probe == "anticipation probe", tr_in_trial == 5,
+                           ifelse(probe == "outcome probe", tr_in_trial == 7,NA))) %>% 
+             filter(threshold == 0.5)))
+```
+
+### pupil glm template (positive activations only)
+```{r}
+my_array_ <- my_array%>% 
+  ungroup() %>% 
+  select(trial,subject,tr_in_trial,glmPupil_posonly,trial_tr,threshold) %>% 
+  pivot_wider(names_from = c(tr_in_trial), values_from = c(glmPupil_posonly), names_prefix = "glmPupil_TR_") %>% 
   arrange(subject,trial)
 
 for (t in thresh){
@@ -8325,8 +9695,9 @@ ggplot(df_rating, aes(x = tr, y = Estimate))+
 ```{r}
 coefs1 = NULL
 for (t in 1:14){
-  l1<-summary(lm(scale(glmPupil) ~ scale(arousal_scaled),my_array_ %>% filter(tr_in_trial == t, probe == "anticipation probe", threshold == 3.5)))
+  l1<-summary(lm(scale(glmPupil) ~ scale(arousal_scaled),my_array_ %>% filter(tr_in_trial == t, probe == "anticipation probe", threshold == 0.5)))
   coefs1 <- rbind(coefs1,l1$coefficients[2,])
+}
 
 coefs1<-as.data.frame(coefs1)
 coefs1$TR <- 1:14
@@ -8334,7 +9705,7 @@ coefs1$probe = "anticipation probe"
 
 coefs2 = NULL
 for (t in 1:14){
-  l1<-summary(lm(scale(glmPupil) ~ scale(arousal_scaled),my_array_ %>% filter(tr_in_trial == t, probe == "outcome probe", threshold == 3.5)))
+  l1<-summary(lm(scale(glmPupil) ~ scale(arousal_scaled),my_array_ %>% filter(tr_in_trial == t, probe == "outcome probe", threshold == 0.5)))
   coefs2 <- rbind(coefs2,l1$coefficients[2,])
 }
 coefs2<-as.data.frame(coefs2)
@@ -8346,7 +9717,7 @@ coefs <- rbind(coefs1,coefs2) %>%
                       ifelse(`Pr(>|t|)` >= 0.01, "*",
                              ifelse(`Pr(>|t|)` >= 0.001, "**","***"))))
 
-p4a<-ggplot(coefs %>% filter(probe == "anticipation probe"),aes(x = TR, y =Estimate))+
+p_m2_pupil_posonly_a<-ggplot(coefs %>% filter(probe == "anticipation probe"),aes(x = TR, y =Estimate))+
   geom_hline(yintercept = 0, linetype = "dashed")+
   geom_vline(xintercept = c(3.5,4.5,5.5,9.5,10.5,11.5,12.5), size = 1, color = "grey")+
   annotate("text",x = 4, y = 0.05, label = "C")+
@@ -8374,7 +9745,7 @@ p4a<-ggplot(coefs %>% filter(probe == "anticipation probe"),aes(x = TR, y =Estim
        subtitle = "anticipation probe")+
   theme(legend.position = "none")
 
-p4b<-ggplot(coefs%>% filter(probe == "outcome probe"),aes(x = TR, y =Estimate))+
+p_m2_pupil_posonly_b<-ggplot(coefs%>% filter(probe == "outcome probe"),aes(x = TR, y =Estimate))+
   geom_hline(yintercept = 0, linetype = "dashed")+
   geom_vline(xintercept = c(3.5,4.5,5.5,6.5,7.5), size = 1, color = "grey")+
   annotate("text",x = 4, y = 0.05, label = "C")+
@@ -8404,11 +9775,26 @@ p4b<-ggplot(coefs%>% filter(probe == "outcome probe"),aes(x = TR, y =Estimate))+
        subtitle = "outcome probe")+
   theme(legend.position = "none")
 
-p4a+p4b
+p_m2_pupil_posonly_a+p_m2_pupil_posonly_b
+
+
+summary(lm(scale(glmPupil) ~ scale(arousal_scaled),my_array_ %>% filter(tr_in_trial == 5, threshold == 0.5)))
+
+summary(lm(scale(glmPupil) ~ scale(arousal_scaled),my_array_ %>% 
+             filter(ifelse(probe == "anticipation probe", tr_in_trial == 5,
+                           ifelse(probe == "outcome probe", tr_in_trial == 7,NA))) %>% 
+             filter(threshold == 0.5)))
 ```
 
-```{r}
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/similarity_glmPupil.png"),dpi = 300, height = 6, width = 8)
+```{r fig.height=10,fig.width=6}
+p_m1_pupil_a+p_m1_pupil_b+
+p_m1_pupil_posonly_a+p_m1_pupil_posonly_b
+
+p_m2_arousal_a+p_m2_arousal_b+
+p_m2_pupil_a+p_m2_pupil_b+
+p_m2_pupil_posonly_a+p_m2_pupil_posonly_b+
+  plot_layout(nrow = 3)
+# ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/similarity_glmPupil.png"),dpi = 300, height = 6, width = 8)
 ```
 
 ```{r}
