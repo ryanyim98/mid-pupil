@@ -72,7 +72,7 @@ fmri3_pupil_data <- fmri3_pupil_data %>%
     probe_type <- unique(trial_data$probe)  # probe type
     rating_type <- unique(trial_data$rating_type)  # probe type
     
-    cue_size_str <- unique(ifelse(trial_data$cue_size == 1, "cue_small", "cue_large"))  # if cue is small or large
+    cue_size_str <- unique(ifelse(trial_data$cue_size == 1, "cue_large", "cue_small"))  # if cue is small or large
     
     # fetching the right luminance value depending on which amount of money is shown
     cue_money_type <- unique(case_when(
