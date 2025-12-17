@@ -13,7 +13,7 @@ fmri3_pupil_data.for.regs <- fmri3_pupil_data%>%
             mean_pupil_nobc_scaled= mean(pupilDiameter_scaled, na.rm = T))
 
 df.1sub <- read_csv("~/Desktop/midaffemo/analyses/timecourses/data/realsubj/MIDaffemo/timecourses_b0_woOutliers_long.csv") %>% 
-  filter(subject == "nq240330", voi == "nacc",coreg == "ants") %>% 
+  filter(subject == "nq240330", voi == "nacc",coreg == "ants") %>%  #participants have the same trial structure despite different randomization
   mutate(trial_tr_noiti = ifelse(probe == 1, 9,8),
          trial_tr = trial_tr_noiti + iti/2) %>% 
   select(trial,trial_tr,tr,run) %>% 

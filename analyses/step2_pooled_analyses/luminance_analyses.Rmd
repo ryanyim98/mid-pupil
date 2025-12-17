@@ -27,11 +27,6 @@ fmri4_pupil_data <- fmri4_pupil_data %>%
   filter(!sub_id %in% fmri4_bad_participants) %>% 
   filter(!subject %in% c("cc250121","kv250109","ha250127"))#these are manual exclusions based on data collection notes
 
-
-fmri4_subjects <- unique(fmri4_pupil_data$subject)
-fmri4_subject_n<-length(fmri4_subjects)
-fmri4_subject_n
-
 fmri4_pupil_data$cue_value <- factor(fmri4_pupil_data$cue_value,
                                 levels = c("-$5","-$1","-$0","+$0","+$1","+$5"))
 
@@ -70,8 +65,11 @@ fmri4_pupil_data$cue_size <- factor(fmri4_pupil_data$cue_size,levels = c(1,2),la
 
 # read in demographics
 ```{r}
+fmri4_subjects <- read_delim("../../data/fmri4/subjects_list/subjects-pupil-fmri.txt",delim = '\t', col_names = F)$X1
+fmri4_subject_n<-length(fmri4_subjects)
 fmri4_subject_n
 ```
+
 
 # compare study 3 and study 4 arousal ratings
 ```{r}

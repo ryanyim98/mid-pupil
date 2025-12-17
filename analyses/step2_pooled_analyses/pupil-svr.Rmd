@@ -1,0 +1,1735 @@
+---
+title: "pupil-svr"
+output: html_document
+date: "2025-11-11"
+---
+# vrmid 1
+```{r}
+library(genlasso)
+library(e1071)
+library(glmnet)
+```
+
+##Anticipatory probes 
+
+### prepare data
+```{r}
+time_end=10
+time_start=0
+duration = time_end-time_start
+# 1. Keep only first 8 seconds of each trial
+vrmid1_pupil_svr_data <- vrmid1_pupil_data %>%
+  filter(Time_sec <= time_end, Time_sec >= time_start, probe == "anti") %>%
+  select(Subject, trial, sample_in_trial_n, arousal, pupil_Avg_scaled) %>%
+  mutate(sample_in_trial_n = as.numeric(sample_in_trial_n)) %>%  # ensure numeric ordering
+  arrange(Subject, trial, sample_in_trial_n) %>%
+  pivot_wider(
+    names_from = sample_in_trial_n,
+    values_from = pupil_Avg_scaled
+  ) %>%
+  select(Subject, trial, arousal,
+    all_of(as.character(1:(duration*120)))
+  )
+
+# 4. Subject-level cross-validation folds
+subjects <- unique(vrmid1_pupil_svr_data$Subject)
+k <- 10  # 10-fold cross-validation
+
+set.seed(42)
+fold_ids <- sample(rep(1:k, length.out = length(subjects)))  # random fold assignment
+subject_folds <- data.frame(Subject = subjects, Fold = fold_ids)
+
+```
+
+### SVR
+```{r}
+# --- 4. Run subject-level LOSO CV ---
+# Store subject-wise results (RMSE, R2, Correlation)
+weights_vrmid1_ant_svr_results <- data.frame(Subject = integer(), RMSE = numeric(), R2 = numeric(), acc = numeric())
+
+# Store pooled predictions: Subject, True Value, Predicted Value
+weights_vrmid1_ant_svr_all_preds <- data.frame(
+ Subject = integer(), y_true = numeric(), y_pred = numeric()
+)
+
+feature_cols <- as.character(1:(time_end*120))
+
+n_subjects <- length(unique(vrmid1_pupil_svr_data$Subject))
+
+weights_vrmid1_ant_svr <- matrix(NA, nrow = n_subjects, ncol = length(feature_cols))
+colnames(weights_vrmid1_ant_svr) <- feature_cols
+
+subjects <- unique(vrmid1_pupil_svr_data$Subject)
+
+for (i in seq_along(subjects)) {
+ test_subject <- subjects[i]
+
+ train_data <- vrmid1_pupil_svr_data %>% filter(Subject != test_subject)
+ test_data <- vrmid1_pupil_svr_data %>% filter(Subject == test_subject)
+
+ # Check for sufficient training data (optional, but good practice)
+ if (nrow(train_data) < 2) {
+  warning(paste("Skipping subject", test_subject, "due to insufficient training data."))
+  next
+ }
+ 
+ model <- svm(x = train_data[, feature_cols], y = train_data$arousal,
+       kernel = "radial", type = "eps-regression")
+
+ # Identify rows in test data that have NA in features or true values
+ row_all_na <- apply(cbind(test_data[, feature_cols], test_data$arousal), 1, function(x) any(is.na(x)))
+ 
+ preds <- predict(model, newdata = test_data[!row_all_na, feature_cols])
+
+ true_vals <- test_data$arousal[!row_all_na]
+
+ # Compute training mean for proper LOSO R² for *this subject*
+ train_mean <- mean(train_data$arousal, na.rm = TRUE)
+
+ # 1. Proper Subject-level LOSO R²
+ r2_cv <- 1 - sum((true_vals - preds)^2, na.rm = TRUE) / sum((true_vals - train_mean)^2, na.rm = TRUE)
+
+ # 2. Subject-level RMSE
+ rmse <- sqrt(mean((true_vals - preds)^2, na.rm = TRUE))
+
+ # 3. Subject-level Correlation (Accuracy)
+ acc <- cor(preds, true_vals, use = "complete.obs")
+
+
+ # Save subject-wise results
+ weights_vrmid1_ant_svr_results <- rbind(
+  weights_vrmid1_ant_svr_results,
+  data.frame(Subject = test_subject, RMSE = rmse, R2 = r2_cv, acc = acc)
+ )
+ 
+ # Save pooled predictions for overall metrics
+ weights_vrmid1_ant_svr_all_preds <- rbind(
+  weights_vrmid1_ant_svr_all_preds,
+  data.frame(Subject = test_subject, y_true = true_vals, y_pred = preds)
+ )
+
+ # Compute feature weights
+ # NOTE: This part remains unchanged and uses the model from the current fold
+ w <- t(model$coefs) %*% model$SV
+ weights_vrmid1_ant_svr[i, ] <- w
+}
+
+# --- 5. Check performance ---
+
+## 📊 Subject-Wise and Average CV Performance
+
+# Print subject-wise results
+print(weights_vrmid1_ant_svr_results)
+
+# Calculate and print average CV performance (mean of subject-wise metrics)
+mean_RMSE <- mean(weights_vrmid1_ant_svr_results$RMSE, na.rm = TRUE)
+mean_R2 <- mean(weights_vrmid1_ant_svr_results$R2, na.rm = TRUE)
+mean_acc <- mean(weights_vrmid1_ant_svr_results$acc, na.rm = TRUE)
+
+cat("--- Average Subject-Wise CV Metrics ---\n")
+cat("Average CV RMSE:", mean_RMSE, "\n")
+cat("Average CV R^2:", mean_R2, "\n")
+cat("Average CV Correlation (Accuracy):", mean_acc, "\n")
+
+
+## Overall (Pooled) CV Performance
+# The 'Overall' or 'Pooled' CV metrics are calculated on ALL predictions from ALL folds together.
+
+# Extract pooled true and predicted values
+pooled_y_true <- weights_vrmid1_ant_svr_all_preds$y_true
+pooled_y_pred <- weights_vrmid1_ant_svr_all_preds$y_pred
+
+# Calculate the overall mean of the FULL training set to compute correct LOSO R²
+# In LOSO, the overall R^2 should use the mean of the entire dataset (or the grand mean of all training sets)
+# The mean of the entire 'arousal' column across all data is the most common approach for overall R^2.
+overall_train_mean <- mean(vrmid1_pupil_svr_data$arousal, na.rm = TRUE)
+
+
+# 1. Overall (Pooled) CV RMSE
+overall_rmse <- sqrt(mean((pooled_y_true - pooled_y_pred)^2, na.rm = TRUE))
+
+# 2. Overall (Pooled) CV R²
+# R² = 1 - (Sum of Squared Errors) / (Total Sum of Squares around the grand mean)
+overall_r2 <- 1 - sum((pooled_y_true - pooled_y_pred)^2, na.rm = TRUE) / sum((pooled_y_true - overall_train_mean)^2, na.rm = TRUE)
+
+# 3. Overall (Pooled) CV Correlation (Accuracy)
+overall_acc <- cor(pooled_y_pred, pooled_y_true, use = "complete.obs")
+
+cat("--- Overall (Pooled) CV Metrics ---\n")
+cat("Overall CV RMSE:", overall_rmse, "\n")
+cat("Overall CV R^2:", overall_r2, "\n")
+cat("Overall CV Correlation (Accuracy):", overall_acc, "\n")
+
+# Average weights across folds
+avg_weights <- colMeans(weights_vrmid1_ant_svr)
+
+weights_vrmid1_ant_svr_df <- data.frame(
+  Timepoint = as.numeric(feature_cols),
+  Weight = avg_weights
+)
+
+# Convert to seconds (120 Hz sampling)
+weights_vrmid1_ant_svr_df$Time_sec <- weights_vrmid1_ant_svr_df$Timepoint / 120
+
+write_csv(weights_vrmid1_ant_svr_df,"../../data/vrmid1/derivatives/weights_vrmid1_ant_svr_df.csv")
+
+weights_vrmid1_ant_svr_pic <- ggplot(weights_vrmid1_ant_svr_df, aes(x = Time_sec, y = Weight)) +
+  geom_line(color = "steelblue", size = 1) +
+  geom_smooth(method = "loess", span = 0.2, se = FALSE, color = "darkred", size = 0.8) +
+  labs(
+    x = "Time (s)",
+    y = "feature weight",
+    title = "VR Study",
+    subtitle = "Anticipation probe",
+  )+
+      geom_vline(xintercept = c(0,4,6), size = 1, color = "grey")+
+  annotate("text", x = 2,y = 0.1, label = "C",
+          color = "black",size = unit(4,"pt"))+
+  annotate("text", x = 5,y = 0.1, label = "F",
+          color = "black",size = unit(4,"pt"))+
+  annotate("text", x = 7, y = 0.01, label = "R", color = "black", size = unit(4,"pt"))
+
+# # --- 6. Estimate chance performance via permutation ---
+# n_perm <- 1000
+# chance_results <- numeric(n_perm)
+# 
+# for (p in 1:n_perm) {
+#   permuted_arousal <- sample(vrmid1_pupil_svr_data$arousal)  # shuffle labels
+#   perm_results <- data.frame(Fold = integer(), Accuracy = numeric())
+#   
+#   for (i in 1:k) {
+#     test_subjects <- subject_folds$Subject[subject_folds$Fold == i]
+#     
+#     train_data <- vrmid1_pupil_svr_data %>% filter(!Subject %in% test_subjects)
+#     test_data  <- vrmid1_pupil_svr_data %>% filter(Subject %in% test_subjects)
+#     
+#     # replace arousal with permuted labels
+#     train_data$arousal <- permuted_arousal[!vrmid1_pupil_svr_data$Subject %in% test_subjects]
+#     
+#     model <- svm(x = train_data[, feature_cols], y = train_data$arousal,
+#                  kernel = "radial", type = "eps-regression")
+#     
+#     preds <- predict(model, newdata = test_data[, feature_cols])
+#     
+#     row_all_na <- apply(test_data[, feature_cols], 1, function(x) any(is.na(x)))
+#     acc <- cor(preds, test_data$arousal[!row_all_na], use = "complete.obs")
+#     
+#     perm_results <- rbind(perm_results, data.frame(Fold = i, Accuracy = acc))
+#   }
+#   
+#   chance_results[p] <- mean(perm_results$Accuracy)
+# }
+# 
+# # --- 7. Summarize chance ---
+# cat("Chance level (mean across permutations):", mean(chance_results), "\n")
+# cat("Chance level 95% CI:", quantile(chance_results, c(0.025, 0.975)), "\n")
+# 
+# # Optional: visualize null distribution
+# hist(chance_results, breaks = 50, main = "Null distribution of SVR correlation", xlab = "Correlation")
+# abline(v = mean(results$Accuracy), col = "red", lwd = 2)  # your observed mean
+```
+
+### GENLASSO (very slow)
+```{r eval = F, echo=F}
+# --- 4. Run subject-level CV using Fused Lasso with inner CV for lambda ---
+weights_vrmid1_ant_genlasso_results <- data.frame(Fold = integer(), Accuracy = numeric())
+feature_cols <- as.character(1:(time_end*120))
+
+weights_vrmid1_ant_genlasso <- matrix(NA, nrow = k, ncol = length(feature_cols))
+colnames(weights_vrmid1_ant_genlasso) <- feature_cols
+
+set.seed(42)  # for reproducibility
+
+for (i in 1:k) {
+  cat("Processing fold", i, "\n")
+  
+  test_subjects <- subject_folds$Subject[subject_folds$Fold == i]
+  
+  train_data <- vrmid1_pupil_svr_data %>% filter(!Subject %in% test_subjects) %>% drop_na()
+  test_data  <- vrmid1_pupil_svr_data %>% filter(Subject %in% test_subjects) %>% drop_na()
+  
+  x_train <- as.matrix(train_data[, feature_cols])
+  y_train <- train_data$arousal
+  x_test  <- as.matrix(test_data[, feature_cols])
+  y_test  <- test_data$arousal
+  
+  # Fused Lasso: D is the difference operator for consecutive time points
+  D <- diff(diag(ncol(x_train)))
+  
+  # Fit fused lasso over a grid of lambdas
+  fused_model <- genlasso(y_train, x_train, D=D)
+  
+  # --- Inner CV to pick lambda ---
+  # Split training data into 5-folds for inner CV
+  inner_k <- 5
+  inner_fold_ids <- sample(rep(1:inner_k, length.out = nrow(x_train)))
+  inner_mse <- matrix(NA, nrow=length(fused_model$lambda), ncol=inner_k)
+  
+  for (j in 1:inner_k) {
+    inner_train_idx <- which(inner_fold_ids != j)
+    inner_val_idx   <- which(inner_fold_ids == j)
+    
+    x_inner_train <- x_train[inner_train_idx, ]
+    y_inner_train <- y_train[inner_train_idx]
+    x_inner_val   <- x_train[inner_val_idx, ]
+    y_inner_val   <- y_train[inner_val_idx]
+    
+    # Fit inner model without lambda argument
+  inner_model <- genlasso(y_inner_train, x_inner_train, D=D)
+  
+  # Interpolate to outer lambda grid
+  for (l in 1:length(fused_model$lambda)) {
+    # Find closest lambda in inner_model$lambda
+    lambda_diff <- abs(inner_model$lambda - fused_model$lambda[l])
+    closest_idx <- which.min(lambda_diff)
+    
+    beta_l <- inner_model$beta[, closest_idx]
+    preds_l <- x_inner_val %*% beta_l
+    inner_mse[l, j] <- mean((y_inner_val - preds_l)^2)
+  }
+  }
+  
+  # Average MSE across inner folds
+  avg_inner_mse <- rowMeans(inner_mse)
+  best_lambda_idx <- which.min(avg_inner_mse)
+  beta_best <- fused_model$beta[, best_lambda_idx]
+  
+  # Predictions on test set
+  preds <- x_test %*% beta_best
+  
+  # Remove rows with NA features
+  row_all_na <- apply(x_test, 1, function(x) any(is.na(x)))
+  
+  acc <- cor(preds[!row_all_na], y_test[!row_all_na], use = "complete.obs")
+  weights_vrmid1_ant_genlasso_results <- rbind(weights_vrmid1_ant_genlasso_results, data.frame(Fold = i, Accuracy = acc))
+  
+  # Store feature weights
+  weights_vrmid1_ant_genlasso[i, ] <- as.numeric(beta_best)
+}
+
+# --- 5. Check performance ---
+cat("Mean CV Accuracy:", mean(weights_vrmid1_ant_genlass_results$Accuracy), "\n")
+cat("RMSE:", sqrt(mean((preds - test_data$arousal)^2, na.rm = TRUE)), "\n")
+
+# Average weights across folds
+avg_weights <- colMeans(weights_vrmid1_ant_genlasso)
+
+weights_vrmid1_ant_genlasso_df <- data.frame(
+  Timepoint = as.numeric(feature_cols),
+  Weight = avg_weights
+)
+
+# Convert to seconds (120 Hz sampling)
+weights_vrmid1_ant_genlasso_df$Time_sec <- weights_vrmid1_ant_genlasso_df$Timepoint / 120
+
+write_csv(weights_vrmid1_ant_genlasso_df,"../../data/vrmid1/derivatives/weights_vrmid1_ant_genlasso_df.csv")
+# Plot
+ggplot(weights_vrmid1_ant_genlasso_df, aes(x = Time_sec, y = Weight)) +
+  geom_line(color = "steelblue", size = 1) +
+  geom_smooth(method = "loess", span = 0.2, se = FALSE, color = "darkred", size = 0.8) +
+  labs(
+    x = "Time (s)",
+    y = "Fused Lasso weight (feature importance)",
+    title = "Average Fused Lasso feature weights across CV folds"
+  ) +
+  geom_vline(xintercept = c(0,4,6), size = 1, color = "grey") +
+  annotate("text", x = 2, y = 0.01, label = "C", color = "black", size = unit(4,"pt")) +
+  annotate("text", x = 5, y = 0.01, label = "F", color = "black", size = unit(4,"pt")) +
+  annotate("text", x = 7, y = 0.01, label = "R", color = "black", size = unit(4,"pt"))
+```
+
+
+### LASSO
+```{r}
+# --- 4. Run subject-level LOSO CV using Lasso ---
+
+# Store subject-wise results
+weights_vrmid1_ant_lasso_results <- data.frame(
+  Subject = integer(), RMSE = numeric(), R2 = numeric(), acc = numeric()
+)
+
+# Store pooled predictions
+weights_vrmid1_ant_lasso_all_preds <- data.frame(
+  Subject = integer(), y_true = numeric(), y_pred = numeric()
+)
+
+feature_cols <- as.character(1:(time_end*120))
+subjects <- unique(vrmid1_pupil_svr_data$Subject)
+n_subjects <- length(subjects)
+
+# Weight matrix (subject × features)
+weights_vrmid1_ant_lasso <- matrix(NA, nrow = n_subjects, ncol = length(feature_cols))
+colnames(weights_vrmid1_ant_lasso) <- feature_cols
+
+
+for (i in seq_along(subjects)) {
+
+  test_subject <- subjects[i]
+  
+  train_data <- vrmid1_pupil_svr_data %>% filter(Subject != test_subject) %>% drop_na()
+  test_data  <- vrmid1_pupil_svr_data %>% filter(Subject == test_subject) %>% drop_na()
+  
+  # Skip if too little training data
+  if (nrow(train_data) < 2) {
+    warning(paste("Skipping subject", test_subject, "due to insufficient training data."))
+    next
+  }
+  
+  # Extract matrices
+  x_train <- as.matrix(train_data[, feature_cols])
+  y_train <- train_data$arousal
+  
+  x_test  <- as.matrix(test_data[, feature_cols])
+  y_test  <- test_data$arousal
+  
+  # Fit LASSO CV model (alpha=1 for pure lasso)
+  cv_model <- cv.glmnet(x_train, y_train, alpha = 1, standardize = TRUE)
+  best_lambda <- cv_model$lambda.min
+  
+  # Final model
+  model <- glmnet(x_train, y_train, alpha = 1, lambda = best_lambda, standardize = FALSE)
+  
+  # Predictions
+  preds <- predict(model, newx = x_test)
+  preds <- as.numeric(preds)
+  
+  # Identify rows with any NA
+  row_all_na <- apply(cbind(x_test, y_test), 1, function(x) any(is.na(x)))
+  
+  preds_clean <- preds[!row_all_na]
+  true_vals_clean <- y_test[!row_all_na]
+  
+  # Compute LOSO metrics
+  train_mean <- mean(y_train, na.rm = TRUE)
+  
+  r2_cv <- 1 - sum((true_vals_clean - preds_clean)^2) /
+    sum((true_vals_clean - train_mean)^2)
+  
+  rmse <- sqrt(mean((true_vals_clean - preds_clean)^2))
+  
+  acc <- cor(preds_clean, true_vals_clean, use = "complete.obs")
+  
+  # Store subject-wise results
+  weights_vrmid1_ant_lasso_results <- rbind(
+    weights_vrmid1_ant_lasso_results,
+    data.frame(Subject = test_subject, RMSE = rmse, R2 = r2_cv, acc = acc)
+  )
+  
+  # Store pooled predictions
+  weights_vrmid1_ant_lasso_all_preds <- rbind(
+    weights_vrmid1_ant_lasso_all_preds,
+    data.frame(Subject = test_subject, y_true = true_vals_clean, y_pred = preds_clean)
+  )
+  
+  # Feature weights
+  weights_vrmid1_ant_lasso[i, ] <- as.numeric(model$beta)
+}
+
+# --- 5. Check performance ---
+
+## Subject-wise results
+print(weights_vrmid1_ant_lasso_results)
+
+mean_RMSE <- mean(weights_vrmid1_ant_lasso_results$RMSE)
+mean_R2 <- mean(weights_vrmid1_ant_lasso_results$R2)
+mean_acc <- mean(weights_vrmid1_ant_lasso_results$acc)
+
+cat("--- Average Subject-Wise CV Metrics ---\n")
+cat("Average CV RMSE:", mean_RMSE, "\n")
+cat("Average CV R^2:", mean_R2, "\n")
+cat("Average CV Correlation (Accuracy):", mean_acc, "\n")
+
+## Pooled performance
+pooled_y_true <- weights_vrmid1_ant_lasso_all_preds$y_true
+pooled_y_pred <- weights_vrmid1_ant_lasso_all_preds$y_pred
+
+overall_train_mean <- mean(vrmid1_pupil_svr_data$arousal,na.rm=T)
+
+overall_rmse <- sqrt(mean((pooled_y_true - pooled_y_pred)^2))
+overall_r2 <- 1 - sum((pooled_y_true - pooled_y_pred)^2) /
+  sum((pooled_y_true - overall_train_mean)^2)
+
+overall_acc <- cor(pooled_y_pred, pooled_y_true)
+
+cat("--- Overall (Pooled) CV Metrics ---\n")
+cat("Overall CV RMSE:", overall_rmse, "\n")
+cat("Overall CV R^2:", overall_r2, "\n")
+cat("Overall CV Correlation (Accuracy):", overall_acc, "\n")
+
+# --- 6. Average weights across subjects ---
+avg_weights <- colMeans(weights_vrmid1_ant_lasso, na.rm = TRUE)
+
+weights_vrmid1_ant_lasso_df <- data.frame(
+  Timepoint = as.numeric(feature_cols),
+  Weight = avg_weights
+)
+
+weights_vrmid1_ant_lasso_df$Time_sec <- weights_vrmid1_ant_lasso_df$Timepoint / 120
+
+# Plot
+weights_vrmid1_ant_lasso_pic <- ggplot(weights_vrmid1_ant_lasso_df, aes(x = Time_sec, y = Weight)) +
+  geom_line(color = "steelblue", size = 1) +
+  geom_smooth(method = "loess", span = 0.2, se = FALSE, color = "darkred", size = 0.8) +
+  labs(
+    x = "Time (s)",
+    y = "Feature weight",
+    title = "VR Study",
+    subtitle = "Anticipation probe"
+  ) +
+  geom_vline(xintercept = c(0,4,6), size = 1, color = "grey") +
+  annotate("text", x = 2, y = 0.01, label = "C", color = "black", size = unit(4,"pt")) +
+  annotate("text", x = 5, y = 0.01, label = "F", color = "black", size = unit(4,"pt")) +
+  annotate("text", x = 7, y = 0.01, label = "R", color = "black", size = unit(4,"pt"))
+```
+
+
+
+##outcome probes 
+### prepare data
+```{r}
+time_end=14
+time_start=0
+duration = time_end-time_start
+# 1. Keep only first 8 seconds of each trial
+vrmid1_pupil_svr_data <- vrmid1_pupil_data %>%
+  filter(Time_sec <= time_end, Time_sec >= time_start, probe == "out") %>%
+  select(Subject, trial, sample_in_trial_n, arousal, pupil_Avg_scaled) %>%
+  mutate(sample_in_trial_n = as.numeric(sample_in_trial_n)) %>%  # ensure numeric ordering
+  arrange(Subject, trial, sample_in_trial_n) %>%
+  pivot_wider(
+    names_from = sample_in_trial_n,
+    values_from = pupil_Avg_scaled
+  ) %>%
+  select(Subject, trial, arousal,
+    all_of(as.character(1:(duration*120)))
+  )
+
+# 4. Subject-level cross-validation folds
+subjects <- unique(vrmid1_pupil_svr_data$Subject)
+k <- 10  # 10-fold cross-validation
+
+set.seed(42)
+fold_ids <- sample(rep(1:k, length.out = length(subjects)))  # random fold assignment
+subject_folds <- data.frame(Subject = subjects, Fold = fold_ids)
+```
+
+### SVR
+```{r warning=F,message =F}
+# --- 4. Run subject-level LOSO CV ---
+# Store subject-wise results (RMSE, R2, Correlation)
+weights_vrmid1_out_svr_results <- data.frame(Subject = integer(), RMSE = numeric(), R2 = numeric(), acc = numeric())
+
+# Store pooled predictions: Subject, True Value, Predicted Value
+weights_vrmid1_out_svr_all_preds <- data.frame(
+ Subject = integer(), y_true = numeric(), y_pred = numeric()
+)
+
+feature_cols <- as.character(1:(time_end*120))
+
+n_subjects <- length(unique(vrmid1_pupil_svr_data$Subject))
+
+weights_vrmid1_out_svr <- matrix(NA, nrow = n_subjects, ncol = length(feature_cols))
+colnames(weights_vrmid1_out_svr) <- feature_cols
+
+subjects <- unique(vrmid1_pupil_svr_data$Subject)
+
+for (i in seq_along(subjects)) {
+ test_subject <- subjects[i]
+
+ train_data <- vrmid1_pupil_svr_data %>% filter(Subject != test_subject)
+ test_data <- vrmid1_pupil_svr_data %>% filter(Subject == test_subject)
+
+ # Check for sufficient training data (optional, but good practice)
+ if (nrow(train_data) < 2) {
+  warning(paste("Skipping subject", test_subject, "due to insufficient training data."))
+  next
+ }
+ 
+ model <- svm(x = train_data[, feature_cols], y = train_data$arousal,
+       kernel = "radial", type = "eps-regression")
+
+ # Identify rows in test data that have NA in features or true values
+ row_all_na <- apply(cbind(test_data[, feature_cols], test_data$arousal), 1, function(x) any(is.na(x)))
+ 
+ preds <- predict(model, newdata = test_data[!row_all_na, feature_cols])
+
+ true_vals <- test_data$arousal[!row_all_na]
+
+ # Compute training mean for proper LOSO R² for *this subject*
+ train_mean <- mean(train_data$arousal, na.rm = TRUE)
+
+ # 1. Proper Subject-level LOSO R²
+ r2_cv <- 1 - sum((true_vals - preds)^2, na.rm = TRUE) / sum((true_vals - train_mean)^2, na.rm = TRUE)
+
+ # 2. Subject-level RMSE
+ rmse <- sqrt(mean((true_vals - preds)^2, na.rm = TRUE))
+
+ # 3. Subject-level Correlation (Accuracy)
+ acc <- cor(preds, true_vals, use = "complete.obs")
+
+
+ # Save subject-wise results
+ weights_vrmid1_out_svr_results <- rbind(
+  weights_vrmid1_out_svr_results,
+  data.frame(Subject = test_subject, RMSE = rmse, R2 = r2_cv, acc = acc)
+ )
+ 
+ # Save pooled predictions for overall metrics
+ weights_vrmid1_out_svr_all_preds <- rbind(
+  weights_vrmid1_out_svr_all_preds,
+  data.frame(Subject = test_subject, y_true = true_vals, y_pred = preds)
+ )
+
+ # Compute feature weights
+ # NOTE: This part remains unchanged and uses the model from the current fold
+ w <- t(model$coefs) %*% model$SV
+ weights_vrmid1_out_svr[i, ] <- w
+}
+
+# --- 5. Check performance ---
+
+## 📊 Subject-Wise and Average CV Performance
+
+# Print subject-wise results
+print(weights_vrmid1_out_svr_results)
+
+# Calculate and print average CV performance (mean of subject-wise metrics)
+mean_RMSE <- mean(weights_vrmid1_out_svr_results$RMSE, na.rm = TRUE)
+mean_R2 <- mean(weights_vrmid1_out_svr_results$R2, na.rm = TRUE)
+mean_acc <- mean(weights_vrmid1_out_svr_results$acc, na.rm = TRUE)
+
+cat("--- Average Subject-Wise CV Metrics ---\n")
+cat("Average CV RMSE:", mean_RMSE, "\n")
+cat("Average CV R^2:", mean_R2, "\n")
+cat("Average CV Correlation (Accuracy):", mean_acc, "\n")
+
+
+## Overall (Pooled) CV Performance
+# The 'Overall' or 'Pooled' CV metrics are calculated on ALL predictions from ALL folds together.
+
+# Extract pooled true and predicted values
+pooled_y_true <- weights_vrmid1_out_svr_all_preds$y_true
+pooled_y_pred <- weights_vrmid1_out_svr_all_preds$y_pred
+
+# Calculate the overall mean of the FULL training set to compute correct LOSO R²
+# In LOSO, the overall R^2 should use the mean of the entire dataset (or the grand mean of all training sets)
+# The mean of the entire 'arousal' column across all data is the most common approach for overall R^2.
+overall_train_mean <- mean(vrmid1_pupil_svr_data$arousal, na.rm = TRUE)
+
+
+# 1. Overall (Pooled) CV RMSE
+overall_rmse <- sqrt(mean((pooled_y_true - pooled_y_pred)^2, na.rm = TRUE))
+
+# 2. Overall (Pooled) CV R²
+# R² = 1 - (Sum of Squared Errors) / (Total Sum of Squares around the grand mean)
+overall_r2 <- 1 - sum((pooled_y_true - pooled_y_pred)^2, na.rm = TRUE) / sum((pooled_y_true - overall_train_mean)^2, na.rm = TRUE)
+
+# 3. Overall (Pooled) CV Correlation (Accuracy)
+overall_acc <- cor(pooled_y_pred, pooled_y_true, use = "complete.obs")
+
+cat("--- Overall (Pooled) CV Metrics ---\n")
+cat("Overall CV RMSE:", overall_rmse, "\n")
+cat("Overall CV R^2:", overall_r2, "\n")
+cat("Overall CV Correlation (Accuracy):", overall_acc, "\n")
+
+# Average weights across folds
+avg_weights <- colMeans(weights_vrmid1_out_svr)
+
+weights_vrmid1_out_svr_df <- data.frame(
+  Timepoint = as.numeric(feature_cols),
+  Weight = avg_weights
+)
+
+# Convert to seconds (120 Hz sampling)
+weights_vrmid1_out_svr_df$Time_sec <- weights_vrmid1_out_svr_df$Timepoint / 120
+
+write_csv(weights_vrmid1_out_svr_df,"../../data/vrmid1/derivatives/weights_vrmid1_out_svr_df.csv")
+
+weights_vrmid1_out_svr_pic <- ggplot(weights_vrmid1_out_svr_df, aes(x = Time_sec, y = Weight)) +
+  geom_line(color = "steelblue", size = 1) +
+  geom_smooth(method = "loess", span = 0.2, se = FALSE, color = "darkred", size = 0.8) +
+  labs(
+    x = "Time (s)",
+    y = "feature weight",
+    title = "VR Study",
+    subtitle = "Outcome probe",
+  )+
+  geom_vline(xintercept = c(0,4,6,8,10), size = 1, color = "grey") +
+  annotate("text", x = 2,y = 0.01, label = "C",
+          color = "black",size = unit(4,"pt"))+
+  annotate("text", x = 5,y = 0.01, label = "F",
+          color = "black",size = unit(4,"pt"))+
+    annotate("text", x = 7,y = 0.01, label = "T",
+          color = "black",size = unit(4,"pt"))+
+    annotate("text", x = 9,y = 0.01, label = "O",
+          color = "black",size = unit(4,"pt"))+
+  annotate("text", x = 11, y = 0.01, label = "R", color = "black", size = unit(4,"pt"))
+
+```
+```{r}
+# --- 4. Run subject-level LOSO CV using Lasso ---
+
+# Store subject-wise results
+weights_vrmid1_out_lasso_results <- data.frame(
+  Subject = integer(), RMSE = numeric(), R2 = numeric(), acc = numeric()
+)
+
+# Store pooled predictions
+weights_vrmid1_out_lasso_all_preds <- data.frame(
+  Subject = integer(), y_true = numeric(), y_pred = numeric()
+)
+
+feature_cols <- as.character(1:(time_end*120))
+subjects <- unique(vrmid1_pupil_svr_data$Subject)
+n_subjects <- length(subjects)
+
+# Weight matrix (subject × features)
+weights_vrmid1_out_lasso <- matrix(NA, nrow = n_subjects, ncol = length(feature_cols))
+colnames(weights_vrmid1_out_lasso) <- feature_cols
+
+
+for (i in seq_along(subjects)) {
+
+  test_subject <- subjects[i]
+  
+  train_data <- vrmid1_pupil_svr_data %>% filter(Subject != test_subject) %>% drop_na()
+  test_data  <- vrmid1_pupil_svr_data %>% filter(Subject == test_subject) %>% drop_na()
+  
+  # Skip if too little training data
+  if (nrow(train_data) < 2) {
+    warning(paste("Skipping subject", test_subject, "due to insufficient training data."))
+    next
+  }
+  
+  # Extract matrices
+  x_train <- as.matrix(train_data[, feature_cols])
+  y_train <- train_data$arousal
+  
+  x_test  <- as.matrix(test_data[, feature_cols])
+  y_test  <- test_data$arousal
+  
+  # Fit LASSO CV model (alpha=1 for pure lasso)
+  cv_model <- cv.glmnet(x_train, y_train, alpha = 1, standardize = TRUE)
+  best_lambda <- cv_model$lambda.min
+  
+  # Final model
+  model <- glmnet(x_train, y_train, alpha = 1, lambda = best_lambda, standardize = FALSE)
+  
+  # Predictions
+  preds <- predict(model, newx = x_test)
+  preds <- as.numeric(preds)
+  
+  # Identify rows with any NA
+  row_all_na <- apply(cbind(x_test, y_test), 1, function(x) any(is.na(x)))
+  
+  preds_clean <- preds[!row_all_na]
+  true_vals_clean <- y_test[!row_all_na]
+  
+  # Compute LOSO metrics
+  train_mean <- mean(y_train, na.rm = TRUE)
+  
+  r2_cv <- 1 - sum((true_vals_clean - preds_clean)^2) /
+    sum((true_vals_clean - train_mean)^2)
+  
+  rmse <- sqrt(mean((true_vals_clean - preds_clean)^2))
+  
+  acc <- cor(preds_clean, true_vals_clean, use = "complete.obs")
+  
+  # Store subject-wise results
+  weights_vrmid1_out_lasso_results <- rbind(
+    weights_vrmid1_out_lasso_results,
+    data.frame(Subject = test_subject, RMSE = rmse, R2 = r2_cv, acc = acc)
+  )
+  
+  # Store pooled predictions
+  weights_vrmid1_out_lasso_all_preds <- rbind(
+    weights_vrmid1_out_lasso_all_preds,
+    data.frame(Subject = test_subject, y_true = true_vals_clean, y_pred = preds_clean)
+  )
+  
+  # Feature weights
+  weights_vrmid1_out_lasso[i, ] <- as.numeric(model$beta)
+}
+
+# --- 5. Check performance ---
+
+## Subject-wise results
+print(weights_vrmid1_out_lasso_results)
+
+mean_RMSE <- mean(weights_vrmid1_out_lasso_results$RMSE)
+mean_R2 <- mean(weights_vrmid1_out_lasso_results$R2)
+mean_acc <- mean(weights_vrmid1_out_lasso_results$acc)
+
+cat("--- Average Subject-Wise CV Metrics ---\n")
+cat("Average CV RMSE:", mean_RMSE, "\n")
+cat("Average CV R^2:", mean_R2, "\n")
+cat("Average CV Correlation (Accuracy):", mean_acc, "\n")
+
+## Pooled performance
+pooled_y_true <- weights_vrmid1_out_lasso_all_preds$y_true
+pooled_y_pred <- weights_vrmid1_out_lasso_all_preds$y_pred
+
+overall_train_mean <- mean(vrmid1_pupil_svr_data$arousal,na.rm=T)
+
+overall_rmse <- sqrt(mean((pooled_y_true - pooled_y_pred)^2))
+overall_r2 <- 1 - sum((pooled_y_true - pooled_y_pred)^2) /
+  sum((pooled_y_true - overall_train_mean)^2)
+
+overall_acc <- cor(pooled_y_pred, pooled_y_true)
+
+cat("--- Overall (Pooled) CV Metrics ---\n")
+cat("Overall CV RMSE:", overall_rmse, "\n")
+cat("Overall CV R^2:", overall_r2, "\n")
+cat("Overall CV Correlation (Accuracy):", overall_acc, "\n")
+
+# --- 6. Average weights across subjects ---
+avg_weights <- colMeans(weights_vrmid1_out_lasso, na.rm = TRUE)
+
+weights_vrmid1_out_lasso_df <- data.frame(
+  Timepoint = as.numeric(feature_cols),
+  Weight = avg_weights
+)
+
+weights_vrmid1_out_lasso_df$Time_sec <- weights_vrmid1_out_lasso_df$Timepoint / 120
+
+# Plot
+weights_vrmid1_out_lasso_pic <- ggplot(weights_vrmid1_out_lasso_df, aes(x = Time_sec, y = Weight)) +
+  geom_line(color = "steelblue", size = 1) +
+  geom_smooth(method = "loess", span = 0.2, se = FALSE, color = "darkred", size = 0.8) +
+  labs(
+    x = "Time (s)",
+    y = "Feature weight",
+    title = "VR Study",
+    subtitle = "Outcome probe"
+  ) +
+  geom_vline(xintercept = c(0,4,6,8,10), size = 1, color = "grey") +
+  annotate("text", x = 2,y = 0.01, label = "C",
+          color = "black",size = unit(4,"pt"))+
+  annotate("text", x = 5,y = 0.01, label = "F",
+          color = "black",size = unit(4,"pt"))+
+    annotate("text", x = 7,y = 0.01, label = "T",
+          color = "black",size = unit(4,"pt"))+
+    annotate("text", x = 9,y = 0.01, label = "O",
+          color = "black",size = unit(4,"pt"))+
+  annotate("text", x = 11, y = 0.01, label = "R", color = "black", size = unit(4,"pt"))
+```
+
+### GENLASSO (very slow)
+```{r eval = F}
+# --- 4. Run subject-level CV using Fused Lasso with inner CV for lambda ---
+weights_vrmid1_out_genlasso_results <- data.frame(Fold = integer(), Accuracy = numeric())
+feature_cols <- as.character(1:(time_end*120))
+
+weights_vrmid1_out_genlasso <- matrix(NA, nrow = k, ncol = length(feature_cols))
+colnames(weights_vrmid1_out_genlasso) <- feature_cols
+
+set.seed(42)  # for reproducibility
+
+for (i in 1:k) {
+  cat("Processing fold", i, "\n")
+  
+  test_subjects <- subject_folds$Subject[subject_folds$Fold == i]
+  
+  train_data <- vrmid1_pupil_svr_data %>% filter(!Subject %in% test_subjects) %>% drop_na()
+  test_data  <- vrmid1_pupil_svr_data %>% filter(Subject %in% test_subjects) %>% drop_na()
+  
+  x_train <- as.matrix(train_data[, feature_cols])
+  y_train <- train_data$arousal
+  x_test  <- as.matrix(test_data[, feature_cols])
+  y_test  <- test_data$arousal
+  
+  # Fused Lasso: D is the difference operator for consecutive time points
+  D <- diff(diag(ncol(x_train)))
+  
+  # Fit fused lasso over a grid of lambdas
+  fused_model <- genlasso(y_train, x_train, D=D)
+  
+  # --- Inner CV to pick lambda ---
+  # Split training data into 5-folds for inner CV
+  inner_k <- 5
+  inner_fold_ids <- sample(rep(1:inner_k, length.out = nrow(x_train)))
+  inner_mse <- matrix(NA, nrow=length(fused_model$lambda), ncol=inner_k)
+  
+  for (j in 1:inner_k) {
+    inner_train_idx <- which(inner_fold_ids != j)
+    inner_val_idx   <- which(inner_fold_ids == j)
+    
+    x_inner_train <- x_train[inner_train_idx, ]
+    y_inner_train <- y_train[inner_train_idx]
+    x_inner_val   <- x_train[inner_val_idx, ]
+    y_inner_val   <- y_train[inner_val_idx]
+    
+    # Fit inner model without lambda argument
+  inner_model <- genlasso(y_inner_train, x_inner_train, D=D)
+  
+  # Interpolate to outer lambda grid
+  for (l in 1:length(fused_model$lambda)) {
+    # Find closest lambda in inner_model$lambda
+    lambda_diff <- abs(inner_model$lambda - fused_model$lambda[l])
+    closest_idx <- which.min(lambda_diff)
+    
+    beta_l <- inner_model$beta[, closest_idx]
+    preds_l <- x_inner_val %*% beta_l
+    inner_mse[l, j] <- mean((y_inner_val - preds_l)^2)
+  }
+  }
+  
+  # Average MSE across inner folds
+  avg_inner_mse <- rowMeans(inner_mse)
+  best_lambda_idx <- which.min(avg_inner_mse)
+  beta_best <- fused_model$beta[, best_lambda_idx]
+  
+  # Predictions on test set
+  preds <- x_test %*% beta_best
+  
+  # Remove rows with NA features
+  row_all_na <- apply(x_test, 1, function(x) any(is.na(x)))
+  
+  acc <- cor(preds[!row_all_na], y_test[!row_all_na], use = "complete.obs")
+  weights_vrmid1_out_genlasso_results <- rbind(weights_vrmid1_out_genlasso_results, data.frame(Fold = i, Accuracy = acc))
+  
+  # Store feature weights
+  weights_vrmid1_out_genlasso[i, ] <- as.numeric(beta_best)
+}
+
+# --- 5. Check performance ---
+print(weights_vrmid1_out_genlasso_results)
+cat("Mean CV Accuracy:", mean(weights_vrmid1_out_genlasso_results$Accuracy), "\n")
+
+# Average weights across folds
+avg_weights <- colMeans(weights_vrmid1_out_genlasso)
+
+weights_vrmid1_out_genlasso_df <- data.frame(
+  Timepoint = as.numeric(feature_cols),
+  Weight = avg_weights
+)
+
+
+# Convert to seconds (120 Hz sampling)
+weights_vrmid1_out_genlasso_df$Time_sec <- weights_vrmid1_out_genlasso_df$Timepoint / 120
+
+write_csv(weights_vrmid1_out_genlasso_df,"../../data/vrmid1/derivatives/weights_vrmid1_out_genlasso_df.csv")
+
+# Plot
+ggplot(weights_vrmid1_out_genlasso_df, aes(x = Time_sec, y = Weight)) +
+  geom_line(color = "steelblue", size = 1) +
+  geom_smooth(method = "loess", span = 0.2, se = FALSE, color = "darkred", size = 0.8) +
+  labs(
+    x = "Time (s)",
+    y = "Fused Lasso weight (feature importance)",
+    title = "Average Fused Lasso feature weights across CV folds"
+  ) +
+  geom_vline(xintercept = c(0,4,6), size = 1, color = "grey") +
+  annotate("text", x = 2, y = 0.01, label = "C", color = "black", size = unit(4,"pt")) +
+  annotate("text", x = 5, y = 0.01, label = "F", color = "black", size = unit(4,"pt")) +
+  annotate("text", x = 7, y = 0.01, label = "R", color = "black", size = unit(4,"pt"))
+```
+
+
+# FMRI study
+
+##Anticipatory probes 
+### prepare data
+```{r}
+time_end=8
+time_start=0
+duration = time_end-time_start
+# 1. Keep only first 8 seconds of each trial
+fmri3_pupil_svr_data <- fmri3_pupil_data %>%
+  filter(Time_sec <= time_end, Time_sec >= time_start, probe == 1,
+         rating_type == 1) %>%
+  ungroup() %>% 
+  select(subject, trial, sample_in_trial_n, arousal, pupilDiameter_scaled) %>%
+  mutate(sample_in_trial_n = as.numeric(sample_in_trial_n)) %>%  # ensure numeric ordering
+  arrange(subject, trial, sample_in_trial_n) %>%
+  pivot_wider(
+    names_from = sample_in_trial_n,
+    values_from = pupilDiameter_scaled
+  ) %>%
+  select(subject, trial, arousal,
+    all_of(as.character(2:(duration*120+1))) #1 has a lot of missing
+  )
+
+# 4. Subject-level cross-validation folds
+subjects <- unique(fmri3_pupil_svr_data$subject)
+k <- 10  # 10-fold cross-validation
+
+set.seed(42)
+fold_ids <- sample(rep(1:k, length.out = length(subjects)))  # random fold assignment
+subject_folds <- data.frame(subject = subjects, Fold = fold_ids)
+
+```
+
+### SVR
+```{r}
+# --- 4. Run subject-level LOSO CV ---
+# Store subject-wise results (RMSE, R2, Correlation)
+weights_fmri3_ant_svr_results <- data.frame(subject = integer(), RMSE = numeric(), R2 = numeric(), acc = numeric())
+
+# Store pooled predictions: subject, True Value, Predicted Value
+weights_fmri3_ant_svr_all_preds <- data.frame(
+ subject = integer(), y_true = numeric(), y_pred = numeric()
+)
+
+feature_cols <- as.character(2:(time_end*120))
+
+n_subjects <- length(unique(fmri3_pupil_svr_data$subject))
+
+weights_fmri3_ant_svr <- matrix(NA, nrow = n_subjects, ncol = length(feature_cols))
+colnames(weights_fmri3_ant_svr) <- feature_cols
+
+subjects <- unique(fmri3_pupil_svr_data$subject)
+
+for (i in seq_along(subjects)) {
+ test_subject <- subjects[i]
+
+ train_data <- fmri3_pupil_svr_data %>% filter(subject != test_subject)
+ test_data <- fmri3_pupil_svr_data %>% filter(subject == test_subject)
+
+ # Check for sufficient training data (optional, but good practice)
+ if (nrow(train_data) < 2) {
+  warning(paste("Skipping subject", test_subject, "due to insufficient training data."))
+  next
+ }
+ 
+ model <- svm(x = train_data[, feature_cols], y = train_data$arousal,
+       kernel = "radial", type = "eps-regression")
+
+ # Identify rows in test data that have NA in features or true values
+ row_all_na <- apply(cbind(test_data[, feature_cols], test_data$arousal), 1, function(x) any(is.na(x)))
+ 
+ preds <- predict(model, newdata = test_data[!row_all_na, feature_cols])
+
+ true_vals <- test_data$arousal[!row_all_na]
+
+ # Compute training mean for proper LOSO R² for *this subject*
+ train_mean <- mean(train_data$arousal, na.rm = TRUE)
+
+ # 1. Proper subject-level LOSO R²
+ r2_cv <- 1 - sum((true_vals - preds)^2, na.rm = TRUE) / sum((true_vals - train_mean)^2, na.rm = TRUE)
+
+ # 2. Subject-level RMSE
+ rmse <- sqrt(mean((true_vals - preds)^2, na.rm = TRUE))
+
+ # 3. Subject-level Correlation (Accuracy)
+ acc <- cor(preds, true_vals, use = "complete.obs")
+
+
+ # Save subject-wise results
+ weights_fmri3_ant_svr_results <- rbind(
+  weights_fmri3_ant_svr_results,
+  data.frame(Subject = test_subject, RMSE = rmse, R2 = r2_cv, acc = acc)
+ )
+ 
+ # Save pooled predictions for overall metrics
+ weights_fmri3_ant_svr_all_preds <- rbind(
+  weights_fmri3_ant_svr_all_preds,
+  data.frame(Subject = test_subject, y_true = true_vals, y_pred = preds)
+ )
+
+ # Compute feature weights
+ # NOTE: This part remains unchanged and uses the model from the current fold
+ w <- t(model$coefs) %*% model$SV
+ weights_fmri3_ant_svr[i, ] <- w
+}
+
+# --- 5. Check performance ---
+
+## 📊 Subject-Wise and Average CV Performance
+
+# Print subject-wise results
+print(weights_fmri3_ant_svr_results)
+
+# Calculate and print average CV performance (mean of subject-wise metrics)
+mean_RMSE <- mean(weights_fmri3_ant_svr_results$RMSE, na.rm = TRUE)
+mean_R2 <- mean(weights_fmri3_ant_svr_results$R2, na.rm = TRUE)
+mean_acc <- mean(weights_fmri3_ant_svr_results$acc, na.rm = TRUE)
+
+cat("--- Average Subject-Wise CV Metrics ---\n")
+cat("Average CV RMSE:", mean_RMSE, "\n")
+cat("Average CV R^2:", mean_R2, "\n")
+cat("Average CV Correlation (Accuracy):", mean_acc, "\n")
+
+
+## Overall (Pooled) CV Performance
+# The 'Overall' or 'Pooled' CV metrics are calculated on ALL predictions from ALL folds together.
+
+# Extract pooled true and predicted values
+pooled_y_true <- weights_fmri3_ant_svr_all_preds$y_true
+pooled_y_pred <- weights_fmri3_ant_svr_all_preds$y_pred
+
+# Calculate the overall mean of the FULL training set to compute correct LOSO R²
+# In LOSO, the overall R^2 should use the mean of the entire dataset (or the grand mean of all training sets)
+# The mean of the entire 'arousal' column across all data is the most common approach for overall R^2.
+overall_train_mean <- mean(fmri3_pupil_svr_data$arousal, na.rm = TRUE)
+
+
+# 1. Overall (Pooled) CV RMSE
+overall_rmse <- sqrt(mean((pooled_y_true - pooled_y_pred)^2, na.rm = TRUE))
+
+# 2. Overall (Pooled) CV R²
+# R² = 1 - (Sum of Squared Errors) / (Total Sum of Squares around the grand mean)
+overall_r2 <- 1 - sum((pooled_y_true - pooled_y_pred)^2, na.rm = TRUE) / sum((pooled_y_true - overall_train_mean)^2, na.rm = TRUE)
+
+# 3. Overall (Pooled) CV Correlation (Accuracy)
+overall_acc <- cor(pooled_y_pred, pooled_y_true, use = "complete.obs")
+
+cat("--- Overall (Pooled) CV Metrics ---\n")
+cat("Overall CV RMSE:", overall_rmse, "\n")
+cat("Overall CV R^2:", overall_r2, "\n")
+cat("Overall CV Correlation (Accuracy):", overall_acc, "\n")
+
+# Average weights across folds
+avg_weights <- colMeans(weights_fmri3_ant_svr)
+
+weights_fmri3_ant_svr_df <- data.frame(
+  Timepoint = as.numeric(feature_cols),
+  Weight = avg_weights
+)
+
+# Convert to seconds (120 Hz sampling)
+weights_fmri3_ant_svr_df$Time_sec <- weights_fmri3_ant_svr_df$Timepoint / 120
+
+weights_fmri3_ant_svr_pic<-ggplot(weights_fmri3_ant_svr_df, aes(x = Time_sec, y = Weight)) +
+  geom_line(color = "steelblue", size = 1) +
+  geom_smooth(method = "loess", span = 0.2, se = FALSE, color = "darkred", size = 0.8) +
+  labs(
+    x = "Time (s)",
+    y = "feature weight",
+    title = "FMRI Study",
+    subtitle = "Anticipation probe",
+  )+
+      geom_vline(xintercept = c(0,2,4), size = 1, color = "grey")+
+  annotate("text", x = 1,y = 0.1, label = "C",
+          color = "black",size = unit(4,"pt"))+
+  annotate("text", x = 3,y = 0.1, label = "F",
+          color = "black",size = unit(4,"pt"))+
+  annotate("text", x = 5, y = 0.01, label = "R", color = "black", size = unit(4,"pt"))
+```
+
+
+### LASSO
+```{r}
+# --- 4. Run subject-level LOSO CV using Lasso ---
+
+# Store subject-wise results
+weights_fmri3_ant_lasso_results <- data.frame(
+  Subject = integer(), RMSE = numeric(), R2 = numeric(), acc = numeric()
+)
+
+# Store pooled predictions
+weights_fmri3_ant_lasso_all_preds <- data.frame(
+  Subject = integer(), y_true = numeric(), y_pred = numeric()
+)
+
+feature_cols <- as.character(2:(time_end*120+1))
+subjects <- unique(fmri3_pupil_svr_data$subject)
+n_subjects <- length(subjects)
+
+# Weight matrix (subject × features)
+weights_fmri3_ant_lasso <- matrix(NA, nrow = n_subjects, ncol = length(feature_cols))
+colnames(weights_fmri3_ant_lasso) <- feature_cols
+
+
+for (i in seq_along(subjects)) {
+
+  test_subject <- subjects[i]
+  
+  train_data <- fmri3_pupil_svr_data %>% filter(subject != test_subject) %>% drop_na()
+  test_data  <- fmri3_pupil_svr_data %>% filter(subject == test_subject) %>% drop_na()
+  
+  # Skip if too little training data
+  if (nrow(train_data) < 2) {
+    warning(paste("Skipping subject", test_subject, "due to insufficient training data."))
+    next
+  }
+  
+  # Extract matrices
+  x_train <- as.matrix(train_data[, feature_cols])
+  y_train <- train_data$arousal
+  
+  x_test  <- as.matrix(test_data[, feature_cols])
+  y_test  <- test_data$arousal
+  
+  # Fit LASSO CV model (alpha=1 for pure lasso)
+  cv_model <- cv.glmnet(x_train, y_train, alpha = 1, standardize = TRUE)
+  best_lambda <- cv_model$lambda.min
+  
+  # Final model
+  model <- glmnet(x_train, y_train, alpha = 1, lambda = best_lambda, standardize = FALSE)
+  
+  # Predictions
+  preds <- predict(model, newx = x_test)
+  preds <- as.numeric(preds)
+  
+  # Identify rows with any NA
+  row_all_na <- apply(cbind(x_test, y_test), 1, function(x) any(is.na(x)))
+  
+  preds_clean <- preds[!row_all_na]
+  true_vals_clean <- y_test[!row_all_na]
+  
+  # Compute LOSO metrics
+  train_mean <- mean(y_train, na.rm = TRUE)
+  
+  r2_cv <- 1 - sum((true_vals_clean - preds_clean)^2) /
+    sum((true_vals_clean - train_mean)^2)
+  
+  rmse <- sqrt(mean((true_vals_clean - preds_clean)^2))
+  
+  acc <- cor(preds_clean, true_vals_clean, use = "complete.obs")
+  
+  # Store subject-wise results
+  weights_fmri3_ant_lasso_results <- rbind(
+    weights_fmri3_ant_lasso_results,
+    data.frame(subject = test_subject, RMSE = rmse, R2 = r2_cv, acc = acc)
+  )
+  
+  # Store pooled predictions
+  weights_fmri3_ant_lasso_all_preds <- rbind(
+    weights_fmri3_ant_lasso_all_preds,
+    data.frame(subject = test_subject, y_true = true_vals_clean, y_pred = preds_clean)
+  )
+  
+  # Feature weights
+  weights_fmri3_ant_lasso[i, ] <- as.numeric(model$beta)
+}
+
+# --- 5. Check performance ---
+
+## Subject-wise results
+print(weights_fmri3_ant_lasso_results)
+
+mean_RMSE <- mean(weights_fmri3_ant_lasso_results$RMSE)
+mean_R2 <- mean(weights_fmri3_ant_lasso_results$R2)
+mean_acc <- mean(weights_fmri3_ant_lasso_results$acc)
+
+cat("--- Average Subject-Wise CV Metrics ---\n")
+cat("Average CV RMSE:", mean_RMSE, "\n")
+cat("Average CV R^2:", mean_R2, "\n")
+cat("Average CV Correlation (Accuracy):", mean_acc, "\n")
+
+## Pooled performance
+pooled_y_true <- weights_fmri3_ant_lasso_all_preds$y_true
+pooled_y_pred <- weights_fmri3_ant_lasso_all_preds$y_pred
+
+overall_train_mean <- mean(fmri3_pupil_svr_data$arousal,na.rm=T)
+
+overall_rmse <- sqrt(mean((pooled_y_true - pooled_y_pred)^2))
+overall_r2 <- 1 - sum((pooled_y_true - pooled_y_pred)^2) /
+  sum((pooled_y_true - overall_train_mean)^2)
+
+overall_acc <- cor(pooled_y_pred, pooled_y_true)
+
+cat("--- Overall (Pooled) CV Metrics ---\n")
+cat("Overall CV RMSE:", overall_rmse, "\n")
+cat("Overall CV R^2:", overall_r2, "\n")
+cat("Overall CV Correlation (Accuracy):", overall_acc, "\n")
+
+# --- 6. Average weights across subjects ---
+avg_weights <- colMeans(weights_fmri3_ant_lasso, na.rm = TRUE)
+
+weights_fmri3_ant_lasso_df <- data.frame(
+  Timepoint = as.numeric(feature_cols),
+  Weight = avg_weights
+)
+
+weights_fmri3_ant_lasso_df$Time_sec <- weights_fmri3_ant_lasso_df$Timepoint / 120
+
+# Plot
+weights_fmri3_ant_lasso_pic <- ggplot(weights_fmri3_ant_lasso_df, aes(x = Time_sec, y = Weight)) +
+  geom_line(color = "steelblue", size = 1) +
+  geom_smooth(method = "loess", span = 0.2, se = FALSE, color = "darkred", size = 0.8) +
+  labs(
+    x = "Time (s)",
+    y = "Feature weight",
+    title = "FMRI Study",
+    subtitle = "Anticipation probe"
+  ) +
+      geom_vline(xintercept = c(0,2,4), size = 1, color = "grey")+
+  annotate("text", x = 1,y = 0.01, label = "C",
+          color = "black",size = unit(4,"pt"))+
+  annotate("text", x = 3,y = 0.01, label = "F",
+          color = "black",size = unit(4,"pt"))+
+  annotate("text", x = 5, y = 0.01, label = "R", color = "black", size = unit(4,"pt"))
+```
+
+### GENLASSO (very slow)
+```{r eval = F, echo=F}
+# --- 4. Run subject-level CV using Fused Lasso with inner CV for lambda ---
+weights_fmri3_ant_genlasso_results <- data.frame(Fold = integer(), Accuracy = numeric())
+feature_cols <- as.character(1:(time_end*120))
+
+weights_fmri3_ant_genlasso <- matrix(NA, nrow = k, ncol = length(feature_cols))
+colnames(weights_fmri3_ant_genlasso) <- feature_cols
+
+set.seed(42)  # for reproducibility
+
+for (i in 1:k) {
+  cat("Processing fold", i, "\n")
+  
+  test_subjects <- subject_folds$Subject[subject_folds$Fold == i]
+  
+  train_data <- fmri3_pupil_svr_data %>% filter(!Subject %in% test_subjects) %>% drop_na()
+  test_data  <- fmri3_pupil_svr_data %>% filter(Subject %in% test_subjects) %>% drop_na()
+  
+  x_train <- as.matrix(train_data[, feature_cols])
+  y_train <- train_data$arousal
+  x_test  <- as.matrix(test_data[, feature_cols])
+  y_test  <- test_data$arousal
+  
+  # Fused Lasso: D is the difference operator for consecutive time points
+  D <- diff(diag(ncol(x_train)))
+  
+  # Fit fused lasso over a grid of lambdas
+  fused_model <- genlasso(y_train, x_train, D=D)
+  
+  # --- Inner CV to pick lambda ---
+  # Split training data into 5-folds for inner CV
+  inner_k <- 5
+  inner_fold_ids <- sample(rep(1:inner_k, length.out = nrow(x_train)))
+  inner_mse <- matrix(NA, nrow=length(fused_model$lambda), ncol=inner_k)
+  
+  for (j in 1:inner_k) {
+    inner_train_idx <- which(inner_fold_ids != j)
+    inner_val_idx   <- which(inner_fold_ids == j)
+    
+    x_inner_train <- x_train[inner_train_idx, ]
+    y_inner_train <- y_train[inner_train_idx]
+    x_inner_val   <- x_train[inner_val_idx, ]
+    y_inner_val   <- y_train[inner_val_idx]
+    
+    # Fit inner model without lambda argument
+  inner_model <- genlasso(y_inner_train, x_inner_train, D=D)
+  
+  # Interpolate to outer lambda grid
+  for (l in 1:length(fused_model$lambda)) {
+    # Find closest lambda in inner_model$lambda
+    lambda_diff <- abs(inner_model$lambda - fused_model$lambda[l])
+    closest_idx <- which.min(lambda_diff)
+    
+    beta_l <- inner_model$beta[, closest_idx]
+    preds_l <- x_inner_val %*% beta_l
+    inner_mse[l, j] <- mean((y_inner_val - preds_l)^2)
+  }
+  }
+  
+  # Average MSE across inner folds
+  avg_inner_mse <- rowMeans(inner_mse)
+  best_lambda_idx <- which.min(avg_inner_mse)
+  beta_best <- fused_model$beta[, best_lambda_idx]
+  
+  # Predictions on test set
+  preds <- x_test %*% beta_best
+  
+  # Remove rows with NA features
+  row_all_na <- apply(x_test, 1, function(x) any(is.na(x)))
+  
+  acc <- cor(preds[!row_all_na], y_test[!row_all_na], use = "complete.obs")
+  weights_fmri3_ant_genlasso_results <- rbind(weights_fmri3_ant_genlasso_results, data.frame(Fold = i, Accuracy = acc))
+  
+  # Store feature weights
+  weights_fmri3_ant_genlasso[i, ] <- as.numeric(beta_best)
+}
+
+# --- 5. Check performance ---
+print(weights_fmri3_ant_genlasso_results)
+cat("Mean CV Accuracy:", mean(weights_fmri3_ant_genlasso_results$Accuracy), "\n")
+
+# Average weights across folds
+avg_weights <- colMeans(weights_fmri3_ant_genlasso)
+
+weights_fmri3_ant_genlasso_df <- data.frame(
+  Timepoint = as.numeric(feature_cols),
+  Weight = avg_weights
+)
+
+# Convert to seconds (120 Hz sampling)
+weights_fmri3_ant_genlasso_df$Time_sec <- weights_fmri3_ant_genlasso_df$Timepoint / 120
+
+# Plot
+ggplot(weights_fmri3_ant_genlasso_df, aes(x = Time_sec, y = Weight)) +
+  geom_line(color = "steelblue", size = 1) +
+  geom_smooth(method = "loess", span = 0.2, se = FALSE, color = "darkred", size = 0.8) +
+  labs(
+    x = "Time (s)",
+    y = "Feature weight",
+    title = "FMRI Study",
+    subtitle = "Anticipation probe"
+  ) +
+  geom_vline(xintercept = c(0,4,6), size = 1, color = "grey") +
+  annotate("text", x = 2, y = 0.01, label = "C", color = "black", size = unit(4,"pt")) +
+  annotate("text", x = 5, y = 0.01, label = "F", color = "black", size = unit(4,"pt")) +
+  annotate("text", x = 7, y = 0.01, label = "R", color = "black", size = unit(4,"pt"))
+```
+
+
+
+##outcome probes 
+### prepare data
+```{r}
+time_end=12
+time_start=0
+duration = time_end-time_start
+# 1. Keep only first 8 seconds of each trial
+fmri3_pupil_svr_data <- fmri3_pupil_data %>%
+  filter(Time_sec <= time_end, Time_sec >= time_start, probe == 2,
+         rating_type == 1) %>%
+  ungroup() %>% 
+  select(subject, trial, sample_in_trial_n, arousal, pupilDiameter_scaled) %>%
+  mutate(sample_in_trial_n = as.numeric(sample_in_trial_n)) %>%  # ensure numeric ordering
+  arrange(subject, trial, sample_in_trial_n) %>%
+  pivot_wider(
+    names_from = sample_in_trial_n,
+    values_from = pupilDiameter_scaled
+  ) %>%
+  select(subject, trial, arousal,
+    all_of(as.character(2:(duration*120+1))) #1 has a lot of missing
+  )
+
+# 4. Subject-level cross-validation folds
+subjects <- unique(fmri3_pupil_svr_data$subject)
+k <- 10  # 10-fold cross-validation
+
+set.seed(42)
+fold_ids <- sample(rep(1:k, length.out = length(subjects)))  # random fold assignment
+subject_folds <- data.frame(subject = subjects, Fold = fold_ids)
+
+```
+
+### SVR
+```{r}
+# --- 4. Run subject-level LOSO CV ---
+# Store subject-wise results (RMSE, R2, Correlation)
+weights_fmri3_out_svr_results <- data.frame(subject = integer(), RMSE = numeric(), R2 = numeric(), acc = numeric())
+
+# Store pooled predictions: subject, True Value, Predicted Value
+weights_fmri3_out_svr_all_preds <- data.frame(
+ subject = integer(), y_true = numeric(), y_pred = numeric()
+)
+
+feature_cols <- as.character(2:(time_end*120))
+
+n_subjects <- length(unique(fmri3_pupil_svr_data$subject))
+
+weights_fmri3_out_svr <- matrix(NA, nrow = n_subjects, ncol = length(feature_cols))
+colnames(weights_fmri3_out_svr) <- feature_cols
+
+subjects <- unique(fmri3_pupil_svr_data$subject)
+
+for (i in seq_along(subjects)) {
+ test_subject <- subjects[i]
+
+ train_data <- fmri3_pupil_svr_data %>% filter(subject != test_subject)
+ test_data <- fmri3_pupil_svr_data %>% filter(subject == test_subject)
+
+ # Check for sufficient training data (optional, but good practice)
+ if (nrow(train_data) < 2) {
+  warning(paste("Skipping subject", test_subject, "due to insufficient training data."))
+  next
+ }
+ 
+ model <- svm(x = train_data[, feature_cols], y = train_data$arousal,
+       kernel = "radial", type = "eps-regression")
+
+ # Identify rows in test data that have NA in features or true values
+ row_all_na <- apply(cbind(test_data[, feature_cols], test_data$arousal), 1, function(x) any(is.na(x)))
+ 
+ preds <- predict(model, newdata = test_data[!row_all_na, feature_cols])
+
+ true_vals <- test_data$arousal[!row_all_na]
+
+ # Compute training mean for proper LOSO R² for *this subject*
+ train_mean <- mean(train_data$arousal, na.rm = TRUE)
+
+ # 1. Proper subject-level LOSO R²
+ r2_cv <- 1 - sum((true_vals - preds)^2, na.rm = TRUE) / sum((true_vals - train_mean)^2, na.rm = TRUE)
+
+ # 2. Subject-level RMSE
+ rmse <- sqrt(mean((true_vals - preds)^2, na.rm = TRUE))
+
+ # 3. Subject-level Correlation (Accuracy)
+ acc <- cor(preds, true_vals, use = "complete.obs")
+
+
+ # Save subject-wise results
+ weights_fmri3_out_svr_results <- rbind(
+  weights_fmri3_out_svr_results,
+  data.frame(Subject = test_subject, RMSE = rmse, R2 = r2_cv, acc = acc)
+ )
+ 
+ # Save pooled predictions for overall metrics
+ weights_fmri3_out_svr_all_preds <- rbind(
+  weights_fmri3_out_svr_all_preds,
+  data.frame(Subject = test_subject, y_true = true_vals, y_pred = preds)
+ )
+
+ # Compute feature weights
+ # NOTE: This part remains unchanged and uses the model from the current fold
+ w <- t(model$coefs) %*% model$SV
+ weights_fmri3_out_svr[i, ] <- w
+}
+
+# --- 5. Check performance ---
+
+## 📊 Subject-Wise and Average CV Performance
+
+# Print subject-wise results
+print(weights_fmri3_out_svr_results)
+
+# Calculate and print average CV performance (mean of subject-wise metrics)
+mean_RMSE <- mean(weights_fmri3_out_svr_results$RMSE, na.rm = TRUE)
+mean_R2 <- mean(weights_fmri3_out_svr_results$R2, na.rm = TRUE)
+mean_acc <- mean(weights_fmri3_out_svr_results$acc, na.rm = TRUE)
+
+cat("--- Average Subject-Wise CV Metrics ---\n")
+cat("Average CV RMSE:", mean_RMSE, "\n")
+cat("Average CV R^2:", mean_R2, "\n")
+cat("Average CV Correlation (Accuracy):", mean_acc, "\n")
+
+
+## Overall (Pooled) CV Performance
+# The 'Overall' or 'Pooled' CV metrics are calculated on ALL predictions from ALL folds together.
+
+# Extract pooled true and predicted values
+pooled_y_true <- weights_fmri3_out_svr_all_preds$y_true
+pooled_y_pred <- weights_fmri3_out_svr_all_preds$y_pred
+
+# Calculate the overall mean of the FULL training set to compute correct LOSO R²
+# In LOSO, the overall R^2 should use the mean of the entire dataset (or the grand mean of all training sets)
+# The mean of the entire 'arousal' column across all data is the most common approach for overall R^2.
+overall_train_mean <- mean(fmri3_pupil_svr_data$arousal, na.rm = TRUE)
+
+
+# 1. Overall (Pooled) CV RMSE
+overall_rmse <- sqrt(mean((pooled_y_true - pooled_y_pred)^2, na.rm = TRUE))
+
+# 2. Overall (Pooled) CV R²
+# R² = 1 - (Sum of Squared Errors) / (Total Sum of Squares around the grand mean)
+overall_r2 <- 1 - sum((pooled_y_true - pooled_y_pred)^2, na.rm = TRUE) / sum((pooled_y_true - overall_train_mean)^2, na.rm = TRUE)
+
+# 3. Overall (Pooled) CV Correlation (Accuracy)
+overall_acc <- cor(pooled_y_pred, pooled_y_true, use = "complete.obs")
+
+cat("--- Overall (Pooled) CV Metrics ---\n")
+cat("Overall CV RMSE:", overall_rmse, "\n")
+cat("Overall CV R^2:", overall_r2, "\n")
+cat("Overall CV Correlation (Accuracy):", overall_acc, "\n")
+
+# Average weights across folds
+avg_weights <- colMeans(weights_fmri3_out_svr)
+
+weights_fmri3_out_svr_df <- data.frame(
+  Timepoint = as.numeric(feature_cols),
+  Weight = avg_weights
+)
+
+# Convert to seconds (120 Hz sampling)
+weights_fmri3_out_svr_df$Time_sec <- weights_fmri3_out_svr_df$Timepoint / 120
+
+weights_fmri3_out_svr_pic<-ggplot(weights_fmri3_out_svr_df, aes(x = Time_sec, y = Weight)) +
+  geom_line(color = "steelblue", size = 1) +
+  geom_smooth(method = "loess", span = 0.2, se = FALSE, color = "darkred", size = 0.8)+
+  labs(
+    x = "Time (s)",
+    y = "feature weight",
+    title = "FMRI Study",
+    subtitle = "Outcome probe",
+  )+
+  geom_vline(xintercept = c(0,2,4,6,8), size = 1, color = "grey") +
+  annotate("text", x = 1,y = 0.01, label = "C",
+          color = "black",size = unit(4,"pt"))+
+  annotate("text", x = 3,y = 0.01, label = "F",
+          color = "black",size = unit(4,"pt"))+
+    annotate("text", x = 5,y = 0.01, label = "T",
+          color = "black",size = unit(4,"pt"))+
+    annotate("text", x = 7,y = 0.01, label = "O",
+          color = "black",size = unit(4,"pt"))+
+  annotate("text", x = 9, y = 0.01, label = "R", color = "black", size = unit(4,"pt"))
+```
+
+
+
+### LASSO
+```{r}
+# --- 4. Run subject-level LOSO CV using Lasso ---
+
+# Store subject-wise results
+weights_fmri3_out_lasso_results <- data.frame(
+  Subject = integer(), RMSE = numeric(), R2 = numeric(), acc = numeric()
+)
+
+# Store pooled predictions
+weights_fmri3_out_lasso_all_preds <- data.frame(
+  Subject = integer(), y_true = numeric(), y_pred = numeric()
+)
+
+feature_cols <- as.character(2:(time_end*120+1))
+subjects <- unique(fmri3_pupil_svr_data$subject)
+n_subjects <- length(subjects)
+
+# Weight matrix (subject × features)
+weights_fmri3_out_lasso <- matrix(NA, nrow = n_subjects, ncol = length(feature_cols))
+colnames(weights_fmri3_out_lasso) <- feature_cols
+
+
+for (i in seq_along(subjects)) {
+
+  test_subject <- subjects[i]
+  
+  train_data <- fmri3_pupil_svr_data %>% filter(subject != test_subject) %>% drop_na()
+  test_data  <- fmri3_pupil_svr_data %>% filter(subject == test_subject) %>% drop_na()
+  
+  # Skip if too little training data
+  if (nrow(train_data) < 2) {
+    warning(paste("Skipping subject", test_subject, "due to insufficient training data."))
+    next
+  }
+  
+  # Extract matrices
+  x_train <- as.matrix(train_data[, feature_cols])
+  y_train <- train_data$arousal
+  
+  x_test  <- as.matrix(test_data[, feature_cols])
+  y_test  <- test_data$arousal
+  
+  # Fit LASSO CV model (alpha=1 for pure lasso)
+  cv_model <- cv.glmnet(x_train, y_train, alpha = 1, standardize = TRUE)
+  best_lambda <- cv_model$lambda.min
+  
+  # Final model
+  model <- glmnet(x_train, y_train, alpha = 1, lambda = best_lambda, standardize = FALSE)
+  
+  # Predictions
+  preds <- predict(model, newx = x_test)
+  preds <- as.numeric(preds)
+  
+  # Identify rows with any NA
+  row_all_na <- apply(cbind(x_test, y_test), 1, function(x) any(is.na(x)))
+  
+  preds_clean <- preds[!row_all_na]
+  true_vals_clean <- y_test[!row_all_na]
+  
+  # Compute LOSO metrics
+  train_mean <- mean(y_train, na.rm = TRUE)
+  
+  r2_cv <- 1 - sum((true_vals_clean - preds_clean)^2) /
+    sum((true_vals_clean - train_mean)^2)
+  
+  rmse <- sqrt(mean((true_vals_clean - preds_clean)^2))
+  
+  acc <- cor(preds_clean, true_vals_clean, use = "complete.obs")
+  
+  # Store subject-wise results
+  weights_fmri3_out_lasso_results <- rbind(
+    weights_fmri3_out_lasso_results,
+    data.frame(subject = test_subject, RMSE = rmse, R2 = r2_cv, acc = acc)
+  )
+  
+  # Store pooled predictions
+  weights_fmri3_out_lasso_all_preds <- rbind(
+    weights_fmri3_out_lasso_all_preds,
+    data.frame(subject = test_subject, y_true = true_vals_clean, y_pred = preds_clean)
+  )
+  
+  # Feature weights
+  weights_fmri3_out_lasso[i, ] <- as.numeric(model$beta)
+}
+
+# --- 5. Check performance ---
+
+## Subject-wise results
+print(weights_fmri3_out_lasso_results)
+
+mean_RMSE <- mean(weights_fmri3_out_lasso_results$RMSE)
+mean_R2 <- mean(weights_fmri3_out_lasso_results$R2)
+mean_acc <- mean(weights_fmri3_out_lasso_results$acc)
+
+cat("--- Average Subject-Wise CV Metrics ---\n")
+cat("Average CV RMSE:", mean_RMSE, "\n")
+cat("Average CV R^2:", mean_R2, "\n")
+cat("Average CV Correlation (Accuracy):", mean_acc, "\n")
+
+## Pooled performance
+pooled_y_true <- weights_fmri3_out_lasso_all_preds$y_true
+pooled_y_pred <- weights_fmri3_out_lasso_all_preds$y_pred
+
+overall_train_mean <- mean(fmri3_pupil_svr_data$arousal,na.rm=T)
+
+overall_rmse <- sqrt(mean((pooled_y_true - pooled_y_pred)^2))
+overall_r2 <- 1 - sum((pooled_y_true - pooled_y_pred)^2) /
+  sum((pooled_y_true - overall_train_mean)^2)
+
+overall_acc <- cor(pooled_y_pred, pooled_y_true)
+
+cat("--- Overall (Pooled) CV Metrics ---\n")
+cat("Overall CV RMSE:", overall_rmse, "\n")
+cat("Overall CV R^2:", overall_r2, "\n")
+cat("Overall CV Correlation (Accuracy):", overall_acc, "\n")
+
+# --- 6. Average weights across subjects ---
+avg_weights <- colMeans(weights_fmri3_out_lasso, na.rm = TRUE)
+
+weights_fmri3_out_lasso_df <- data.frame(
+  Timepoint = as.numeric(feature_cols),
+  Weight = avg_weights
+)
+
+weights_fmri3_out_lasso_df$Time_sec <- weights_fmri3_out_lasso_df$Timepoint / 120
+
+# Plot
+weights_fmri3_out_lasso_pic <- ggplot(weights_fmri3_out_lasso_df, aes(x = Time_sec, y = Weight)) +
+  geom_line(color = "steelblue", size = 1) +
+  geom_smooth(method = "loess", span = 0.2, se = FALSE, color = "darkred", size = 0.8) +
+  labs(
+    x = "Time (s)",
+    y = "Feature weight",
+    title = "FMRI Study",
+    subtitle = "Outcome probe"
+  ) +
+  geom_vline(xintercept = c(0,2,4,6,8), size = 1, color = "grey") +
+  annotate("text", x = 1,y = 0.01, label = "C",
+          color = "black",size = unit(4,"pt"))+
+  annotate("text", x = 3,y = 0.01, label = "F",
+          color = "black",size = unit(4,"pt"))+
+    annotate("text", x = 5,y = 0.01, label = "T",
+          color = "black",size = unit(4,"pt"))+
+    annotate("text", x = 7,y = 0.01, label = "O",
+          color = "black",size = unit(4,"pt"))+
+  annotate("text", x = 9, y = 0.01, label = "R", color = "black", size = unit(4,"pt"))
+```
+
+
+```{r}
+# Add titles to each combined plot
+library(patchwork)
+
+svr_label  <- ggplot() +
+  theme_void()+ 
+  annotate("text", x = 0.1, y = 0.5, label = "SVR", size = 6, hjust = 0.5,fontface = "bold") 
+
+lasso_label <- ggplot() +
+  theme_void()+ 
+  annotate("text", x = 0.1, y = 0.5, label = "LASSO", size = 6, hjust = 0.5,fontface = "bold")
+
+# Build your main blocks
+svr_block <-
+  (weights_vrmid1_ant_svr_pic + weights_vrmid1_out_svr_pic) /
+  (weights_fmri3_ant_svr_pic + weights_fmri3_out_svr_pic)
+
+lasso_block <-
+  (weights_vrmid1_ant_lasso_pic + weights_vrmid1_out_lasso_pic) /
+  (weights_fmri3_ant_lasso_pic + weights_fmri3_out_lasso_pic)
+
+# Combine:
+# 1 = SVR label
+# 2–3 = SVR block
+# 4 = LASSO label
+# 5–6 = LASSO block
+svr_label / svr_block / lasso_label / lasso_block+plot_layout(heights = c(0.1,1,0.1,1))
+
+ggsave(
+  "~/Desktop/VRMID-analysis/mid-pupil/figures/svr_lasso.png",
+  dpi = 300, height = 12, width = 7
+)
+
+```

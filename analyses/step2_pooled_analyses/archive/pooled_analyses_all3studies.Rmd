@@ -17,7 +17,6 @@ emotions_palette2b = c("orange","red")
 ```
 
 
-
 # read in pupil data
 
 ## vrmid1
@@ -211,7 +210,8 @@ fmri3_beh_data <- fmri3_pupil_data %>%
   ungroup() %>% 
   group_by(subject,trial,probe,cue_value) %>% 
   slice(1) %>% 
-  select(subject,trial,probe,cue_value,binned_winpercent,hit,rt)
+  select(subject,trial,probe,rating_type,cue_value,binned_winpercent,hit,rt,
+         vrating_t,arating_t,vrating,arating,scaledir,erating,erating_t)
 
 fmri3_pupil_data$cue_size <- forcats::fct_recode(fmri3_pupil_data$cue_size,
                                                  small = "large",
@@ -224,6 +224,7 @@ vrmid1_subject_n
 vrmid2_subject_n
 fmri3_subject_n
 vrmid1_subject_n+vrmid2_subject_n+fmri3_subject_n
+vrmid1_subject_n+fmri3_subject_n
 ```
 # report behavioral performance 
 ## rt and hit rate
@@ -408,6 +409,31 @@ plot_layout(nrow = 1)
 ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/figxxx_beh.tiff"),dpi = 300, height = 3, width = 10)
 ```
 
+## are people faster in rating valence or arousal? positive or negative?
+```{r}
+fmri3_beh_data %>% 
+  group_by(subject) %>% 
+  summarise(vrating_t = mean(vrating_t,na.rm=T),
+            arating_t = mean(arating_t,na.rm=T)) %>% 
+  ungroup() %>% 
+  summarise(mean_valence_rt=mean(vrating_t),
+         mean_arousal_rt=mean(arating_t))
+
+summary(lmer(vrating ~ vrating_t + (1|subject),fmri3_beh_data))
+
+summary(l1<-lmer(vrating_t ~ as.factor(vrating) + (1|subject) + (1|scaledir),
+             fmri3_beh_data))
+plot_model(l1, type = "pred", terms = "vrating")
+
+summary(l2<-lmer(arating_t ~ as.factor(arating) + (1|subject) + (1|scaledir),
+             fmri3_beh_data))
+plot_model(l2, type = "pred", terms = "arating")
+
+summary(l3<-lmer(erating_t ~ as.factor(erating) + (1|subject) + (1|scaledir),
+             fmri3_beh_data))
+plot_model(l3, type = "pred", terms = "erating")
+```
+
 # check left vs. right pupil correlation
 ```{r}
 summary(l1<-lm(scale(pupil_L) ~ scale(pupil_R),vrmid1_pupil_data))
@@ -512,7 +538,6 @@ ggplot(data=d,
            y = pupil_Avg_scaled))+
   geom_line(size = 1)+
   labs(x = "",y = "")+
-  theme_void()+
   theme(legend.position = "none")+
   geom_text(data=d %>% filter(arousal_start == Time) %>% 
               group_by(trial) %>% slice(1),
@@ -522,7 +547,15 @@ ggplot(data=d,
               group_by(trial) %>% slice(1),
              aes(x = sample_point, y = pupil_Avg_scaled + 0.8, yend = pupil_Avg_scaled), color = "red",
              arrow = arrow(length = unit(0.2, "cm"), type = "open"),
-             size = 1)
+             size = 1)+
+  geom_vline(data=d %>% filter(probe == "anti",sample_in_trial_t %in% c(6.5,8.5)),
+             aes(xintercept = sample_point), color = "purple",
+             size = 1)+
+  geom_vline(data=d %>% filter(probe == "out",sample_in_trial_t%in% c(9.5,11.5)),
+             aes(xintercept = sample_point), color = "skyblue",
+             size = 1)+
+  scale_x_continuous(breaks = seq(0,21601,120*10),labels = seq(0,21600,120*10)/120)+
+  labs(x = "time (s)")
 
 ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/example_tc2.png"),dpi = 300, height = 2, width = 8)
 ```
@@ -4326,9 +4359,9 @@ ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/cross_study_validation
 ```{r}
 vrmid1_pupil_data_tonic <- vrmid1_pupil_data%>%
   filter(Time_sec >= vrmid1_ant_window[1], Time_sec <= vrmid1_ant_window[2])%>% 
-  select(Subject,probe,trial,pupil_Avg_baseline_scaled,pupil_Avg_bc_scaled,pupil_Avg_scaled,
+  select(Subject,probe,condition,trial,pupil_Avg_baseline_scaled,pupil_Avg_bc_scaled,pupil_Avg_scaled,
          last_ITI,arousal_scaled,valence_scaled,reaction_outcome)%>%
-  group_by(Subject,trial,probe,
+  group_by(Subject,trial,probe,condition,
          arousal_scaled,valence_scaled,reaction_outcome)%>%
   summarise(pupil_Avg_baseline_scaled = mean(pupil_Avg_baseline_scaled,na.rm = T),
                    pupil_Avg_bc_scaled = mean(pupil_Avg_bc_scaled,na.rm=T),
@@ -4576,9 +4609,9 @@ pt15 <- ggplot(vrmid1_pupil_data_phasicarousal)+
 
 vrmid2_pupil_data_tonic <- vrmid2_pupil_data%>%
   filter(Time_sec >= vrmid2_ant_window[1], Time_sec <= vrmid2_ant_window[2])%>% 
-  select(Subject,probe,trial,pupil_Avg_baseline_scaled,pupil_Avg_bc_scaled,pupil_Avg_scaled,
+  select(Subject,probe,condition,trial,pupil_Avg_baseline_scaled,pupil_Avg_bc_scaled,pupil_Avg_scaled,
          last_ITI,arousal_scaled,valence_scaled,reaction_outcome)%>%
-  group_by(Subject,trial,probe,
+  group_by(Subject,trial,probe,condition,
          arousal_scaled,valence_scaled,reaction_outcome)%>%
   summarise(pupil_Avg_baseline_scaled = mean(pupil_Avg_baseline_scaled,na.rm = T),
                    pupil_Avg_bc_scaled = mean(pupil_Avg_bc_scaled,na.rm=T),
@@ -4834,10 +4867,10 @@ pt25 <- ggplot(vrmid2_pupil_data_phasicarousal)+
 
 fmri3_pupil_data_tonic <- fmri3_pupil_data%>%
   filter(Time_sec >= fmri3_ant_window[1], Time_sec <= fmri3_ant_window[2])%>% 
-  select(subject,probe,trial,pupilDiameter_baseline_scaled,pupilDiameter_bc_scaled,
+  select(subject,probe,cue_size,trial,pupilDiameter_baseline_scaled,pupilDiameter_bc_scaled,
          pupilDiameter_scaled,
          last_iti,arousal_scaled,valence_scaled,hit)%>%
-  group_by(subject,trial,probe,
+  group_by(subject,trial,probe,cue_size,
          arousal_scaled,valence_scaled,hit,)%>%
   filter(last_iti != 0) %>% 
   summarise(pupilDiameter_baseline_scaled = mean(pupilDiameter_baseline_scaled,na.rm = T),
@@ -5713,13 +5746,13 @@ vrmid1_pupil_data_arousal_history <- vrmid1_pupil_data_arousal_history %>%
 dftemp4 <- NULL
 
 for (l in 0:9){
-  l1<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe),
+  l1<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe) + (1|condition),
                vrmid1_pupil_data_arousal_history %>% filter(lag == l,
                                                           measure == "pupil_Avg_baseline_scaled")))
-  l2<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe),
+  l2<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe) + (1|condition),
                vrmid1_pupil_data_arousal_history %>% filter(lag == l,
                                                           measure == "pupil_Avg_bc_scaled")))
-  l3<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe),
+  l3<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe) + (1|condition),
                vrmid1_pupil_data_arousal_history %>% filter(lag == l,
                                                           measure == "pupil_Avg_scaled")))
   dftemp4 <- rbind(dftemp4,
@@ -5779,13 +5812,13 @@ vrmid2_pupil_data_arousal_history <- vrmid2_pupil_data_arousal_history %>%
 dftemp5 <- NULL
 
 for (l in 0:9){
-  l1<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe),
+  l1<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe) + (1|condition),
                vrmid2_pupil_data_arousal_history %>% filter(lag == l,
                                                           measure == "pupil_Avg_baseline_scaled")))
-  l2<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe),
+  l2<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe) + (1|condition),
                vrmid2_pupil_data_arousal_history %>% filter(lag == l,
                                                           measure == "pupil_Avg_bc_scaled")))
-  l3<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe),
+  l3<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe) + (1|condition),
                vrmid2_pupil_data_arousal_history %>% filter(lag == l,
                                                           measure == "pupil_Avg_scaled")))
   dftemp5 <- rbind(dftemp5,
@@ -5844,13 +5877,13 @@ fmri3_pupil_data_arousal_history <- fmri3_pupil_data_arousal_history %>%
 dftemp6 <- NULL
 
 for (l in 0:9){
-  l1<-summary(lmer(arousal_scaled ~ pupil_size + (1|subject) + (1|probe),
+  l1<-summary(lmer(arousal_scaled ~ pupil_size + (1|subject) + (1|probe) + (1|cue_size),
                fmri3_pupil_data_arousal_history %>% filter(lag == l,
                                                           measure == "pupilDiameter_baseline_scaled")))
-  l2<-summary(lmer(arousal_scaled ~ pupil_size + (1|subject) + (1|probe),
+  l2<-summary(lmer(arousal_scaled ~ pupil_size + (1|subject) + (1|probe)+ (1|cue_size),
                fmri3_pupil_data_arousal_history %>% filter(lag == l,
                                                           measure == "pupilDiameter_bc_scaled")))
-  l3<-summary(lmer(arousal_scaled ~ pupil_size + (1|subject) + (1|probe),
+  l3<-summary(lmer(arousal_scaled ~ pupil_size + (1|subject) + (1|probe)+ (1|cue_size),
                fmri3_pupil_data_arousal_history %>% filter(lag == l,
                                                           measure == "pupilDiameter_scaled")))
   dftemp6 <- rbind(dftemp6,
@@ -5944,13 +5977,13 @@ vrmid1_pupil_data_arousal_history <- vrmid1_pupil_data_arousal_history %>%
 dftemp4 <- NULL
 
 for (l in 0:9){
-  l1<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe),
+  l1<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe) + (1|condition),
                vrmid1_pupil_data_arousal_history %>% filter(lag == l,
                                                           measure == "pupil_Avg_baseline_scaled")))
-  l2<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe),
+  l2<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe) + (1|condition),
                vrmid1_pupil_data_arousal_history %>% filter(lag == l,
                                                           measure == "pupil_Avg_bc_scaled")))
-  l3<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe),
+  l3<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe) + (1|condition),
                vrmid1_pupil_data_arousal_history %>% filter(lag == l,
                                                           measure == "pupil_Avg_scaled")))
   dftemp4 <- rbind(dftemp4,
@@ -6038,13 +6071,13 @@ vrmid2_pupil_data_arousal_history <- vrmid2_pupil_data_arousal_history %>%
 dftemp5 <- NULL
 
 for (l in 0:9){
-  l1<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe),
+  l1<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe) + (1|condition),
                vrmid2_pupil_data_arousal_history %>% filter(lag == l,
                                                           measure == "pupil_Avg_baseline_scaled")))
-  l2<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe),
+  l2<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe)+ (1|condition),
                vrmid2_pupil_data_arousal_history %>% filter(lag == l,
                                                           measure == "pupil_Avg_bc_scaled")))
-  l3<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe),
+  l3<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe)+ (1|condition),
                vrmid2_pupil_data_arousal_history %>% filter(lag == l,
                                                           measure == "pupil_Avg_scaled")))
   dftemp5 <- rbind(dftemp5,
@@ -6130,13 +6163,13 @@ fmri3_pupil_data_arousal_history <- fmri3_pupil_data_arousal_history %>%
 dftemp6 <- NULL
 
 for (l in 0:9){
-  l1<-summary(lmer(arousal_scaled ~ pupil_size + (1|subject) + (1|probe),
+  l1<-summary(lmer(arousal_scaled ~ pupil_size + (1|subject) + (1|probe)+(1|cue_size),
                fmri3_pupil_data_arousal_history %>% filter(lag == l,
                                                           measure == "pupilDiameter_baseline_scaled")))
-  l2<-summary(lmer(arousal_scaled ~ pupil_size + (1|subject) + (1|probe),
+  l2<-summary(lmer(arousal_scaled ~ pupil_size + (1|subject) + (1|probe)+(1|cue_size),
                fmri3_pupil_data_arousal_history %>% filter(lag == l,
                                                           measure == "pupilDiameter_bc_scaled")))
-  l3<-summary(lmer(arousal_scaled ~ pupil_size + (1|subject) + (1|probe),
+  l3<-summary(lmer(arousal_scaled ~ pupil_size + (1|subject) + (1|probe)+(1|cue_size),
                fmri3_pupil_data_arousal_history %>% filter(lag == l,
                                                           measure == "pupilDiameter_scaled")))
   dftemp6 <- rbind(dftemp6,
@@ -6213,13 +6246,13 @@ vrmid1_pupil_data_arousal_history <- vrmid1_pupil_data_arousal_history %>%
 dftemp4 <- NULL
 
 for (l in 0:9){
-  l1<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe),
+  l1<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe)+(1|condition),
                vrmid1_pupil_data_arousal_history %>% filter(lag == l,
                                                           measure == "pupil_Avg_baseline_scaled")))
-  l2<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe),
+  l2<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe)+(1|condition),
                vrmid1_pupil_data_arousal_history %>% filter(lag == l,
                                                           measure == "pupil_Avg_bc_scaled")))
-  l3<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe),
+  l3<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe)+(1|condition),
                vrmid1_pupil_data_arousal_history %>% filter(lag == l,
                                                           measure == "pupil_Avg_scaled")))
   dftemp4 <- rbind(dftemp4,
@@ -6294,13 +6327,13 @@ vrmid2_pupil_data_arousal_history <- vrmid2_pupil_data_arousal_history %>%
 dftemp5 <- NULL
 
 for (l in 0:9){
-  l1<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe),
+  l1<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe)+(1|condition),
                vrmid2_pupil_data_arousal_history %>% filter(lag == l,
                                                           measure == "pupil_Avg_baseline_scaled")))
-  l2<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe),
+  l2<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe)+(1|condition),
                vrmid2_pupil_data_arousal_history %>% filter(lag == l,
                                                           measure == "pupil_Avg_bc_scaled")))
-  l3<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe),
+  l3<-summary(lmer(arousal_scaled ~ pupil_size + (1|Subject) + (1|probe)+(1|condition),
                vrmid2_pupil_data_arousal_history %>% filter(lag == l,
                                                           measure == "pupil_Avg_scaled")))
   dftemp5 <- rbind(dftemp5,
@@ -6374,13 +6407,13 @@ fmri3_pupil_data_arousal_history <- fmri3_pupil_data_arousal_history %>%
 dftemp6 <- NULL
 
 for (l in 0:9){
-  l1<-summary(lmer(arousal_scaled ~ pupil_size + (1|subject) + (1|probe),
+  l1<-summary(lmer(arousal_scaled ~ pupil_size + (1|subject) + (1|probe)+(1|cue_size),
                fmri3_pupil_data_arousal_history %>% filter(lag == l,
                                                           measure == "pupilDiameter_baseline_scaled")))
-  l2<-summary(lmer(arousal_scaled ~ pupil_size + (1|subject) + (1|probe),
+  l2<-summary(lmer(arousal_scaled ~ pupil_size + (1|subject) + (1|probe)+(1|cue_size),
                fmri3_pupil_data_arousal_history %>% filter(lag == l,
                                                           measure == "pupilDiameter_bc_scaled")))
-  l3<-summary(lmer(arousal_scaled ~ pupil_size + (1|subject) + (1|probe),
+  l3<-summary(lmer(arousal_scaled ~ pupil_size + (1|subject) + (1|probe)+(1|cue_size),
                fmri3_pupil_data_arousal_history %>% filter(lag == l,
                                                           measure == "pupilDiameter_scaled")))
   dftemp6 <- rbind(dftemp6,
@@ -6538,8 +6571,11 @@ acf_results_vrmid1$variable <- factor(acf_results_vrmid1$variable,
                                      labels = c("arousal","valence","tonic","corrected phasic",
                                                 "uncorrected phasic"))
 
+t.test(acf_results_vrmid1$AR[acf_results_vrmid1$variable == "corrected phasic"])
+t.test(acf_results_vrmid1$AR[acf_results_vrmid1$variable == "tonic"],
+       acf_results_vrmid1$AR[acf_results_vrmid1$variable == "corrected phasic"],paired = T)
+
 par1<-ggplot(acf_results_vrmid1, aes(x = variable, y = AR)) +
-  geom_hline(yintercept = 0)+
   geom_violin(fill = "gray90", color = NA, width = 0.8) +
   # individual data points
   geom_jitter(width = 0.15, size = 1.2, alpha = 0.4, color = "gray40") +
@@ -6553,8 +6589,18 @@ par1<-ggplot(acf_results_vrmid1, aes(x = variable, y = AR)) +
     y = "Autocorrelation (lag 1)",
     subtitle = "VR Study 1",
   )+
-  theme( axis.text.x = element_text(angle = 20, hjust = 1))+
-  ylim(-0.5,1)
+  ylim(-0.5,1)+
+  coord_flip()+
+  # add semi-transparent white squares behind "valence" and "uncorrected phasic"
+  annotate("rect",
+           xmin = 1.5, xmax = 2.5,  # for "valence"
+           ymin = -Inf, ymax = Inf,
+           fill = "white", alpha = 0.7) +
+  annotate("rect",
+           xmin = 4.5, xmax = 5.5,  # for "uncorrected phasic"
+           ymin = -Inf, ymax = Inf,
+           fill = "white", alpha = 0.7)+
+  geom_hline(yintercept = 0)
 
 acf_results_vrmid2 <- vrmid2_pupil_data_tonic %>%
   group_by(Subject) %>% 
@@ -6573,8 +6619,11 @@ acf_results_vrmid2$variable <- factor(acf_results_vrmid2$variable,
                                      labels = c("arousal","valence","tonic","corrected phasic",
                                                 "uncorrected phasic"))
 
+t.test(acf_results_vrmid2$AR[acf_results_vrmid2$variable == "corrected phasic"])
+t.test(acf_results_vrmid2$AR[acf_results_vrmid2$variable == "tonic"],
+       acf_results_vrmid2$AR[acf_results_vrmid2$variable == "corrected phasic"],paired = T)
+
 par2<-ggplot(acf_results_vrmid2, aes(x = variable, y = AR)) +
-  geom_hline(yintercept = 0)+
   geom_violin(fill = "gray90", color = NA, width = 0.8) +
   # individual data points
   geom_jitter(width = 0.15, size = 1.2, alpha = 0.4, color = "gray40") +
@@ -6588,8 +6637,19 @@ par2<-ggplot(acf_results_vrmid2, aes(x = variable, y = AR)) +
     y = "Autocorrelation (lag 1)",
     subtitle = "VR Study 2",
   )+
-  theme( axis.text.x = element_text(angle = 20, hjust = 1))+
-  ylim(-0.5,1)
+  ylim(-0.5,1)+
+  coord_flip()+
+  # add semi-transparent white squares behind "valence" and "uncorrected phasic"
+  annotate("rect",
+           xmin = 1.5, xmax = 2.5,  # for "valence"
+           ymin = -Inf, ymax = Inf,
+           fill = "white", alpha = 0.7) +
+  annotate("rect",
+           xmin = 4.5, xmax = 5.5,  # for "uncorrected phasic"
+           ymin = -Inf, ymax = Inf,
+           fill = "white", alpha = 0.7)+
+  geom_hline(yintercept = 0)+
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank())
 
 acf_results_fmri3 <- fmri3_pupil_data_tonic %>%
   group_by(subject) %>% 
@@ -6608,8 +6668,11 @@ acf_results_fmri3$variable <- factor(acf_results_fmri3$variable,
                                      labels = c("arousal","valence","tonic","corrected phasic",
                                                 "uncorrected phasic"))
 
+t.test(acf_results_fmri3$AR[acf_results_fmri3$variable == "corrected phasic"])
+t.test(acf_results_fmri3$AR[acf_results_fmri3$variable == "tonic"],
+       acf_results_fmri3$AR[acf_results_fmri3$variable == "corrected phasic"],paired = T)
+
 par3<-ggplot(acf_results_fmri3, aes(x = variable, y = AR)) +
-  geom_hline(yintercept = 0)+
   geom_violin(fill = "gray90", color = NA, width = 0.8) +
   # individual data points
   geom_jitter(width = 0.15, size = 1.2, alpha = 0.4, color = "gray40") +
@@ -6623,21 +6686,31 @@ par3<-ggplot(acf_results_fmri3, aes(x = variable, y = AR)) +
     y = "Autocorrelation (lag 1)",
     subtitle = "FMRI Study",
   )+
-  theme( axis.text.x = element_text(angle = 20, hjust = 1))+
-  ylim(-0.5,1)
+  ylim(-0.5,1)+
+  coord_flip()+
+  # add semi-transparent white squares behind "valence" and "uncorrected phasic"
+  annotate("rect",
+           xmin = 1.5, xmax = 2.5,  # for "valence"
+           ymin = -Inf, ymax = Inf,
+           fill = "white", alpha = 0.7) +
+  annotate("rect",
+           xmin = 4.5, xmax = 5.5,  # for "uncorrected phasic"
+           ymin = -Inf, ymax = Inf,
+           fill = "white", alpha = 0.7)+
+  geom_hline(yintercept = 0)+
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank())
 
 par1+par2+par3
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/ar.png"),dpi = 300, height = 4, width = 7)
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/ar.png"),dpi = 300, height = 3, width = 12)
 ```
 
 ```{r}
 (pt11+pt21+pt31)/
 (pt12+pt22+pt32)/
-(par1+par2+par3)/
-(p4+p5+p6)
+(par1+par2+par3)
   # plot_annotation(tag_levels = "a")
 
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig5_beh.png"),dpi = 300, height = 11, width = 8)
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig5_beh.png"),dpi = 300, height = 8, width = 8)
 
 fig5 <- image_read("~/Desktop/VRMID-analysis/mid-pupil/figures/fig5_beh.png")
 fig5 <- image_annotate(fig5, "A", size = 55, location = "+50+00", color = "black", gravity = "northwest")
@@ -8190,8 +8263,8 @@ p1a<-ggplot(vrmid1_regression_coefs_ant_nobc, aes(x = sample_point,y = Estimate)
   theme_blank()+
   theme(legend.position = "left")+
   annotation_custom(
-    grob = grid::rectGrob(gp = grid::gpar(fill = "white", alpha = 0.85, col = NA)),
-    xmin = 14.1*120, xmax = 20*120, ymin = -Inf, ymax = Inf
+    grob = grid::rectGrob(gp = grid::gpar(fill = "white", alpha = 1, col = NA)),
+    xmin = 14.1*120, xmax = 21*120, ymin = -Inf, ymax = Inf
   )
 
 p1b<-ggplot(vrmid1_regression_coefs_out_nobc, aes(x = sample_point,y = Estimate))+
@@ -8222,7 +8295,11 @@ p1b<-ggplot(vrmid1_regression_coefs_out_nobc, aes(x = sample_point,y = Estimate)
   scale_color_viridis_c(limits=axis_range)+
   theme_blank()+
   ylim(axis_range)+
-    theme(legend.position = "none")
+    theme(legend.position = "none")+
+  annotation_custom(
+    grob = grid::rectGrob(gp = grid::gpar(fill = "white", alpha = 1, col = NA)),
+    xmin = 18.1*120, xmax = 20.5*120, ymin = -Inf, ymax = Inf
+  )
 
 p2a<-ggplot(vrmid2_regression_coefs_ant_nobc, aes(x = sample_point,y = Estimate))+
     geom_vline(xintercept = c(0,4,6,14,16,18)*120, size = 1, color = "grey")+
@@ -8254,8 +8331,8 @@ p2a<-ggplot(vrmid2_regression_coefs_ant_nobc, aes(x = sample_point,y = Estimate)
   ylim(axis_range)+
   theme(legend.position = "none")+
   annotation_custom(
-    grob = grid::rectGrob(gp = grid::gpar(fill = "white", alpha = 0.85, col = NA)),
-    xmin = 14.1*120, xmax = 20*120, ymin = -Inf, ymax = Inf
+    grob = grid::rectGrob(gp = grid::gpar(fill = "white", alpha = 1, col = NA)),
+    xmin = 14.1*120, xmax = 21*120, ymin = -Inf, ymax = Inf
   )
 
 p2b<-ggplot(vrmid2_regression_coefs_out_nobc, aes(x = sample_point,y = Estimate))+
@@ -8286,7 +8363,11 @@ p2b<-ggplot(vrmid2_regression_coefs_out_nobc, aes(x = sample_point,y = Estimate)
   scale_color_viridis_c(limits=axis_range)+
   theme_blank()+
   ylim(axis_range)+
-  theme(legend.position = "none")
+  theme(legend.position = "none")+
+  annotation_custom(
+    grob = grid::rectGrob(gp = grid::gpar(fill = "white", alpha = 1, col = NA)),
+    xmin = 18.1*120, xmax = 21*120, ymin = -Inf, ymax = Inf
+  )
 
 p3a<-ggplot(fmri3_regression_coefs_ant_nobc, aes(x = sample_point,y = Estimate))+
   geom_vline(xintercept = c(0,2,4,12,14,16,18)*200, size = 1, color = "grey")+
@@ -8320,8 +8401,8 @@ p3a<-ggplot(fmri3_regression_coefs_ant_nobc, aes(x = sample_point,y = Estimate))
   ylim(axis_range)+
   theme(legend.position = "none")+
   annotation_custom(
-    grob = grid::rectGrob(gp = grid::gpar(fill = "white", alpha = 0.85, col = NA)),
-    xmin = 12.1*200, xmax = 20*200, ymin = -Inf, ymax = Inf
+    grob = grid::rectGrob(gp = grid::gpar(fill = "white", alpha = 1, col = NA)),
+    xmin = 12.1*200, xmax = 21*200, ymin = -Inf, ymax = Inf
   )
 
 p3b<-ggplot(fmri3_regression_coefs_out_nobc %>% filter(sample_point <= 18*200), aes(x = sample_point,y = Estimate))+
@@ -8352,7 +8433,11 @@ p3b<-ggplot(fmri3_regression_coefs_out_nobc %>% filter(sample_point <= 18*200), 
   scale_color_viridis_c(limits=axis_range)+
   theme_blank()+
   ylim(axis_range)+
-  theme(legend.position = "none")
+  theme(legend.position = "none")+
+  annotation_custom(
+    grob = grid::rectGrob(gp = grid::gpar(fill = "white", alpha = 1, col = NA)),
+    xmin = 16.1*200, xmax = 19*200, ymin = -Inf, ymax = Inf
+  )
 ```
 
 ```{r fig.height=10, fig.width=6}
@@ -10376,7 +10461,7 @@ p_m2_arousal_a<-ggplot(coefs %>% filter(probe == "anticipation probe"),aes(x = T
   theme(legend.position = "none")+
   theme(legend.position = "none")+
   annotation_custom(
-    grob = grid::rectGrob(gp = grid::gpar(fill = "white", alpha = 0.85, col = NA)),
+    grob = grid::rectGrob(gp = grid::gpar(fill = "white", alpha = 1, col = NA)),
     xmin = 9.6, xmax = 15, ymin = -Inf, ymax = Inf
   )
 
@@ -10854,7 +10939,7 @@ p_m2_pupil_a<-ggplot(coefs %>% filter(probe == "anticipation probe"),aes(x = TR,
        subtitle = "anticipation probe")+
   theme(legend.position = "none")+
   annotation_custom(
-    grob = grid::rectGrob(gp = grid::gpar(fill = "white", alpha = 0.85, col = NA)),
+    grob = grid::rectGrob(gp = grid::gpar(fill = "white", alpha = 1, col = NA)),
     xmin = 9.6, xmax = 15, ymin = -Inf, ymax = Inf
   )
 

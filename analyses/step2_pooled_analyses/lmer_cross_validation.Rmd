@@ -1,0 +1,786 @@
+---
+title: "lmer_cross_validation"
+output: html_document
+date: "2025-11-12"
+---
+four-level cross validation
+
+# within-subject evaluation
+## ant
+### Study 1
+
+```{r}
+#within-subject split k-fold
+k <- 5
+
+# Add within-subject fold assignment
+vrmid1_data_antprobe_folds <- vrmid1_data_antprobe %>%
+  group_by(Subject) %>%
+  mutate(fold = sample(rep(1:k, length.out = n()))) %>%
+  ungroup()
+
+# Run CV loop
+within_cv_results <- map_dfr(1:k, function(f) {
+  train_data <- vrmid1_data_antprobe_folds %>% filter(fold != f)
+  test_data  <- vrmid1_data_antprobe_folds %>% filter(fold == f)
+
+  model <- lmer(arousal_scaled ~ mean_pupil_nobc_ant + (1|Subject) + (1|condition),
+                data = train_data)
+
+  # Predictions
+  test_data$pred <- predict(model, newdata = test_data, allow.new.levels = TRUE)
+
+  # Store mean of training data for proper CV R2 computation
+  test_data$train_mean <- mean(train_data$arousal_scaled, na.rm = TRUE)
+
+  test_data
+})
+
+# --- METRICS ---
+
+# Correlation
+within_kfold_correlation <- cor(within_cv_results$arousal_scaled,
+                                within_cv_results$pred,
+                                use = "complete.obs")
+
+# RMSE
+within_kfold_rmse <- sqrt(mean((within_cv_results$arousal_scaled -
+                                within_cv_results$pred)^2,
+                               na.rm = TRUE))
+
+# Null RMSE based on training means
+null_rmse <- sqrt(mean((within_cv_results$arousal_scaled -
+                        within_cv_results$train_mean)^2,
+                       na.rm = TRUE))
+
+# Relative gain
+within_kfold_relative_gain <- 1 - (within_kfold_rmse / null_rmse)
+
+# **Proper CV R2**
+within_kfold_r2 <- 1 -
+  sum((within_cv_results$arousal_scaled - within_cv_results$pred)^2, na.rm = TRUE) /
+  sum((within_cv_results$arousal_scaled - within_cv_results$train_mean)^2, na.rm = TRUE)
+
+# Print
+cat("Within-subject trial-level CV correlation: ", within_kfold_correlation, "\n")
+cat("Within-subject trial-level CV RMSE: ", within_kfold_rmse, "\n")
+cat("Within-subject trial-level CV R-squared: ", within_kfold_r2, "\n")
+
+```
+
+### Study 2
+```{r}
+#within-subject split k-fold
+k <- 5
+
+# Add within-subject fold assignment
+fmri3_data_antprobe_folds <- fmri3_data_antprobe %>%
+  group_by(subject) %>%
+  mutate(fold = sample(rep(1:k, length.out = n()))) %>%
+  ungroup()
+
+# Run CV loop
+within_cv_results <- map_dfr(1:k, function(f) {
+  train_data <- fmri3_data_antprobe_folds %>% filter(fold != f)
+  test_data  <- fmri3_data_antprobe_folds %>% filter(fold == f)
+
+  model <- lmer(arousal_scaled ~ mean_pupil_nobc_scaled_ant + (1|subject) + (1|cue_size),
+                data = train_data)
+
+  # Predictions
+  test_data$pred <- predict(model, newdata = test_data, allow.new.levels = TRUE)
+  
+  # Store training mean for proper CV R2
+  test_data$train_mean <- mean(train_data$arousal_scaled, na.rm = TRUE)
+
+  test_data
+})
+
+# --- METRICS ---
+
+# Correlation
+within_kfold_correlation <- cor(within_cv_results$arousal_scaled,
+                                within_cv_results$pred,
+                                use = "complete.obs")
+
+# RMSE
+within_kfold_rmse <- sqrt(mean((within_cv_results$arousal_scaled -
+                                within_cv_results$pred)^2,
+                               na.rm = TRUE))
+
+# Null RMSE based on training means
+null_rmse <- sqrt(mean((within_cv_results$arousal_scaled -
+                        within_cv_results$train_mean)^2,
+                       na.rm = TRUE))
+
+# Relative RMSE reduction
+within_kfold_relative_gain <- 1 - (within_kfold_rmse / null_rmse)
+
+# Proper CV R2
+within_kfold_r2 <- 1 -
+  sum((within_cv_results$arousal_scaled - within_cv_results$pred)^2, na.rm = TRUE) /
+  sum((within_cv_results$arousal_scaled - within_cv_results$train_mean)^2, na.rm = TRUE)
+
+# Print
+cat("Within-subject trial-level CV correlation: ", within_kfold_correlation, "\n")
+cat("Within-subject trial-level CV RMSE: ", within_kfold_rmse, "\n")
+cat("Within-subject trial-level CV R-squared: ", within_kfold_r2, "\n")
+
+```
+
+## out
+### Study 1
+```{r}
+#within-subject split k-fold
+k <- 5
+
+# Add within-subject fold assignment
+vrmid1_data_outprobe_folds <- vrmid1_data_outprobe %>%
+  group_by(Subject) %>%
+  mutate(fold = sample(rep(1:k, length.out = n()))) %>%
+  ungroup()
+
+# Run CV loop
+within_cv_results <- map_dfr(1:k, function(f) {
+  train_data <- vrmid1_data_outprobe_folds %>% filter(fold != f)
+  test_data  <- vrmid1_data_outprobe_folds %>% filter(fold == f)
+
+  model <- lmer(arousal_scaled ~ mean_pupil_nobc_out + (1|Subject) + (1|condition),
+                data = train_data)
+
+  # Predictions
+  test_data$pred <- predict(model, newdata = test_data, allow.new.levels = TRUE)
+  
+  # Store training mean for proper CV R²
+  test_data$train_mean <- mean(train_data$arousal_scaled, na.rm = TRUE)
+
+  test_data
+})
+
+# --- METRICS ---
+
+# Correlation
+within_kfold_correlation <- cor(within_cv_results$arousal_scaled,
+                                within_cv_results$pred,
+                                use = "complete.obs")
+
+# RMSE
+within_kfold_rmse <- sqrt(mean((within_cv_results$arousal_scaled -
+                                within_cv_results$pred)^2,
+                               na.rm = TRUE))
+
+# Null RMSE based on training means
+null_rmse <- sqrt(mean((within_cv_results$arousal_scaled -
+                        within_cv_results$train_mean)^2,
+                       na.rm = TRUE))
+
+# Relative RMSE reduction
+within_kfold_relative_gain <- 1 - (within_kfold_rmse / null_rmse)
+
+# Proper CV R²
+within_kfold_r2 <- 1 -
+  sum((within_cv_results$arousal_scaled - within_cv_results$pred)^2, na.rm = TRUE) /
+  sum((within_cv_results$arousal_scaled - within_cv_results$train_mean)^2, na.rm = TRUE)
+
+# Print
+cat("Within-subject trial-level CV correlation: ", within_kfold_correlation, "\n")
+cat("Within-subject trial-level CV RMSE: ", within_kfold_rmse, "\n")
+cat("Within-subject trial-level CV R-squared: ", within_kfold_r2, "\n")
+cat("Within-subject trial-level CV relative gain: ", within_kfold_relative_gain, "\n")
+
+```
+
+### Study 2
+```{r}
+#within-subject split k-fold
+k <- 5
+
+# Add within-subject fold assignment
+fmri3_data_outprobe_folds <- fmri3_data_outprobe %>%
+  group_by(subject) %>%
+  mutate(fold = sample(rep(1:k, length.out = n()))) %>%
+  ungroup()
+
+# Run CV loop
+within_cv_results <- map_dfr(1:k, function(f) {
+  train_data <- fmri3_data_outprobe_folds %>% filter(fold != f)
+  test_data  <- fmri3_data_outprobe_folds %>% filter(fold == f)
+
+  model <- lmer(arousal_scaled ~ mean_pupil_nobc_scaled_out + (1|subject) + (1|cue_size),
+                data = train_data)
+
+  # Predictions
+  test_data$pred <- predict(model, newdata = test_data, allow.new.levels = TRUE)
+  
+  # Store training mean for proper CV R²
+  test_data$train_mean <- mean(train_data$arousal_scaled, na.rm = TRUE)
+
+  test_data
+})
+
+# --- METRICS ---
+
+# Correlation
+within_kfold_correlation <- cor(within_cv_results$arousal_scaled,
+                                within_cv_results$pred,
+                                use = "complete.obs")
+
+# RMSE
+within_kfold_rmse <- sqrt(mean((within_cv_results$arousal_scaled -
+                                within_cv_results$pred)^2,
+                               na.rm = TRUE))
+
+# Null RMSE based on training means
+null_rmse <- sqrt(mean((within_cv_results$arousal_scaled -
+                        within_cv_results$train_mean)^2,
+                       na.rm = TRUE))
+
+# Relative RMSE reduction
+within_kfold_relative_gain <- 1 - (within_kfold_rmse / null_rmse)
+
+# Proper CV R²
+within_kfold_r2 <- 1 -
+  sum((within_cv_results$arousal_scaled - within_cv_results$pred)^2, na.rm = TRUE) /
+  sum((within_cv_results$arousal_scaled - within_cv_results$train_mean)^2, na.rm = TRUE)
+
+# Print
+cat("Within-subject trial-level CV correlation: ", within_kfold_correlation, "\n")
+cat("Within-subject trial-level CV RMSE: ", within_kfold_rmse, "\n")
+cat("Within-subject trial-level CV R-squared: ", within_kfold_r2, "\n")
+cat("Within-subject trial-level CV relative gain: ", within_kfold_relative_gain, "\n")
+
+```
+
+# subject-level CV
+## ant
+```{r warning = F, message=F}
+set.seed(777)
+
+### LOSO validation
+loso_results <- map_df(unique(vrmid1_data_antprobe$Subject), function(test_subject) {
+  train_data <- vrmid1_data_antprobe %>% filter(Subject != test_subject)
+  test_data  <- vrmid1_data_antprobe %>% filter(Subject == test_subject)
+  
+  model <- lmer(arousal_scaled ~ mean_pupil_nobc_ant + (1|Subject) + (1|condition),
+                data = train_data)
+  
+  # Predictions
+  test_data$pred <- predict(model, newdata = test_data, allow.new.levels = TRUE)
+  
+  # Store training mean for proper R² calculation
+  test_data$train_mean <- mean(train_data$arousal_scaled, na.rm = TRUE)
+  
+  test_data
+})
+
+# --- METRICS ---
+
+# Correlation
+loso_correlation <- cor(loso_results$arousal_scaled,
+                        loso_results$pred,
+                        use = "complete.obs")
+
+# RMSE
+loso_rmse <- sqrt(mean((loso_results$arousal_scaled - loso_results$pred)^2,
+                       na.rm = TRUE))
+
+# Null RMSE based on training mean per fold
+null_rmse <- sqrt(mean((loso_results$arousal_scaled - loso_results$train_mean)^2,
+                       na.rm = TRUE))
+
+# Relative RMSE reduction
+loso_relative_gain <- 1 - (loso_rmse / null_rmse)
+
+# Proper LOSO R²
+loso_r2 <- 1 - sum((loso_results$arousal_scaled - loso_results$pred)^2, na.rm = TRUE) /
+              sum((loso_results$arousal_scaled - loso_results$train_mean)^2, na.rm = TRUE)
+
+# Print
+cat("LOSOCV Correlation: ", loso_correlation, "\n")
+cat("LOSOCV RMSE: ", loso_rmse, "\n")
+cat("Null RMSE: ", null_rmse, "\n")
+cat("Relative gain (RRMSE): ", loso_relative_gain, "\n")
+cat("LOSOCV R-squared: ", loso_r2, "\n")
+
+
+# ### k-fold cross validation
+# folds <- group_vfold_cv(vrmid1_data_antprobe, group = Subject, v = 5)
+# 
+# kfold_results <- map_df(folds$splits, function(split) {
+#   train_data <- analysis(split)
+#   test_data <- assessment(split)
+#   
+#   model <- lmer(arousal_scaled ~ mean_pupil_nobc_ant + (1|Subject) + (1|condition), data = train_data)
+#   
+#   test_data$pred <- predict(model, newdata = test_data, allow.new.levels = TRUE)
+#   
+#   test_data
+# })
+# 
+# # Compute overall metrics
+# kfold_correlation <- cor(kfold_results$arousal_scaled, kfold_results$pred,use="complete.obs")
+# kfold_rmse <- sqrt(mean((kfold_results$arousal_scaled - kfold_results$pred)^2,na.rm = T))
+# kfold_relative_gain <- 1 - (kfold_rmse / null_rmse)# Relative RMSE reduction
+# kfold_r2 <- cor(kfold_results$arousal_scaled, kfold_results$pred,use = "complete.obs")^2
+# 
+# cat("k-Fold CV Correlation: ", kfold_correlation, "\n")
+# cat("k-Fold CV RMSE: ", kfold_rmse, "\n")
+# cat("Null RMSE:", null_rmse, "\n")
+# cat("Relative gain (RRMSE):", kfold_relative_gain, "\n")
+# cat("R-squared:", kfold_r2, "\n")
+```
+
+
+
+```{r warning = F, message=F}
+set.seed(777)
+
+### LOSO validation
+loso_results <- map_df(unique(fmri3_data_antprobe$subject), function(test_subject) {
+  train_data <- fmri3_data_antprobe %>% filter(subject != test_subject)
+  test_data  <- fmri3_data_antprobe %>% filter(subject == test_subject)
+  
+  model <- lmer(arousal_scaled ~ mean_pupil_nobc_scaled_ant + (1|subject) + (1|cue_size),
+                data = train_data)
+  
+  # Predictions
+  test_data$pred <- predict(model, newdata = test_data, allow.new.levels = TRUE)
+  
+  # Store training mean for proper LOSO R² calculation
+  test_data$train_mean <- mean(train_data$arousal_scaled, na.rm = TRUE)
+  
+  test_data
+})
+
+# --- METRICS ---
+
+# Correlation
+loso_correlation <- cor(loso_results$arousal_scaled,
+                        loso_results$pred,
+                        use = "complete.obs")
+
+# RMSE
+loso_rmse <- sqrt(mean((loso_results$arousal_scaled - loso_results$pred)^2,
+                       na.rm = TRUE))
+
+# Null RMSE based on training mean per fold
+null_rmse <- sqrt(mean((loso_results$arousal_scaled - loso_results$train_mean)^2,
+                       na.rm = TRUE))
+
+# Relative RMSE reduction
+loso_relative_gain <- 1 - (loso_rmse / null_rmse)
+
+# Proper LOSO R²
+loso_r2 <- 1 - sum((loso_results$arousal_scaled - loso_results$pred)^2, na.rm = TRUE) /
+              sum((loso_results$arousal_scaled - loso_results$train_mean)^2, na.rm = TRUE)
+
+# Print
+cat("LOSOCV Correlation: ", loso_correlation, "\n")
+cat("LOSOCV RMSE: ", loso_rmse, "\n")
+cat("Null RMSE: ", null_rmse, "\n")
+cat("Relative gain (RRMSE): ", loso_relative_gain, "\n")
+cat("LOSOCV R-squared: ", loso_r2, "\n")
+
+
+# ### k-fold cross validation
+# folds <- group_vfold_cv(fmri3_data_antprobe, group = subject, v = 5)
+# 
+# kfold_results <- map_df(folds$splits, function(split) {
+#   train_data <- analysis(split)
+#   test_data <- assessment(split)
+#   
+#   model <- lmer(arousal_scaled ~ mean_pupil_nobc_scaled_ant + (1|subject) + (1|cue_size), data = train_data)
+#   
+#   test_data$pred <- predict(model, newdata = test_data, allow.new.levels = TRUE)
+#   
+#   test_data
+# })
+# 
+# # Compute overall metrics
+# kfold_correlation <- cor(kfold_results$arousal_scaled, kfold_results$pred,use="complete.obs")
+# kfold_rmse <- sqrt(mean((kfold_results$arousal_scaled - kfold_results$pred)^2,na.rm = T))
+# kfold_relative_gain <- 1 - (kfold_rmse / null_rmse)# Relative RMSE reduction
+# kfold_r2 <- cor(kfold_results$arousal_scaled, kfold_results$pred,use = "complete.obs")^2
+# 
+# cat("k-Fold CV Correlation: ", kfold_correlation, "\n")
+# cat("k-Fold CV RMSE: ", kfold_rmse, "\n")
+# cat("Null RMSE:", null_rmse, "\n")
+# cat("Relative gain (RRMSE):", kfold_relative_gain, "\n")
+# cat("R-squared:", kfold_r2, "\n")
+```
+
+## outcome
+
+```{r warning = F, message=F}
+set.seed(777)
+
+### LOSO validation
+loso_results <- map_df(unique(vrmid1_data_outprobe$Subject), function(test_subject) {
+  train_data <- vrmid1_data_outprobe %>% filter(Subject != test_subject)
+  test_data  <- vrmid1_data_outprobe %>% filter(Subject == test_subject)
+  
+  model <- lmer(arousal_scaled ~ mean_pupil_nobc_out + (1|Subject) + (1|condition),
+                data = train_data)
+  
+  # Predictions
+  test_data$pred <- predict(model, newdata = test_data, allow.new.levels = TRUE)
+  
+  # Store training mean for proper LOSO R² calculation
+  test_data$train_mean <- mean(train_data$arousal_scaled, na.rm = TRUE)
+  
+  test_data
+})
+
+# --- METRICS ---
+
+# Correlation
+loso_correlation <- cor(loso_results$arousal_scaled,
+                        loso_results$pred,
+                        use = "complete.obs")
+
+# RMSE
+loso_rmse <- sqrt(mean((loso_results$arousal_scaled - loso_results$pred)^2,
+                       na.rm = TRUE))
+
+# Null RMSE based on training mean per fold
+null_rmse <- sqrt(mean((loso_results$arousal_scaled - loso_results$train_mean)^2,
+                       na.rm = TRUE))
+
+# Relative RMSE reduction
+loso_relative_gain <- 1 - (loso_rmse / null_rmse)
+
+# Proper LOSO R²
+loso_r2 <- 1 - sum((loso_results$arousal_scaled - loso_results$pred)^2, na.rm = TRUE) /
+              sum((loso_results$arousal_scaled - loso_results$train_mean)^2, na.rm = TRUE)
+
+# Print
+cat("LOSOCV Correlation: ", loso_correlation, "\n")
+cat("LOSOCV RMSE: ", loso_rmse, "\n")
+cat("Null RMSE: ", null_rmse, "\n")
+cat("Relative gain (RRMSE): ", loso_relative_gain, "\n")
+cat("LOSOCV R-squared: ", loso_r2, "\n")
+
+# 
+# ### k-fold cross validation
+# folds <- group_vfold_cv(vrmid1_data_outprobe, group = Subject, v = 5)
+# 
+# kfold_results <- map_df(folds$splits, function(split) {
+#   train_data <- analysis(split)
+#   test_data <- assessment(split)
+#   
+#   model <- lmer(arousal_scaled ~ mean_pupil_nobc_out + (1|Subject) + (1|condition), data = train_data)
+#   
+#   test_data$pred <- predict(model, newdata = test_data, allow.new.levels = TRUE)
+#   
+#   test_data
+# })
+# 
+# # Compute overall metrics
+# kfold_correlation <- cor(kfold_results$arousal_scaled, kfold_results$pred,use="complete.obs")
+# kfold_rmse <- sqrt(mean((kfold_results$arousal_scaled - kfold_results$pred)^2,na.rm = T))
+# kfold_relative_gain <- 1 - (kfold_rmse / null_rmse)# Relative RMSE reduction
+# kfold_r2 <- cor(kfold_results$arousal_scaled, kfold_results$pred,use = "complete.obs")^2
+# 
+# cat("k-Fold CV Correlation: ", kfold_correlation, "\n")
+# cat("k-Fold CV RMSE: ", kfold_rmse, "\n")
+# cat("Null RMSE:", null_rmse, "\n")
+# cat("Relative gain (RRMSE):", kfold_relative_gain, "\n")
+# cat("R-squared:", kfold_r2, "\n")
+```
+
+
+```{r warning = F, message=F}
+set.seed(777)
+
+### LOSO validation
+loso_results <- map_df(unique(fmri3_data_outprobe$subject), function(test_subject) {
+  train_data <- fmri3_data_outprobe %>% filter(subject != test_subject)
+  test_data  <- fmri3_data_outprobe %>% filter(subject == test_subject)
+  
+  model <- lmer(arousal_scaled ~ mean_pupil_nobc_scaled_out + (1|subject) + (1|cue_size),
+                data = train_data)
+  
+  # Predictions
+  test_data$pred <- predict(model, newdata = test_data, allow.new.levels = TRUE)
+  
+  # Store training mean for proper LOSO R² calculation
+  test_data$train_mean <- mean(train_data$arousal_scaled, na.rm = TRUE)
+  
+  test_data
+})
+
+# --- METRICS ---
+
+# Correlation
+loso_correlation <- cor(loso_results$arousal_scaled,
+                        loso_results$pred,
+                        use = "complete.obs")
+
+# RMSE
+loso_rmse <- sqrt(mean((loso_results$arousal_scaled - loso_results$pred)^2,
+                       na.rm = TRUE))
+
+# Null RMSE based on training mean per fold
+null_rmse <- sqrt(mean((loso_results$arousal_scaled - loso_results$train_mean)^2,
+                       na.rm = TRUE))
+
+# Relative RMSE reduction
+loso_relative_gain <- 1 - (loso_rmse / null_rmse)
+
+# Proper LOSO R²
+loso_r2 <- 1 - sum((loso_results$arousal_scaled - loso_results$pred)^2, na.rm = TRUE) /
+              sum((loso_results$arousal_scaled - loso_results$train_mean)^2, na.rm = TRUE)
+
+# Print
+cat("LOSOCV Correlation: ", loso_correlation, "\n")
+cat("LOSOCV RMSE: ", loso_rmse, "\n")
+cat("Null RMSE: ", null_rmse, "\n")
+cat("Relative gain (RRMSE): ", loso_relative_gain, "\n")
+cat("LOSOCV R-squared: ", loso_r2, "\n")
+
+# 
+# ### k-fold cross validation
+# folds <- group_vfold_cv(fmri3_data_outprobe, group = subject, v = 5)
+# 
+# kfold_results <- map_df(folds$splits, function(split) {
+#   train_data <- analysis(split)
+#   test_data <- assessment(split)
+#   
+#   model <- lmer(arousal_scaled ~ mean_pupil_nobc_scaled_out + (1|subject) + (1|cue_size), data = train_data)
+#   
+#   test_data$pred <- predict(model, newdata = test_data, allow.new.levels = TRUE)
+#   
+#   test_data
+# })
+# 
+# # Compute overall metrics
+# kfold_correlation <- cor(kfold_results$arousal_scaled, kfold_results$pred,use="complete.obs")
+# kfold_rmse <- sqrt(mean((kfold_results$arousal_scaled - kfold_results$pred)^2,na.rm = T))
+# kfold_relative_gain <- 1 - (kfold_rmse / null_rmse)# Relative RMSE reduction
+# kfold_r2 <- cor(kfold_results$arousal_scaled, kfold_results$pred,use = "complete.obs")^2
+# 
+# cat("k-Fold CV Correlation: ", kfold_correlation, "\n")
+# cat("k-Fold CV RMSE: ", kfold_rmse, "\n")
+# cat("Null RMSE:", null_rmse, "\n")
+# cat("Relative gain (RRMSE):", kfold_relative_gain, "\n")
+# cat("R-squared:", kfold_r2, "\n")
+```
+
+# within-study, probe-level CV
+
+```{r}
+cross_probe_cv <- function(train_df, test_df, train_var) {
+  
+  # Build formula
+  form <- as.formula(paste0("arousal_scaled ~ ", train_var, 
+                            " + (1|Subject) + (1|condition)"))
+  
+  # Fit model
+  model <- lmer(form, data=train_df)
+  
+  # Predict
+  test_df$pred <- predict(model, newdata=test_df, allow.new.levels=TRUE)
+  
+  # Metrics
+  cor_val  <- cor(test_df$arousal_scaled, test_df$pred, use="complete")
+  rmse_val <- sqrt(mean((test_df$arousal_scaled - test_df$pred)^2, na.rm=TRUE))
+  r2_val   <- cor_val^2
+  
+  list(
+    correlation = cor_val,
+    rmse = rmse_val,
+    r2 = r2_val
+  )
+}
+
+# Run cross-probe tests
+res_vrmid1_ant2out <- cross_probe_cv(vrmid1_data_antprobe, vrmid1_data_outprobe, "mean_pupil_nobc_ant")
+res_vrmid1_out2ant <- cross_probe_cv(vrmid1_data_outprobe, vrmid1_data_antprobe, "mean_pupil_nobc_out")
+
+res_vrmid1_ant2out
+res_vrmid1_out2ant
+```
+
+
+```{r}
+cross_probe_cv <- function(train_df, test_df, train_var) {
+  
+  # Build formula
+  form <- as.formula(paste0("arousal_scaled ~ ", train_var, 
+                            " + (1|subject) + (1|cue_size)"))
+  
+  # Fit model
+  model <- lmer(form, data=train_df)
+  
+  # Predict
+  test_df$pred <- predict(model, newdata=test_df, allow.new.levels=TRUE)
+  
+  # Metrics
+  cor_val  <- cor(test_df$arousal_scaled, test_df$pred, use="complete")
+  rmse_val <- sqrt(mean((test_df$arousal_scaled - test_df$pred)^2, na.rm=TRUE))
+  r2_val   <- cor_val^2
+  
+  list(
+    correlation = cor_val,
+    rmse = rmse_val,
+    r2 = r2_val
+  )
+}
+
+# Run cross-probe tests
+res_fmri3_ant2out <- cross_probe_cv(fmri3_data_antprobe, fmri3_data_outprobe, "mean_pupil_nobc_scaled_ant")
+res_fmri3_out2ant <- cross_probe_cv(fmri3_data_outprobe, fmri3_data_antprobe, "mean_pupil_nobc_scaled_out")
+
+res_fmri3_ant2out
+res_fmri3_out2ant
+```
+
+# dataset-level
+## ant
+```{r}
+# Split the data by study
+studies <- unique(data_antprobe$study)
+
+# Initialize an empty data frame to store results
+results_ant <- data.frame(train = character(),
+                          test = character(),
+                          variance_explained = numeric(),
+                          rmse = numeric(),
+                          pearson_r = numeric(),
+                          stringsAsFactors = FALSE)
+
+# Loop over each study as training set
+for (train_study in studies) {
+  # Filter training data
+  train_data <- filter(data_antprobe, study == train_study,
+                       condition %in% c("small","large")) %>% 
+    mutate(Subject=as.factor(Subject))
+  
+  # Fit the model
+  model <- lmer(arousal_scaled ~ mean_pupil_nobc_ant + (1|Subject) + (1|condition),
+                data = train_data, REML = FALSE)
+  
+  # Loop over each study as testing set
+  for (test_study in studies) {
+    test_data <- filter(data_antprobe, study == test_study,
+                        condition %in% c("small","large"))
+    test_data$Subject <- factor(test_data$Subject, levels = levels(train_data$Subject))
+    
+    # Predict using fixed effects only
+    preds <- predict(model, newdata = test_data, re.form = ~(1|condition), allow.new.levels = TRUE)
+    
+    # Pearson correlation (accuracy)
+    r_val <- cor(preds, test_data$arousal_scaled, use = "complete.obs")
+    
+    # Variance explained
+    r_squared <- r_val^2
+    
+    # RMSE
+    rmse_val <- sqrt(mean((preds - test_data$arousal_scaled)^2, na.rm = TRUE))
+    
+    # Store results
+    results_ant <- rbind(results_ant, 
+                         data.frame(train = train_study,
+                                    test = test_study,
+                                    variance_explained = r_squared,
+                                    rmse = rmse_val,
+                                    pearson_r = r_val))
+  }
+}
+
+study_order <- c("VRStudy", "FMRIStudy")
+heatmap_long <- results_ant
+
+
+# Convert train and test to factors with this order
+heatmap_long$train <- factor(heatmap_long$train, levels = study_order)
+heatmap_long$test  <- factor(heatmap_long$test, levels = study_order)
+
+p1<-ggplot(heatmap_long, aes(x = train, y = test, fill = variance_explained)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = sprintf("%.2f", variance_explained*100)), color = "black", size = 4) +
+  scale_fill_gradient2(low = "steelblue", high = "indianred", mid = "grey", limits = c(0,0.2),midpoint=0.1, name = "R²") +
+  labs(title = "Cross-study generalization",
+       subtitle = "anticipation probe",
+       x = "Training Study", y = "Testing Study") +
+  theme_minimal()+ 
+  theme(axis.text.x = element_text(angle = 45,hjust=1))
+```
+## out probe
+
+```{r}
+# Initialize an empty data frame to store results
+# Initialize an empty data frame to store results
+results_out <- data.frame(train = character(),
+                          test = character(),
+                          variance_explained = numeric(),
+                          rmse = numeric(),
+                          pearson_r = numeric(),
+                          stringsAsFactors = FALSE)
+
+# Loop over each study as training set
+for (train_study in studies) {
+  # Filter training data
+  train_data <- filter(data_outprobe, study == train_study,
+                       condition %in% c("small","large"))
+  
+  # Fit the model
+  model <- lmer(arousal_scaled ~ mean_pupil_nobc_out + (1|Subject) + (1|condition), 
+                data = train_data)
+  
+  # Loop over each testing set
+  for (test_study in studies) {
+    test_data <- filter(data_outprobe, study == test_study,
+                        condition %in% c("small","large"))
+    
+    # Predict using fixed effects only
+    preds <- predict(model, newdata = test_data,
+                     re.form = ~(1|condition), allow.new.levels = TRUE)
+    
+    # Pearson's r
+    r_val <- cor(preds, test_data$arousal_scaled, 
+                 use = "pairwise.complete.obs")
+    
+    # Variance explained
+    r_squared <- r_val^2
+    
+    # RMSE
+    rmse_val <- sqrt(mean((preds - test_data$arousal_scaled)^2, na.rm = TRUE))
+    
+    # Store results
+    results_out <- rbind(results_out,
+                         data.frame(train = train_study,
+                                    test = test_study,
+                                    variance_explained = r_squared,
+                                    rmse = rmse_val,
+                                    pearson_r = r_val))
+  }
+}
+
+
+heatmap_long <- results_out
+
+# Convert train and test to factors with this order
+heatmap_long$train <- factor(heatmap_long$train, levels = study_order)
+heatmap_long$test  <- factor(heatmap_long$test, levels = study_order)
+
+p2<-ggplot(heatmap_long, aes(x = train, y = test, fill = variance_explained)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = sprintf("%.2f", variance_explained)), color = "black", size = 4) +
+  scale_fill_gradient2(low = "steelblue", high = "indianred", mid = "grey", limits = c(0,0.2),midpoint=0.1, name = "R²") +
+  labs(title = "Cross-study generalization",
+       subtitle = "outcome probe",
+       x = "Training Study", y = "Testing Study") +
+  theme_minimal()+ 
+  theme(axis.text.x = element_text(angle = 45,hjust=1))
+
+p1+p2
+
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/cross_study_validation.png"),dpi = 300, height = 3.3, width = 7)
+```
+
+```{r}
+results_ant
+results_out
+```
+

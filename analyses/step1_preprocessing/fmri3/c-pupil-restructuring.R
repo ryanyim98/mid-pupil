@@ -56,10 +56,6 @@ sr = 200
 # data wo baseline correction
 data_pupil <- read_csv("../../data/fmri3/derivatives/pupillometry.csv")
 
-data_pupil <- data_pupil %>% 
-  group_by(subject) %>% 
-  mutate(pupilDiameter_scaled = as.numeric(scale(pupilDiameter)))
-
 subjs_temp <- unique(data_pupil$subject)
 subjs_temp
 data_pupil$block <- NA
@@ -79,6 +75,11 @@ for (sub in subjs_temp){
 }
 
 unique(data_pupil$sub_id)
+unique(data_pupil$subject)
+
+data_pupil <- data_pupil %>% 
+  group_by(subject) %>% 
+  mutate(pupilDiameter_scaled = as.numeric(scale(pupilDiameter)))
 
 data_pupil <- data_pupil %>% 
   filter(!sub_id %in% bad_participants)
