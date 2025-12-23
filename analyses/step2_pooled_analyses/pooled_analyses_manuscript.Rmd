@@ -369,7 +369,7 @@ ggplot(vrmid1_beh_summary2,aes(x = trial_type, y = rt, color = trial_type))+
   facet_wrap(~probe)+
   labs(y = "reaction time (sec)",
        x = "cue value",
-       subtitle = "VR study 1")+
+       subtitle = "VR Study")+
 ggplot(fmri3_beh_summary2,aes(x = cue_value, y = rt, color = cue_value))+
   geom_jitter(width = 0.1,alpha = 0.2, size = 0.5)+
   stat_summary(aes(fill = cue_value),shape = 21, color = "black")+
@@ -392,7 +392,7 @@ ggplot(fmri3_beh_summary2,aes(x = cue_value, y = rt, color = cue_value))+
 #        subtitle = "FMRI validation sample")+
   plot_layout(nrow = 2)
 
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/figx_beh.png"),dpi = 300, height = 6, width = 5)
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/figx_beh.png"),dpi = 300, height = 5, width = 6)
 ```
 ## hit rate over time
 ```{r}
@@ -411,7 +411,7 @@ ggplot(vrmid1_beh_data %>%
   geom_hline(yintercept = 2/3, color = "red", linetype = "dashed")+
   labs(y = "hit rate",
        x = "trial id",
-       subtitle = "VR study 1")+
+       subtitle = "VR study")+
 
 ggplot(fmri3_beh_data %>% 
   group_by(subject, cue_value) %>%
@@ -446,9 +446,6 @@ ggplot(fmri3_beh_data %>%
 #   labs(y = "hit rate",
 #        x = "trial id",
 #        subtitle = "Validation sample")+
-plot_layout(nrow = 2)
-
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/figxx_beh.png"),dpi = 300, height = 6, width = 5)
 
 ggplot(vrmid1_beh_data %>% 
   group_by(Subject) %>%
@@ -464,7 +461,7 @@ ggplot(vrmid1_beh_data %>%
   geom_hline(yintercept = 2/3, color = "red", linetype = "dashed")+
   labs(y = "hit rate",
        x = "trial id",
-       subtitle = "VR study 1")+
+       subtitle = "VR study")+
 
 ggplot(fmri3_beh_data %>% 
   group_by(subject) %>%
@@ -492,9 +489,10 @@ ggplot(fmri3_beh_data %>%
 #   labs(y = "hit rate",
 #        x = "trial id",
 #        subtitle = "FMRI validation sample")+
-plot_layout(nrow = 1)
+plot_layout(nrow = 2, heights = c(2,1))+
+  plot_annotation(tag_levels = "A")
 
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/figxxx_beh.png"),dpi = 300, height = 3, width = 6)
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/figxxx_beh.png"),dpi = 300, height = 6, width = 8)
 ```
 
 ## are people faster in rating valence or arousal? positive or negative?
@@ -964,22 +962,22 @@ l1d<-lmer(valence_scaled ~  mean_pupil_nobc_out + (1|Subject) + (1|condition),vr
 p1a<-plot_model(l1a, type = "pred", terms = "mean_pupil_nobc_ant",
            show.data = T, dot.size = 0.5, color = 'orange')+
   labs(y = "z-scored arousal rating", x = "z-scored phasic pupil size \n(non baseline-corrected)",
-       title = "VR study 1",subtitle = "anticipation probe")
+       title = "VR study",subtitle = "anticipation probe")
 
 p1b<-plot_model(l1b, type = "pred", terms = "mean_pupil_nobc_ant",
            show.data = T, dot.size = 0.5, color = 'orange')+
   labs(y = "z-scored valence rating", x = "z-scored phasic pupil size \n(non baseline-corrected)",
-       title = "VR study 1",subtitle = "anticipation probe")
+       title = "VR Study",subtitle = "anticipation probe")
 
 p1c<-plot_model(l1c, type = "pred", terms = "mean_pupil_nobc_out",
            show.data = T, dot.size = 0.5, color = 'orange')+
   labs(y = "z-scored arousal rating", x = "z-scored phasic pupil size \n(non baseline-corrected)",
-       title = "VR study 1",subtitle = "outcome probe")
+       title = "VR Study",subtitle = "outcome probe")
 
 p1d<-plot_model(l1d, type = "pred", terms = "mean_pupil_nobc_out",
            show.data = T, dot.size = 0.5, color = 'orange')+
   labs(y = "z-scored valence rating", x = "z-scored phasic pupil size \n(non baseline-corrected)",
-       title = "VR study 1",subtitle = "outcome probe")
+       title = "VR Study",subtitle = "outcome probe")
 
 l3a<-lmer(arousal_scaled ~  mean_pupil_nobc_scaled_ant + (1|subject) + (1|cue_size),fmri3_data_antprobe)
 l3b<-lmer(valence_scaled ~  mean_pupil_nobc_scaled_ant + (1|subject) + (1|cue_size),fmri3_data_antprobe)
@@ -1310,8 +1308,8 @@ pt11 <- ggplot(data = df_lines) +
   stat_summary(data = df_lines2,aes(x = trial, y = pred, group=1),
                size =1, geom = "line")+
   labs(y = "z-scored pupil",
-       title = "VR study",
-       subtitle = "Tonic pupil") +
+       subtitle = "VR study",
+       title = "Tonic pupil") +
   annotate("text", x = 48, y = 1, label = mytext)+
   scale_x_continuous(breaks = c(1,24,48,72,96))
 
@@ -1359,8 +1357,8 @@ pt12 <- ggplot(data = df_lines) +
   stat_summary(data = df_lines2,aes(x = trial, y = pred, group=1),
                size =1, geom = "line")+
   labs(y = "z-scored pupil",
-       title = "VR study",
-       subtitle = "Corrected phasic pupil") +
+       subtitle = "VR study",
+       title = "Corrected phasic pupil") +
   annotate("text", x = 48, y = 1, label = mytext)+
   scale_x_continuous(breaks = c(1,24,48,72,96))
 
@@ -1408,7 +1406,7 @@ pt13 <- ggplot(data = df_lines) +
   stat_summary(data = df_lines2,aes(x = trial, y = pred, group=1),
                size =1, geom = "line")+
   labs(y = "z-scored pupil",
-       title = "VR study 1",
+       title = "VR Study",
        subtitle = "Mean reported arousal") +
   annotate("text", x = 48, y = 0.5, label = mytext)+
   scale_x_continuous(breaks = c(1,24,48,72,96))
@@ -1457,7 +1455,7 @@ pt14 <- ggplot(data = df_lines) +
   stat_summary(data = df_lines2,aes(x = trial, y = pred, group=1),
                size =1, geom = "line")+
   labs(y = "z-scored pupil",
-       title = "VR study 1",
+       title = "VR Study",
        subtitle = "Mean reported valence") +
   annotate("text", x = 48, y = 0.5, label = mytext)+
   scale_x_continuous(breaks = c(1,24,48,72,96))
@@ -1476,7 +1474,7 @@ pt15 <- ggplot(vrmid1_pupil_data_phasicarousal)+
                size = 0.2)+
   labs(y = "arousal ±$5-$0",
        subtitle = "arousal ±$5 minus ±$0",
-       title = "VR Study 1")+
+       title = "VR Study")+
     annotate("text",x = 1.5, y = 1,label = mytext)+
   theme(plot.subtitle = element_text(size = 10))
 
@@ -1559,8 +1557,9 @@ pt31 <- ggplot(data = df_lines) +
   stat_summary(data = df_lines2,aes(x = trial, y = pred, group=1),
                size =1, geom = "line")+
   labs(y = "z-scored pupil",
-       title = "FMRI Study",
-       subtitle = "Tonic pupil") +
+       subtitle = "FMRI Study",
+       # subtitle = "Tonic pupil"
+       ) +
   annotate("text", x = 48, y = 1, label = mytext)+
   scale_x_continuous(breaks = c(1,24,48,72,96))
 
@@ -1609,8 +1608,9 @@ pt32 <- ggplot(data = df_lines) +
   stat_summary(data = df_lines2,aes(x = trial, y = pred, group=1),
                size =1, geom = "line")+
   labs(y = "z-scored pupil",
-       title = "FMRI Study",
-       subtitle = "Corrected phasic pupil") +
+       subtitle = "FMRI Study",
+       # subtitle = "Corrected phasic pupil"
+       ) +
   annotate("text", x = 48, y = 1, label = mytext)+
   scale_x_continuous(breaks = c(1,24,48,72,96))
 
@@ -1782,7 +1782,7 @@ p1 <- ggplot(dftemp1 %>% filter(measure != "uncorrected phasic"), aes(x = lag, y
                 width = 0.1) +
   labs(x = "arousal rating __ trials ago",
        y = "std. beta",
-       title = "VR Study 1",
+       title = "VR Study",
        color = NULL) +
   theme(legend.position = "top") +
   scale_color_manual(values = c("red4", "steelblue")) +
@@ -1927,7 +1927,7 @@ p1 <- ggplot(dftemp1 %>% filter(measure != "uncorrected phasic"), aes(x = lag, y
                 width = 0.1) +
   labs(x = "arousal rating __ trials ago",
        y = "std. beta",
-       title = "VR Study 1",
+       title = "VR Study",
        color = NULL) +
   theme(legend.position = "top") +
   scale_color_manual(values = c("red4", "steelblue")) +
@@ -2076,7 +2076,7 @@ p1 <- ggplot(dftemp1 %>% filter(measure != "uncorrected phasic"), aes(x = lag, y
                 width = 0.1) +
   labs(x = "Rolling window size",
        y = "std. beta",
-       title = "VR Study 1",
+       title = "VR Study",
        color = NULL) +
   theme(legend.position = "top") +
   scale_color_manual(values = c("red4", "steelblue")) +
@@ -2850,7 +2850,7 @@ ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/ar.png"),dpi = 300, he
 ```
 
 ```{r}
-(pt11|pt31|pt12|pt32)/
+(pt12|pt32|pt11|pt31)/
 (par1+par3)
   # plot_annotation(tag_levels = "a")
 
@@ -2862,6 +2862,7 @@ fig5 <- image_annotate(fig5, "B", size = 55, location = "+1600+00", color = "bla
 fig5 <- image_annotate(fig5, "C", size = 55, location = "+250+950", color = "black", gravity = "northwest")
 # fig5 <- image_annotate(fig5, "D", size = 55, location = "+1600+950", color = "black", gravity = "northwest")
 image_write(fig5, "~/Desktop/VRMID-analysis/mid-pupil/figures/fig5_beh.png")
+image_write(fig5, "~/Desktop/VRMID-analysis/mid-pupil/figures/fig5_beh.jpeg")
 ```
 
 ```{r}
@@ -2884,10 +2885,12 @@ pp<-ggplot(rt_reg_coef %>% filter(predictor == "subjective arousal"), aes(x = st
        title = "rt ~ arousal")
 
 pt13+pt33+pt15+pt35+pp+
-  plot_layout(nrow = 1)
+  plot_layout(nrow = 3)+
+  plot_annotation(title = "Self-reported arousal",
+                  tag_levels = "A")
 
 
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig5_beh2.png"),dpi = 300, height = 3, width = 12)
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig5_beh2.png"),dpi = 300, height = 9, width = 5)
 ```
 
 
@@ -3685,6 +3688,7 @@ vrmid1_regression_coefs_ant_nobc <- vrmid1_regression_coefs_ant_nobc%>%
   mutate(p_val_fdr = p.adjust(p_val, method = "fdr")) #applies the Benjamini–Hochberg correction
 
 write.csv(vrmid1_regression_coefs_ant_nobc, "../../data/vrmid1/derivatives/vrmid1_regression_coefs_ant_nobc.csv")
+vrmid1_regression_coefs_ant_nobc<-read_csv("../../data/vrmid1/derivatives/vrmid1_regression_coefs_ant_nobc.csv")
 
 vrmid1_regression_coefs_out_nobc <- {}
 
@@ -3711,6 +3715,7 @@ vrmid1_regression_coefs_out_nobc <- vrmid1_regression_coefs_out_nobc%>%
   mutate(p_val_fdr = p.adjust(p_val, method = "fdr")) #applies the Benjamini–Hochberg correction
 
 write.csv(vrmid1_regression_coefs_out_nobc,  "../../data/vrmid1/derivatives/vrmid1_regression_coefs_out_nobc.csv")
+vrmid1_regression_coefs_out_nobc<-read_csv("../../data/vrmid1/derivatives/vrmid1_regression_coefs_out_nobc.csv")
 
 fmri3_regression_coefs_ant_nobc <- {}
 
@@ -3737,6 +3742,7 @@ fmri3_regression_coefs_ant_nobc <- fmri3_regression_coefs_ant_nobc%>%
   mutate(p_val_fdr = p.adjust(p_val, method = "fdr")) #applies the Benjamini–Hochberg correction
 
 write.csv(fmri3_regression_coefs_ant_nobc, "../../data/fmri3//derivatives/fmri3_regression_coefs_ant_nobc.csv")
+fmri3_regression_coefs_ant_nobc<-read_csv("../../data/fmri3/derivatives/fmri3_regression_coefs_ant_nobc.csv")
 
 fmri3_regression_coefs_out_nobc <- {}
 
@@ -3763,6 +3769,7 @@ fmri3_regression_coefs_out_nobc <- fmri3_regression_coefs_out_nobc%>%
   mutate(p_val_fdr = p.adjust(p_val, method = "fdr")) #applies the Benjamini–Hochberg correction
 
 write.csv(fmri3_regression_coefs_out_nobc,  "../../data/fmri3/derivatives/fmri3_regression_coefs_out_nobc.csv")
+fmri3_regression_coefs_out_nobc <- read_csv("../../data/fmri3/derivatives/fmri3_regression_coefs_out_nobc.csv")
 ```
 ## make clusters
 ```{r}
@@ -3903,7 +3910,7 @@ p1a<-ggplot(vrmid1_regression_coefs_ant_nobc, aes(x = sample_point,y = Estimate)
   scale_x_continuous(breaks = seq(0,120*20,5*120), labels =  seq(0,20,5))+
   labs(x = "time (sec)",
        y =  "Standardized beta",
-       title = "VR study 1",
+       title = "VR study",
        subtitle = "anticipation probe",
        color = "")+
   scale_color_viridis_c(limits=axis_range)+
@@ -3938,7 +3945,7 @@ p1b<-ggplot(vrmid1_regression_coefs_out_nobc, aes(x = sample_point,y = Estimate)
   scale_x_continuous(breaks = seq(0,120*20,5*120), label = seq(0,20,5))+
   labs(x = "time (sec)",
        y =  "",
-       title = "VR study 1",
+       title = "VR study",
        subtitle = "outcome probe")+
   scale_color_viridis_c(limits=axis_range)+
   theme_blank()+

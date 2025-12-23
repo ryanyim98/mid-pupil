@@ -2075,7 +2075,7 @@ d2<-my_array_s1_ %>%
 summary(l1<-lmer(scale(glmPupil) ~ cue_value + (1|split),
                    my_array_s1_ %>% 
                    filter(tr_in_trial == 5, threshold == 0.5)))
-
+anova(l1)
 # Get effect size 
 r2   <- r.squaredGLMM(l1)[1]
 
@@ -2128,29 +2128,27 @@ anova(l2)
 ```{r warning=F}
 df_performance <- NULL
 i<-1
-for (s in splits){
-  for (t in thresh){
-    for (tr in 1:14){
 
+for (t in thresh){
+    for (tr in 1:14){
       dat <- my_array_s1_ %>% 
         filter(tr_in_trial == tr,
-               threshold == t,
-               split == s)
+               threshold == t)
 
-      l1 <- summary(glm(
-        hit_num ~ scale(glmPupil),
+      l1 <- summary(glmer(
+        hit_num ~ scale(glmPupil) + (1|split),
         family = binomial,
         dat %>%
           filter(probe == "anticipation probe") %>%
-          mutate(hit_num = as.numeric(hit == 1))
+          mutate(hit_num = as.numeric(hit == "Hit"))
       ))
 
-      l2 <- summary(glm(
-        hit_num ~ scale(glmPupil),
+      l2 <- summary(glmer(
+        hit_num ~ scale(glmPupil) + (1|split),
         family = binomial,
         dat %>%
           filter(probe == "outcome probe") %>%
-          mutate(hit_num = as.numeric(hit == 1))
+          mutate(hit_num = as.numeric(hit == "Hit"))
       ))
 
       df_performance[[i]] <- data.frame(
@@ -2159,7 +2157,6 @@ for (s in splits){
         z        = l1$coefficients[2, 3],
         p        = l1$coefficients[2, 4],
         probe    = "anticipation",
-        split    = s,
         threshold= t,
         tr       = tr
       )
@@ -2170,20 +2167,19 @@ for (s in splits){
         z        = l2$coefficients[2, 3],
         p        = l2$coefficients[2, 4],
         probe    = "outcome",
-        split    = s,
         threshold= t,
         tr       = tr
       )
 
       i <- i + 2
     }
-  }
 }
+
 
 df_performance <- dplyr::bind_rows(df_performance)
 
 ggplot(df_performance, aes(x = tr, y = Estimate))+
-  geom_line(aes(color= probe,linetype = split))+
+  geom_line(aes(color= probe))+
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey",
              size = 1)+
   facet_wrap(~threshold)+
@@ -2192,14 +2188,17 @@ ggplot(df_performance, aes(x = tr, y = Estimate))+
   labs(title = "FMRI study")+
   scale_x_continuous(breaks = 1:14)
 
-ggplot(df_performance %>% filter(tr == 5), aes(x = threshold, y = Estimate))+
-  geom_line(aes(color= probe,linetype = split))+
+p_thresh_hit<-ggplot(df_performance %>% filter(tr == 5), aes(x = threshold, y = Estimate))+
+  geom_point(aes(color= probe))+
+  geom_errorbar(aes(color= probe, x = threshold, ymin = Estimate - se,
+                    ymax = Estimate + se), width = 0.1)+
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey",
              size = 1)+
     scale_color_manual(values = c("purple","skyblue"))+
   scale_fill_manual(values = c("purple","skyblue"))+
-  labs(title = "FMRI study")+
-  scale_x_continuous(breaks = 1:14)
+  labs(title = "p(hit)")+
+  scale_x_continuous(breaks = 1:14)+
+  annotate("rect",xmin = 0.25,xmax = 0.75, ymin = -0.05,ymax = 0.4,alpha = 0.1)
 
 summary(l1<-glmer(hit_num ~ scale(glmPupil) + (1|split),family = binomial,
                     my_array_s1_ %>% 
@@ -2218,24 +2217,62 @@ p3m2p <- plot_model(l1, type = "pred", terms = "glmPupil[all]",color = "darkgrey
     hjust = 1.1, vjust = -0.5, size = 4)
 ```
 
+### predictive performance
+```{r}
+# Subset the data exactly as used in your model
+data_used <- my_array_s1_ %>%
+  filter(tr_in_trial == 5, threshold == 0.5) %>%
+  mutate(hit_num = as.factor(hit == "Hit"))
+
+# Keep only rows with no missing values in the predictors or outcome
+data_used <- data_used[complete.cases(data_used[, c("glmPupil", "hit_num")]), ]
+
+# Predicted probabilities
+pred_probs <- predict(l1, newdata = data_used, type = "response")
+
+# Convert probabilities to predicted classes
+pred_class <- ifelse(pred_probs > 0.5, 1, 0)
+
+# Actual classes
+actual_class <- as.numeric(data_used$hit_num)-1
+
+# Accuracy
+accuracy <- mean(pred_class == actual_class,na.rm=T)
+accuracy
+
+# Confusion matrix
+table(Predicted = pred_class, Actual = actual_class)
+
+# Optional: AUC
+library(pROC)
+roc_obj <- roc(actual_class, pred_probs)
+auc(roc_obj)
+
+# Bootstrap test for AUC > 0.5
+set.seed(777)
+ci <- ci.auc(roc_obj, method = "bootstrap", boot.n = 2000) # 95% CI
+ci  # If the lower bound > 0.5, AUC is significantly above chance
+
+```
+
+
 ```{r warning=F}
 df_performance <- NULL
 i<-1
-for (s in splits){
-  for (t in thresh){
+
+for (t in thresh){
     for (tr in 1:14){
 
       dat <- my_array_s1_ %>% 
         filter(tr_in_trial == tr,
-               threshold == t,
-               split == s)
+               threshold == t)
 
-      l1 <- summary(lm(scale(rt) ~ scale(glmPupil),
+      l1 <- summary(lmer(scale(rt) ~ scale(glmPupil) + (1|split),
         dat %>%
           filter(probe == "anticipation probe",hit == "Hit")
       ))
 
-      l2 <- summary(lm(scale(rt) ~ scale(glmPupil),
+      l2 <- summary(lmer(scale(rt) ~ scale(glmPupil) + (1|split),
         dat %>%
           filter(probe == "outcome probe",hit == "Hit")
       ))
@@ -2246,7 +2283,6 @@ for (s in splits){
         z        = l1$coefficients[2, 3],
         p        = l1$coefficients[2, 4],
         probe    = "anticipation",
-        split    = s,
         threshold= t,
         tr       = tr
       )
@@ -2257,20 +2293,18 @@ for (s in splits){
         z        = l2$coefficients[2, 3],
         p        = l2$coefficients[2, 4],
         probe    = "outcome",
-        split    = s,
         threshold= t,
         tr       = tr
       )
 
       i <- i + 2
     }
-  }
 }
 
 df_performance <- dplyr::bind_rows(df_performance)
 
 ggplot(df_performance, aes(x = tr, y = Estimate))+
-  geom_line(aes(color= probe,linetype = split))+
+  geom_line(aes(color= probe))+
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey",
              size = 1)+
   facet_wrap(~threshold)+
@@ -2279,14 +2313,18 @@ ggplot(df_performance, aes(x = tr, y = Estimate))+
   labs(title = "FMRI study")+
   scale_x_continuous(breaks = 1:14)
 
-ggplot(df_performance %>% filter(tr == 5), aes(x = threshold, y = Estimate))+
-  geom_line(aes(color= probe,linetype = split))+
+p_thresh_rt<-ggplot(df_performance %>% filter(tr == 5), aes(x = threshold, y = Estimate))+
+  geom_point(aes(color= probe))+
+  geom_errorbar(aes(color= probe, x = threshold, ymin = Estimate - se,
+                    ymax = Estimate + se), width = 0.1)+
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey",
              size = 1)+
     scale_color_manual(values = c("purple","skyblue"))+
   scale_fill_manual(values = c("purple","skyblue"))+
-  labs(title = "FMRI study")+
-  scale_x_continuous(breaks = 1:14)
+  labs(title = "RT")+
+  scale_x_continuous(breaks = 1:14)+
+  annotate("rect",xmin = 0.25,xmax = 0.75, ymin = -0.3,ymax = 0,alpha = 0.1)+
+  theme(legend.position = "none")
 
 summary(l1<-lmer(scale(rt) ~ scale(glmPupil) + (1|split),
                    my_array_s1_ %>% 
@@ -2312,15 +2350,14 @@ p4m2p <- plot_model(l1, type = "pred", terms = "glmPupil",color = "darkgrey") +
 df_cue <- list()
 i <- 1
 
-for (s in splits){
-  for (t in thresh){
+
+for (t in thresh){
     for (tr in 1:14){
       for (p in c("anticipation probe", "outcome probe")){
 
         dat <- my_array_s1_ %>%
           filter(tr_in_trial == tr,
                  threshold == t,
-                 split == s,
                  probe == p) %>%
           mutate(
             cue_value_abs = case_when(
@@ -2331,7 +2368,7 @@ for (s in splits){
             )
           )
 
-        fit <- summary(lm(cue_value_abs ~ scale(glmPupil), dat))
+        fit <- summary(lmer(cue_value_abs ~ scale(glmPupil) + (1|split), dat))
 
         df_cue[[i]] <- data.frame(
           Estimate  = fit$coefficients[2, 1],
@@ -2339,7 +2376,6 @@ for (s in splits){
           t         = fit$coefficients[2, 3],
           p         = fit$coefficients[2, 4],
           probe     = sub(" probe", "", p),
-          split     = s,
           threshold = t,
           tr        = tr
         )
@@ -2347,14 +2383,13 @@ for (s in splits){
         i <- i + 1
       }
     }
-  }
 }
 
 df_cue <- dplyr::bind_rows(df_cue)
 
 
 ggplot(df_cue, aes(x = tr, y = Estimate))+
-  geom_line(aes(color= probe,linetype = split))+
+  geom_line(aes(color= probe))+
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey",
              size = 1)+
   scale_color_manual(values = c("purple","skyblue"))+
@@ -2363,14 +2398,18 @@ ggplot(df_cue, aes(x = tr, y = Estimate))+
   labs(title = "FMRI study")+
   scale_x_continuous(breaks = 1:14)
 
-ggplot(df_cue %>% filter(tr == 5), aes(x = threshold, y = Estimate))+
-  geom_line(aes(color= probe,linetype = split))+
+p_thresh_cue<-ggplot(df_cue %>% filter(tr == 5), aes(x = threshold, y = Estimate))+
+  geom_point(aes(color= probe))+
+  geom_errorbar(aes(color= probe, x = threshold, ymin = Estimate - se,
+                    ymax = Estimate + se), width = 0.1)+
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey",
              size = 1)+
     scale_color_manual(values = c("purple","skyblue"))+
   scale_fill_manual(values = c("purple","skyblue"))+
-  labs(title = "FMRI study")+
-  scale_x_continuous(breaks = 1:14)
+  labs(title = "Abs cue value")+
+  scale_x_continuous(breaks = 1:14)+
+  annotate("rect",xmin = 0.25,xmax = 0.75, ymin = 0.1,ymax = 0.8,alpha = 0.1)+
+  theme(legend.position = "none")
 
 summary(l1<-lmer(scale(cue_value_abs) ~ scale(glmPupil) + (1|split),
                     my_array_s1_ %>% 
@@ -2399,19 +2438,18 @@ p5m2p <- plot_model(l1, type = "pred", terms = "glmPupil") +
 df_rating <- list()
 i <- 1
 
-for (s in splits){
-  for (t in thresh){
+
+for (t in thresh){
     for (tr in 1:14){
       for (p in c("anticipation probe", "outcome probe")){
 
         dat <- my_array_s1_ %>%
           filter(tr_in_trial == tr,
                  threshold == t,
-                 split == s,
                  probe == p)
 
         fit <- summary(
-          lm(scale(arousal_scaled) ~ scale(glmPupil), dat)
+          lmer(scale(arousal_scaled) ~ scale(glmPupil) + (1|split), dat)
         )
 
         df_rating[[i]] <- data.frame(
@@ -2420,7 +2458,6 @@ for (s in splits){
           t         = fit$coefficients[2, 3],
           p         = fit$coefficients[2, 4],
           probe     = sub(" probe", "", p),
-          split     = s,
           threshold = t,
           tr        = tr
         )
@@ -2428,14 +2465,14 @@ for (s in splits){
         i <- i + 1
       }
     }
-  }
 }
+
 
 df_rating <- dplyr::bind_rows(df_rating)
 
 
 ggplot(df_rating, aes(x = tr, y = Estimate))+
-  geom_line(aes(color= probe,linetype= split))+
+  geom_line(aes(color= probe))+
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey",
              size = 1)+
   # geom_ribbon(aes(x = tr, ymin = Estimate - se,
@@ -2451,14 +2488,28 @@ ggplot(df_rating, aes(x = tr, y = Estimate))+
   geom_vline(xintercept = 7, color = "purple", linetype = "dashed")+
   geom_vline(xintercept = 9, color = "skyblue", linetype = "dashed")
 
-ggplot(df_rating %>% filter(tr == 5), aes(x = threshold, y = Estimate))+
-  geom_line(aes(color= probe,linetype= split))+
+p_thresh_rate<-ggplot(df_rating, aes(x = tr, y = Estimate))+
+  geom_line(aes(color= probe))+
+  geom_point(aes(color= probe))+
+  geom_errorbar(aes(color= probe, x = tr, ymin = Estimate - se,
+                    ymax = Estimate + se), width = 0.1)+
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey",
              size = 1)+
     scale_color_manual(values = c("purple","skyblue"))+
   scale_fill_manual(values = c("purple","skyblue"))+
-  labs(title = "FMRI study")+
-  scale_x_continuous(breaks = 1:14)
+  labs(title = "Arousal rating")+
+  scale_x_continuous(breaks = 1:14)+
+  theme(legend.position = "none")+
+  facet_wrap(~threshold,nrow = 2)
+```
+
+```{r}
+(p_thresh_hit+p_thresh_cue+p_thresh_rt)/
+  p_thresh_rate+
+  plot_layout(heights = c(1,2))+
+  plot_annotation(tag_levels = "A")
+
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/si_pattern_threshold.png"),dpi = 300, height = 5, width = 7)
 ```
 
 #### visualize peak correlation
@@ -2589,9 +2640,10 @@ cor(my_array_s1 %>%
 #       select(glmPupil,glmPupil_posonly,glmPupil,pupil_lag2),use = "complete.obs")
 
 # continuous correlation
+#the neural arousal index needs to be lagged for 3 TRs, and pupil 1TR. Thus, it's a relative lag of 2TRs.
 summary(lmer(scale(glmPupil) ~ scale(pupil_lag2) + (1|split),my_array_s1 %>% 
               filter(threshold == 0.5) %>% 
-          group_by(subject) %>% mutate(pupil_lag2= lag(pupil,3))))
+          group_by(subject,split) %>% mutate(pupil_lag2= lag(pupil,2))))
 
 # TR5 with the pre-defined window's pupil size
 summary(lmer(scale(glmPupil) ~ scale(mean_pupil_nobc)+ (1|split),my_array_s1_ %>% 
@@ -2643,29 +2695,45 @@ corr_mat2 <- my_array_s1 %>%
 corr_long1 <- reshape2::melt(corr_mat1)
 corr_long2 <- reshape2::melt(corr_mat2)
 # Plot correlation heatmap
+new_labels <- c("glm_pupil", "glm_arousal", "pupil_size")
+
 ggplot(corr_long1, aes(Var1, Var2, fill = value)) +
   geom_tile(color = "white") +
   geom_text(aes(label = round(value, 2)), color = "black", size = 5) +
-  scale_fill_gradient2(low = "blue", high = "red", mid = "white",
-                       midpoint = 0, limit = c(-1, 1), name = "Correlation") +
+  scale_fill_gradient2(
+    low = "blue", high = "red", mid = "white",
+    midpoint = 0, limit = c(-1, 1), name = "Correlation"
+  ) +
+  scale_x_discrete(labels = new_labels) +
+  scale_y_discrete(labels = new_labels) +
   theme_minimal(base_size = 14) +
   theme(
     axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
     panel.grid = element_blank()
   ) +
   coord_fixed() +
-  labs(x = "", y = "", title = "Correlation Matrix (threshold = 0.5)")+
+  labs(x = "", y = "", title = "Correlation Matrix (threshold = 0.5)",
+       subtitle = "test 1st half")+
+
+
 ggplot(corr_long2, aes(Var1, Var2, fill = value)) +
   geom_tile(color = "white") +
   geom_text(aes(label = round(value, 2)), color = "black", size = 5) +
-  scale_fill_gradient2(low = "blue", high = "red", mid = "white",
-                       midpoint = 0, limit = c(-1, 1), name = "Correlation") +
+  scale_fill_gradient2(
+    low = "blue", high = "red", mid = "white",
+    midpoint = 0, limit = c(-1, 1), name = "Correlation"
+  ) +
+  scale_x_discrete(labels = new_labels) +
+  scale_y_discrete(labels = new_labels) +
   theme_minimal(base_size = 14) +
   theme(
     axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
     panel.grid = element_blank()
   ) +
-  coord_fixed() 
+  coord_fixed() +
+  labs(x = "", y = "",
+       subtitle = "test 2nd half")
+
 
 ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/arousal_index_corr_s2_split.png"),dpi = 300, height = 5, width = 10)
 ```

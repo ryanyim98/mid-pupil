@@ -346,7 +346,8 @@ summary(lmer(scale(arousal_scaled) ~ as.factor(trial_outcome) + (1|subject)
 summary(l1<-lmer(scale(arousal_scaled) ~ trial_type + (1|Subject) + (1|condition),vrmid1_data_antprobe))
 pp1 <- plot_model(l1,type= "pred", terms = "trial_type")+
   labs(title = "Anticipatory arousal", x = "", y = "z-scored arousal",
-       subtitle = "VR Study")
+       subtitle = "VR Study")+
+  ylim(-1.2,1.2)
 round(anova(l1),2)
 round(r.squaredGLMM(l1)*100,2)
 effectsize::eta_squared(anova(l1), partial = TRUE)    # partial η²
@@ -355,7 +356,8 @@ summary(l1<-lmer(scale(arousal_scaled) ~ cue_value + (1|subject)+ (1|cue_size),f
 round(anova(l1),2)
 pp2 <- plot_model(l1,type= "pred", terms = "cue_value")+
   labs(title = "Anticipatory arousal", x = "", y = "z-scored arousal",
-       subtitle = "FMRI Study")
+       subtitle = "FMRI Study")+
+  ylim(-1.2,1.2)
 round(r.squaredGLMM(l1)*100,2)
 effectsize::eta_squared(anova(l1), partial = TRUE)    # partial η²
 
@@ -363,7 +365,8 @@ summary(l1<-lmer(valence_scaled ~ trial_type + (1|Subject) + (1|condition),vrmid
 round(anova(l1),2)
 pp3 <- plot_model(l1,type= "pred", terms = "trial_type")+
   labs(title = "Anticipatory valence", x = "", y = "z-scored valence",
-       subtitle = "VR Study")
+       subtitle = "VR Study")+
+  ylim(-1.5,1.2)
 round(r.squaredGLMM(l1)*100,2)
 round(r.squaredGLMM(l1)*100,2)
 effectsize::eta_squared(anova(l1), partial = TRUE)    # partial η²
@@ -373,7 +376,8 @@ round(anova(l1),2)
 round(r.squaredGLMM(l1)*100,2)
 pp4 <- plot_model(l1,type= "pred", terms = "cue_value")+
   labs(title = "Anticipatory valence", x = "", y = "z-scored valence",
-       subtitle = "FMRI Study")
+       subtitle = "FMRI Study")+
+  ylim(-1.5,1.2)
 effectsize::eta_squared(anova(l1), partial = TRUE)    # partial η²
 ```
 
@@ -388,7 +392,8 @@ summary(lmer(scale(arousal_scaled) ~ as.factor(trial_outcome) + (1|Subject) + (1
 effectsize::eta_squared(anova(l1), partial = TRUE)    # partial η²
 pp5 <- plot_model(l1,type= "pred", terms = c("trial_type","reaction_outcome"))+
   labs(title = "Outcome arousal", x = "", y = "z-scored arousal",
-       subtitle = "VR Study")
+       subtitle = "VR Study")+
+  ylim(-1.2,1.2)
 
 
 summary(l1<-lmer(scale(arousal_scaled) ~ cue_value *  hit + (1|subject)+ (1|cue_size),fmri3_data_outprobe))
@@ -399,7 +404,8 @@ summary(lmer(scale(arousal_scaled) ~ as.factor(trial_outcome) + (1|subject) + (1
 effectsize::eta_squared(anova(l1), partial = TRUE)    # partial η²
 pp6 <- plot_model(l1,type= "pred", terms = c("cue_value","hit"))+
   labs(title = "Outcome arousal", x = "", y = "z-scored arousal",
-       subtitle = "FMRI Study")
+       subtitle = "FMRI Study")+
+  ylim(-1.2,1.2)
 
 summary(l1<-lmer(valence ~ trial_type * reaction_outcome + (1|Subject) + (1|condition),vrmid1_data_outprobe))
 plot_model(l1,type = "pred", terms = c("trial_type","reaction_outcome"))
@@ -408,7 +414,8 @@ r.squaredGLMM(l1)
 effectsize::eta_squared(anova(l1), partial = TRUE)    # partial η²
 pp7 <- plot_model(l1,type= "pred", terms = c("trial_type","reaction_outcome"))+
   labs(title = "Outcome valence", x = "", y = "z-scored valence",
-       subtitle = "VR Study")
+       subtitle = "VR Study")+
+  ylim(1,5)
 
 summary(l1<-lmer(valence ~ cue_value * hit + (1|subject) + (1|cue_size),fmri3_data_outprobe))
 round(anova(l1),2)
@@ -416,15 +423,16 @@ r.squaredGLMM(l1)
 effectsize::eta_squared(anova(l1), partial = TRUE)    # partial η²
 pp8 <- plot_model(l1,type= "pred", terms = c("cue_value","hit"))+
   labs(title = "Outcome valence", x = "", y = "z-scored valence",
-       subtitle = "FMRI Study")
+       subtitle = "FMRI Study")+
+  ylim(1,5)
 ```
 
 ```{r}
 pp1+pp2+pp5+pp6
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/si_arousal.png"),dpi = 300, height = 6, width = 10)
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/si_arousal.png"),dpi = 300, height = 5, width = 8)
 
 pp3+pp4+pp7+pp8
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/si_valence.png"),dpi = 300, height = 6, width = 10)
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/si_valence.png"),dpi = 300, height = 5, width = 8)
 
 ```
 
@@ -436,7 +444,8 @@ summary(l1<-lmer(scale(mean_pupil_nobc_ant) ~ trial_type + (1|Subject) + (1|cond
 round(anova(l1),2)
 pp1 <- plot_model(l1,type= "pred", terms = c("trial_type"))+
   labs(title = "Anticipatory pupil", x = "", y = "z-scored pupil",
-       subtitle = "VR Study")
+       subtitle = "VR Study")+
+  ylim(-1,1)
 round(r.squaredGLMM(l1)*100,2)
 effectsize::eta_squared(anova(l1), partial = TRUE)    # partial η²
 anova(l2<-lmer(scale(mean_pupil_nobc_ant) ~ trial_type + arousal + (1+trial_type+arousal|Subject) + (1|condition),vrmid1_data_antprobe))
@@ -448,7 +457,8 @@ round(r.squaredGLMM(l1)*100,2)
 anova(l2<-lmer(mean_pupil_nobc_scaled_ant ~ cue_value + arousal + (1+ cue_value + arousal|subject) + (1|cue_size),fmri3_data_antprobe))
 pp2 <- plot_model(l1,type= "pred", terms = c("cue_value"))+
   labs(title = "Anticipatory pupil", x = "", y = "z-scored pupil",
-       subtitle = "FMRI Study")
+       subtitle = "FMRI Study")+
+  ylim(-1,1)
 
 ```
 
@@ -459,7 +469,8 @@ plot_model(l1, type = "pred", terms = "reaction_outcome")
 round(anova(l1),2)
 pp3 <- plot_model(l1,type= "pred", terms = c("trial_type","reaction_outcome"))+
   labs(title = "Outcome pupil", x = "", y = "z-scored pupil",
-       subtitle = "VR Study")
+       subtitle = "VR Study")+
+  ylim(-1.5,1)
 effectsize::eta_squared(anova(l1), partial = TRUE)    # partial η²
 round(r.squaredGLMM(l1)*100,2)
 anova(lmer(mean_pupil_nobc_out ~ trial_type * reaction_outcome + arousal + (1|Subject) + (1|condition),vrmid1_data_outprobe))
@@ -469,7 +480,8 @@ summary(l1<-lmer(scale(mean_pupil_nobc_scaled_out) ~ cue_value * hit + (1|subjec
 round(anova(l1),2)
 pp4 <- plot_model(l1,type= "pred", terms = c("cue_value","hit"))+
   labs(title = "Outcome pupil", x = "", y = "z-scored pupil",
-       subtitle = "FMRI Study")
+       subtitle = "FMRI Study")+
+  ylim(-1.5,1)
 
 effectsize::eta_squared(anova(l1), partial = TRUE)    # partial η²
 round(r.squaredGLMM(l1)*100,2)
@@ -478,7 +490,7 @@ summary(lmer(scale(mean_pupil_nobc_scaled_out) ~ as.factor(trial_outcome) + (1|s
 ```
 ```{r}
 pp1+pp2+pp3+pp4
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/si_pupil.png"),dpi = 300, height = 6, width = 10)
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/si_pupil.png"),dpi = 300, height = 5, width = 8)
 
 ```
 
