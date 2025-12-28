@@ -1,0 +1,155 @@
+---
+title: "beh_performance"
+output: html_document
+date: "2025-12-27"
+---
+## rt and hit rate
+```{r}
+vrmid1_beh_summary1<-vrmid1_beh_data %>% 
+  group_by(Subject) %>% 
+  summarise(hit_rate = mean(reaction_outcome == "Hit"),
+            rt = mean(reaction_time,na.rm = T))
+
+round(c(mean = mean(vrmid1_beh_summary1$hit_rate), sd = sd(vrmid1_beh_summary1$hit_rate)),2)
+round(c(mean = mean(vrmid1_beh_summary1$rt), sd = sd(vrmid1_beh_summary1$rt))*1000,1)
+
+fmri3_beh_summary1<-fmri3_beh_data %>% 
+  group_by(subject) %>% 
+  mutate(rt = ifelse(rt == -1, NA,rt)) %>% 
+  summarise(hit_rate = mean(hit),
+            rt = mean(rt,na.rm = T))
+
+round(c(mean = mean(fmri3_beh_summary1$hit_rate), sd = sd(fmri3_beh_summary1$hit_rate)),2)
+round(c(mean = mean(fmri3_beh_summary1$rt), sd = sd(fmri3_beh_summary1$rt))*1000,1)
+
+vrmid1_beh_summary2<-vrmid1_beh_data %>% 
+  group_by(Subject,trial_type,probe) %>% 
+  summarise(hit_rate = mean(reaction_outcome == "Hit"),
+            rt = mean(reaction_time,na.rm = T))
+
+fmri3_beh_summary2<-fmri3_beh_data %>% 
+  group_by(subject,cue_value,probe) %>% 
+  mutate(rt = ifelse(rt == -1, NA,rt),
+         probe = ifelse(probe == 1, "anti","out")) %>% 
+  summarise(hit_rate = mean(hit),
+            rt = mean(rt,na.rm = T))
+
+ggplot(vrmid1_beh_summary2,aes(x = trial_type, y = rt, color = trial_type))+
+  geom_jitter(width = 0.1,alpha = 0.2, size = 0.5)+
+  stat_summary(aes(fill = trial_type),shape = 21, color = "black")+
+  scale_color_manual(values = redOrange_palette6)+
+  scale_fill_manual(values = redOrange_palette6)+
+  theme(legend.position = "none")+
+  facet_wrap(~probe)+
+  labs(y = "reaction time (sec)",
+       x = "cue value",
+       subtitle = "VR Study")+
+ggplot(fmri3_beh_summary2,aes(x = cue_value, y = rt, color = cue_value))+
+  geom_jitter(width = 0.1,alpha = 0.2, size = 0.5)+
+  stat_summary(aes(fill = cue_value),shape = 21, color = "black")+
+  scale_color_manual(values = redOrange_palette6)+
+  scale_fill_manual(values = redOrange_palette6)+
+  theme(legend.position = "none")+
+  facet_wrap(~probe)+
+  labs(y = "reaction time (sec)",
+       x = "cue value",
+       subtitle = "FMRI study")+
+  plot_layout(nrow = 2)
+
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/figx_beh.png"),dpi = 300, height = 5, width = 6)
+```
+## hit rate over time
+```{r}
+ggplot(vrmid1_beh_data %>% 
+  group_by(Subject, trial_type) %>%
+  mutate(hitrate = cummean(reaction_outcome == "Hit")) %>% 
+  ungroup(),
+  aes(x = trial, y = hitrate, color = Subject,
+                          group = Subject))+
+  geom_line()+
+  scale_color_bluebrown()+
+  # scale_color_manual(values = redOrange_palette6)+
+  # scale_fill_manual(values = redOrange_palette6)+
+  theme(legend.position = "none")+
+  facet_wrap(~trial_type)+
+  geom_hline(yintercept = 2/3, color = "red", linetype = "dashed")+
+  labs(y = "hit rate",
+       x = "trial id",
+       subtitle = "VR study")+
+
+ggplot(fmri3_beh_data %>% 
+  group_by(subject, cue_value) %>%
+  mutate(hitrate = cummean(hit == "Hit")) %>% 
+  ungroup(),
+  aes(x = trial, y = hitrate, color = subject,
+                          group = subject))+
+  geom_line()+
+  scale_color_bluebrown()+
+  # scale_color_manual(values = redOrange_palette6)+
+  # scale_fill_manual(values = redOrange_palette6)+
+  theme(legend.position = "none")+
+  geom_hline(yintercept = 2/3, color = "red", linetype = "dashed")+
+  facet_wrap(~cue_value)+
+  labs(y = "hit rate",
+       x = "trial id",
+       subtitle = "FMRI study")+
+
+ggplot(vrmid1_beh_data %>% 
+  group_by(Subject) %>%
+  mutate(hitrate = cummean(reaction_outcome == "Hit")) %>% 
+  ungroup(),
+  aes(x = trial, y = hitrate, color = Subject,
+                          group = Subject))+
+  geom_line()+
+  scale_color_bluebrown()+
+  # scale_color_manual(values = redOrange_palette6)+
+  # scale_fill_manual(values = redOrange_palette6)+
+  theme(legend.position = "none")+
+  geom_hline(yintercept = 2/3, color = "red", linetype = "dashed")+
+  labs(y = "hit rate",
+       x = "trial id",
+       subtitle = "VR study")+
+
+ggplot(fmri3_beh_data %>% 
+  group_by(subject) %>%
+  mutate(hitrate = cummean(hit == "Hit")) %>% 
+  ungroup(),
+  aes(x = trial, y = hitrate, color = subject,
+                          group = subject))+
+  scale_color_bluebrown()+
+  geom_line()+
+  theme(legend.position = "none")+
+  geom_hline(yintercept = 2/3, color = "red", linetype = "dashed")+
+  labs(y = "hit rate",
+       x = "trial id",
+       subtitle = "FMRI study")+
+plot_layout(nrow = 2, heights = c(2,1))+
+  plot_annotation(tag_levels = "A")
+
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/figxxx_beh.png"),dpi = 300, height = 6, width = 8)
+```
+
+## are people faster in rating valence or arousal? positive or negative?
+```{r}
+fmri3_beh_data %>% 
+  group_by(subject) %>% 
+  summarise(vrating_t = mean(vrating_t,na.rm=T),
+            arating_t = mean(arating_t,na.rm=T)) %>% 
+  ungroup() %>% 
+  summarise(mean_valence_rt=mean(vrating_t),
+         mean_arousal_rt=mean(arating_t))
+
+summary(lmer(vrating ~ vrating_t + (1|subject),fmri3_beh_data))
+
+summary(l1<-lmer(vrating_t ~ as.factor(vrating) + (1|subject) + (1|scaledir),
+             fmri3_beh_data))
+plot_model(l1, type = "pred", terms = "vrating")
+
+summary(l2<-lmer(arating_t ~ as.factor(arating) + (1|subject) + (1|scaledir),
+             fmri3_beh_data))
+plot_model(l2, type = "pred", terms = "arating")
+
+summary(l3<-lmer(erating_t ~ as.factor(erating) + (1|subject) + (1|scaledir),
+             fmri3_beh_data))
+plot_model(l3, type = "pred", terms = "erating")
+```

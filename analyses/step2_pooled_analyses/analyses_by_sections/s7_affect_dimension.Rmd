@@ -1,0 +1,218 @@
+---
+title: "affect_dimension"
+output: html_document
+date: "2025-12-27"
+---
+Is pupil size  explained by valence or emotion categories?
+
+(Can't make comparison between emotion vs. arousal because they are not the same trials)
+## the valence bit
+### vrmid1
+```{r}
+summary(lv1<-lmer(scale(mean_pupil_nobc_ant) ~  valence_scaled +(1|Subject) + (1|condition),
+         vrmid1_data_antprobe))
+summary(lv2<-lmer(scale(mean_pupil_bc_ant) ~  valence_scaled +(1|Subject) + (1|condition),
+         vrmid1_data_antprobe))
+summary(lv3<-lmer(scale(mean_pupil_baseline_ant) ~  valence_scaled +(1|Subject) + (1|condition),
+         vrmid1_data_antprobe))
+
+# Create a list of models for easy looping
+models <- list(nobc = lv1, bc = lv2, baseline = lv3)
+
+# Extract statistics into a dataframe
+modcomp_results1 <- do.call(rbind, lapply(names(models), function(name) {
+  model <- models[[name]]
+  data.frame(
+    model = name,
+    coef = summary(model)$coefficients[2,1],
+    t_val = summary(model)$coefficients[2,4],
+    p_val = summary(model)$coefficients[2,5],
+    R2_marginal = r.squaredGLMM(model)[1] * 100,  # Fixed-effects variance explained
+    R2_conditional = r.squaredGLMM(model)[2] * 100 # Full model variance explained
+  )
+}))
+
+summary(lv1<-lmer(scale(mean_pupil_nobc_out) ~  valence_scaled +(1|Subject) + (1|condition),
+         vrmid1_data_outprobe))
+summary(lv2<-lmer(scale(mean_pupil_bc_out) ~  valence_scaled +(1|Subject) + (1|condition),
+         vrmid1_data_outprobe))
+summary(lv3<-lmer(scale(mean_pupil_baseline_out) ~  valence_scaled +(1|Subject) + (1|condition),
+         vrmid1_data_outprobe))
+
+models <- list(nobc = lv1, bc = lv2, baseline = lv3)
+# Extract statistics into a dataframe
+modcomp_results2 <- do.call(rbind, lapply(names(models), function(name) {
+  model <- models[[name]]
+  data.frame(
+    model = name,
+    coef = summary(model)$coefficients[2,1],
+    t_val = summary(model)$coefficients[2,4],
+    p_val = summary(model)$coefficients[2,5],
+    R2_marginal = r.squaredGLMM(model)[1] * 100,  # Fixed-effects variance explained
+    R2_conditional = r.squaredGLMM(model)[2] * 100 # Full model variance explained
+  )
+}))
+
+modcomp_results <- rbind(modcomp_results1 %>% 
+                           mutate(probe = "anti"),
+                         modcomp_results2 %>% 
+                           mutate(probe = "out"))
+kable(modcomp_results,digits = 3)
+```
+
+
+### fmri3
+```{r}
+summary(lv1<-lmer(scale(mean_pupil_nobc_scaled_ant) ~  valence_scaled +(1|subject) + (1|cue_size),
+         fmri3_data_antprobe))
+summary(lv2<-lmer(scale(mean_pupil_bc_scaled_ant) ~  valence_scaled +(1|subject) + (1|cue_size),
+         fmri3_data_antprobe))
+summary(lv3<-lmer(scale(mean_pupil_baseline_scaled) ~  valence_scaled +(1|subject) + (1|cue_size),
+         fmri3_data_antprobe))
+
+# Create a list of models for easy looping
+models <- list(nobc = lv1, bc = lv2, baseline = lv3)
+
+# Extract statistics into a dataframe
+modcomp_results1 <- do.call(rbind, lapply(names(models), function(name) {
+  model <- models[[name]]
+  data.frame(
+    model = name,
+    coef = summary(model)$coefficients[2,1],
+    t_val = summary(model)$coefficients[2,4],
+    p_val = summary(model)$coefficients[2,5],
+    R2_marginal = r.squaredGLMM(model)[1] * 100,  # Fixed-effects variance explained
+    R2_conditional = r.squaredGLMM(model)[2] * 100 # Full model variance explained
+  )
+}))
+
+summary(lv1<-lmer(scale(mean_pupil_nobc_scaled_out) ~  valence_scaled +(1|subject) + (1|cue_size),
+         fmri3_data_outprobe))
+summary(lv2<-lmer(scale(mean_pupil_bc_scaled_out) ~  valence_scaled +(1|subject) + (1|cue_size),
+         fmri3_data_outprobe))
+summary(lv3<-lmer(scale(mean_pupil_baseline_scaled) ~  valence_scaled +(1|subject) + (1|cue_size),
+         fmri3_data_outprobe))
+
+
+models <- list(nobc = lv1, bc = lv2, baseline = lv3)
+
+# Extract statistics into a dataframe
+modcomp_results2 <- do.call(rbind, lapply(names(models), function(name) {
+  model <- models[[name]]
+  data.frame(
+    model = name,
+    coef = summary(model)$coefficients[2,1],
+    t_val = summary(model)$coefficients[2,4],
+    p_val = summary(model)$coefficients[2,5],
+    R2_marginal = r.squaredGLMM(model)[1] * 100,  # Fixed-effects variance explained
+    R2_conditional = r.squaredGLMM(model)[2] * 100 # Full model variance explained
+  )
+}))
+
+modcomp_results <- rbind(modcomp_results1 %>% 
+                           mutate(probe = "anti"),
+                         modcomp_results2 %>% 
+                           mutate(probe = "out"))
+kable(modcomp_results)
+```
+
+## the categorical emotion bit
+
+### tally the count of emotions
+```{r}
+fmri3_data_antprobe_emo_tally <- fmri3_data_antprobe %>% 
+  filter(rating_type == 2) %>% 
+  group_by(subject) %>% 
+  count(emotion) %>% 
+  ungroup() %>% 
+  group_by(emotion) %>% 
+  summarise(freq = mean(n),
+         se = sd(n)/sqrt(n()))%>% 
+  mutate(emotion = factor(emotion, levels = c("Angry","Anxious","Sad","Calm","Happy","Excited")))
+
+fmri3_data_outprobe_emo_tally <- fmri3_data_outprobe  %>% 
+  filter(rating_type == 2) %>% 
+  group_by(subject) %>% 
+  count(emotion) %>% 
+  ungroup() %>% 
+  group_by(emotion) %>% 
+  summarise(freq = mean(n),
+         se = sd(n)/sqrt(n()))%>% 
+  mutate(emotion = factor(emotion, levels = c("Angry","Anxious","Sad","Calm","Happy","Excited")))
+
+  
+pe0<- ggplot(fmri3_data_antprobe_emo_tally, 
+       aes(x = emotion, y = freq, fill = emotion))+
+  geom_col()+
+    geom_errorbar(aes(x=emotion, y = freq, ymax = freq+se,
+                    ymin=freq-se,fill = emotion),width=0.2)+
+  scale_fill_manual(values = emotions_palette6)+
+  labs(title = "anticipation probe",
+       subtitle = "FMRI study")+
+  theme(legend.position = "none")+
+  
+ggplot(fmri3_data_outprobe_emo_tally, 
+       aes(x = emotion, y = freq, fill = emotion))+
+  geom_col()+
+    geom_errorbar(aes(x=emotion, y = freq, ymax = freq+se,
+                    ymin=freq-se,fill = emotion),width=0.2)+
+  scale_fill_manual(values = emotions_palette6)+
+  labs(title = "outcome probe",
+       subtitle = "")+
+  theme(legend.position = "none")
+
+```
+
+### fmri3
+```{r}
+fmri3_data_antprobe <- fmri3_data_antprobe %>% mutate(emotion = factor(emotion, levels = c("Angry","Anxious","Sad","Calm","Happy","Excited")))
+fmri3_data_outprobe <- fmri3_data_outprobe %>% mutate(emotion = factor(emotion, levels = c("Angry","Anxious","Sad","Calm","Happy","Excited")))
+
+summary(lea1<-lmer(mean_pupil_nobc_scaled_ant ~  emotion +(1|subject) + (1|cue_size),
+         fmri3_data_antprobe))
+r.squaredGLMM(lea1)
+cld_results <- multcomp::cld(emmeans(lea1, ~ emotion), Letters = letters, adjust = "tukey")
+
+cld_df <- as.data.frame(cld_results)
+
+pe3<-ggplot(cld_df, aes(x = emotion, y = emmean, color = emotion)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = emmean - SE, ymax = emmean + SE), width = 0.15) +
+  geom_text(aes(label = .group, y = emmean + SE + 0.02), vjust = 0) +
+  scale_color_manual(values = emotions_palette6)+
+  labs(x = "Emotion", y = "Estimated marginal mean (pupil)",
+       subtitle = "FMRI Study",
+       title = "Anticipatory pupil size")+
+  theme(legend.position = "none")+
+  ylim(-0.4,0.8)+
+  scale_x_discrete(breaks= c("Angry","Anxious","Sad","Calm","Happy","Excited"))
+
+summary(leo1<-lmer(mean_pupil_nobc_scaled_ant ~  emotion +(1|subject) + (1|cue_size),
+         fmri3_data_outprobe))
+r.squaredGLMM(leo1)
+cld_results <- multcomp::cld(emmeans(leo1, ~ emotion), Letters = letters, adjust = "tukey")
+
+cld_df <- as.data.frame(cld_results)
+
+pe4<-ggplot(cld_df, aes(x = emotion, y = emmean, color = emotion)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = emmean - SE, ymax = emmean + SE), width = 0.15) +
+  geom_text(aes(label = .group, y = emmean + SE + 0.02), vjust = 0) +
+  scale_color_manual(values = emotions_palette6)+
+  labs(x = "Emotion", y = "Estimated marginal mean (pupil)",
+       subtitle = "FMRI Study",
+       title = "Outcome pupil size")+
+  theme(legend.position = "none")+
+  ylim(-0.4,0.8)+
+  scale_x_discrete(breaks= c("Angry","Anxious","Sad","Calm","Happy","Excited"))
+```
+
+```{r}
+pe0+
+pe1+pe2+
+pe3+pe4+
+  plot_annotation(tag_levels = "A")+
+  plot_layout(nrow = 3)
+
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig_emo.png"),dpi = 300, height = 10, width = 8)
+```

@@ -171,7 +171,7 @@ weights_vrmid1_ant_svr_df <- data.frame(
 # Convert to seconds (120 Hz sampling)
 weights_vrmid1_ant_svr_df$Time_sec <- weights_vrmid1_ant_svr_df$Timepoint / 120
 
-write_csv(weights_vrmid1_ant_svr_df,"../../data/vrmid1/derivatives/weights_vrmid1_ant_svr_df.csv")
+write_csv(weights_vrmid1_ant_svr_df,"../../../data/vrmid1/derivatives/weights_vrmid1_ant_svr_df.csv")
 
 weights_vrmid1_ant_svr_pic <- ggplot(weights_vrmid1_ant_svr_df, aes(x = Time_sec, y = Weight)) +
   geom_line(color = "steelblue", size = 1) +
@@ -322,7 +322,7 @@ weights_vrmid1_ant_genlasso_df <- data.frame(
 # Convert to seconds (120 Hz sampling)
 weights_vrmid1_ant_genlasso_df$Time_sec <- weights_vrmid1_ant_genlasso_df$Timepoint / 120
 
-write_csv(weights_vrmid1_ant_genlasso_df,"../../data/vrmid1/derivatives/weights_vrmid1_ant_genlasso_df.csv")
+write_csv(weights_vrmid1_ant_genlasso_df,"../../../data/vrmid1/derivatives/weights_vrmid1_ant_genlasso_df.csv")
 # Plot
 ggplot(weights_vrmid1_ant_genlasso_df, aes(x = Time_sec, y = Weight)) +
   geom_line(color = "steelblue", size = 1) +
@@ -643,7 +643,7 @@ weights_vrmid1_out_svr_df <- data.frame(
 # Convert to seconds (120 Hz sampling)
 weights_vrmid1_out_svr_df$Time_sec <- weights_vrmid1_out_svr_df$Timepoint / 120
 
-write_csv(weights_vrmid1_out_svr_df,"../../data/vrmid1/derivatives/weights_vrmid1_out_svr_df.csv")
+write_csv(weights_vrmid1_out_svr_df,"../../../data/vrmid1/derivatives/weights_vrmid1_out_svr_df.csv")
 
 weights_vrmid1_out_svr_pic <- ggplot(weights_vrmid1_out_svr_df, aes(x = Time_sec, y = Weight)) +
   geom_line(color = "steelblue", size = 1) +
@@ -908,7 +908,7 @@ weights_vrmid1_out_genlasso_df <- data.frame(
 # Convert to seconds (120 Hz sampling)
 weights_vrmid1_out_genlasso_df$Time_sec <- weights_vrmid1_out_genlasso_df$Timepoint / 120
 
-write_csv(weights_vrmid1_out_genlasso_df,"../../data/vrmid1/derivatives/weights_vrmid1_out_genlasso_df.csv")
+write_csv(weights_vrmid1_out_genlasso_df,"../../../data/vrmid1/derivatives/weights_vrmid1_out_genlasso_df.csv")
 
 # Plot
 ggplot(weights_vrmid1_out_genlasso_df, aes(x = Time_sec, y = Weight)) +

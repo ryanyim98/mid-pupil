@@ -4,7 +4,6 @@ output: html_document
 date: "2025-10-28"
 ---
 
-Written by: Leili Mortazavi February 2024
 Purpose: Getting labels of brain regions based on coordinates of peak activity in whole-brain group analyses. 
 
 
@@ -21,17 +20,17 @@ library(label4MRI)
 
 ```{r}
 
-midaffemo_pupil <-read_table('~/Desktop/midaffemo/cluster_table/tables/table_model33b_Z3.227.1D',
+midaffemo_pupil <-read_table('../../fmri/cluster_tables/table_model33b_Z3.227.1D',
     comment = "#") %>% 
   mutate(contrast = "pupil",
          z_threshold = 3.227)
 
-midaffemo_pupil2 <-read_table('~/Desktop/midaffemo/cluster_table/tables/table_model33c_Z3.227.1D',
+midaffemo_pupil2 <-read_table('../../fmri/cluster_tables/table_model33c_Z3.227.1D',
     comment = "#") %>% 
   mutate(contrast = "pupil-covaried",
          z_threshold = 3.227)
 
-midaffemo_arousal <-read_table('~/Desktop/midaffemo/cluster_table/tables/table_model27_Z3.227.1D',
+midaffemo_arousal <-read_table('../../fmri/cluster_tables/table_model27_Z3.227.1D',
     comment = "#") %>% 
   mutate(contrast = "arousal",
          z_threshold = 3.227)
@@ -49,7 +48,7 @@ mydf <- midaffemo_arousal %>%
 # mni_to_region_name(df$x, df$y, df$z)
 df_labels_list <- t(mapply(FUN = mni_to_region_name, x = mydf$x, y = mydf$y, z = mydf$z))
 
-write.csv(df_labels_list, "./cluserpeak_tables_temp.csv")
+write.csv(df_labels_list, "../../fmri/cluster_tables/cluserpeak_tables_temp.csv")
 
 # writing out and reading the df back in is the workaround for:
 # the written file has empty columns bc the label columns are lists rather than character/numeric!!!
@@ -58,6 +57,7 @@ df_labels <- read_csv( "./cluserpeak_tables_temp.csv") %>%
   dplyr::select(-...1) %>% 
   bind_cols(mydf, .)
 
-write_delim(x = df_labels, delim = ",", file = paste0("./cluserpeak_table_pupilaro.csv"))
+write_delim(x = df_labels, delim = ",", file = 
+              paste0("../../fmri/cluster_tables/cluserpeak_table_pupilaro.csv"))
 ```
 

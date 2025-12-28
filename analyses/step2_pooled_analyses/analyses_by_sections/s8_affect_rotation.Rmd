@@ -1,0 +1,556 @@
+---
+title: "affect_rotation"
+output: html_document
+date: "2025-12-27"
+---
+# using a data-driven approach to identify the affective dimension most associated with pupil size
+```{r message = F, warning=F}
+da <- vrmid1_data_antprobe
+do <- vrmid1_data_outprobe
+
+nbins = 360
+angles = seq(0,pi/2, by = pi/(2*nbins))
+angles = data.frame(angle1d = angles*180/pi,
+                    angle1r = angles,
+                    sin1 = sin(angles),
+                    cos1 = cos(angles))
+
+angles <- angles%>%
+  mutate(angle2d = angle1d + 90,
+         angle2r = angle1r + pi/2,
+         sin2 = sin(angle2r),
+         cos2 = cos(angle2r))
+
+lmer_out1 <- {}
+
+for (i in 1:nrow(angles)){
+  angle_info = angles[i,]
+  data_lm_anti_temp <- da%>%
+    mutate(axis1 = valence_scaled * angle_info$cos1 + arousal_scaled * angle_info$sin1,
+           axis2 = valence_scaled * angle_info$cos2 + arousal_scaled * angle_info$sin2)
+  sum_temp1 <- summary(lmer(scale(axis1) ~ scale(mean_pupil_nobc_ant) + (1|Subject) + (1|condition),
+              data_lm_anti_temp))
+  sum_temp2 <- summary(lmer(scale(axis2) ~ scale(mean_pupil_nobc_ant) + (1|Subject) + (1|condition),
+              data_lm_anti_temp))
+  lmer_out1 <- rbind(lmer_out1, sum_temp1$coefficients[2,],sum_temp2$coefficients[2,])
+}
+
+lmer_out1 <- as.data.frame(lmer_out1)
+lmer_out1$axis = rep(c("axis1","axis2"),nrow(angles))
+  
+lmer_out1[seq(1,nrow(angles)*2,by = 2),"angle"] = angles$angle1d
+lmer_out1[seq(2,nrow(angles)*2,by = 2),"angle"] = angles$angle2d
+
+lmer_out1[seq(1,nrow(angles)*2,by = 2),"sin"] = angles$sin1
+lmer_out1[seq(2,nrow(angles)*2,by = 2),"sin"] = angles$sin2
+
+lmer_out1[seq(1,nrow(angles)*2,by = 2),"cos"] = angles$cos1
+lmer_out1[seq(2,nrow(angles)*2,by = 2),"cos"] = angles$cos2
+
+lmer_out1$p_val <- (lmer_out1$`Pr(>|t|)` < 0.001)
+
+a1f <- lmer_out1[which.max(abs(lmer_out1$Estimate)),]
+
+lmer_out2 <- {}
+
+for (i in 1:nrow(angles)){
+  angle_info = angles[i,]
+  data_lm_out_temp <- do%>%
+    mutate(axis1 = valence_scaled * angle_info$cos1 + arousal_scaled * angle_info$sin1,
+           axis2 = valence_scaled * angle_info$cos2 + arousal_scaled * angle_info$sin2)
+  sum_temp1 <- summary(lmer(scale(axis1) ~ scale(mean_pupil_nobc_out) + (1|Subject) + (1|condition),
+              data_lm_out_temp))
+  sum_temp2 <- summary(lmer(scale(axis2) ~ scale(mean_pupil_nobc_out) + (1|Subject) + (1|condition),
+              data_lm_out_temp))
+  lmer_out2 <- rbind(lmer_out2, sum_temp1$coefficients[2,],sum_temp2$coefficients[2,])
+}
+
+lmer_out2 <- as.data.frame(lmer_out2)
+lmer_out2$axis = rep(c("axis1","axis2"),nrow(angles))
+  
+lmer_out2[seq(1,nrow(angles)*2,by = 2),"angle"] = angles$angle1d
+lmer_out2[seq(2,nrow(angles)*2,by = 2),"angle"] = angles$angle2d
+
+lmer_out2[seq(1,nrow(angles)*2,by = 2),"sin"] = angles$sin1
+lmer_out2[seq(2,nrow(angles)*2,by = 2),"sin"] = angles$sin2
+
+lmer_out2[seq(1,nrow(angles)*2,by = 2),"cos"] = angles$cos1
+lmer_out2[seq(2,nrow(angles)*2,by = 2),"cos"] = angles$cos2
+
+lmer_out2$p_val <- (lmer_out2$`Pr(>|t|)` < 0.001)
+
+a2f <- lmer_out2[which.max(abs(lmer_out2$Estimate)),]
+
+vrmid1_axes <- rbind(a1f,a2f)
+vrmid1_axes$condition <- c("anti","outcome")
+
+vrmid1_axes <- vrmid1_axes%>%
+  mutate(rad = angle/180 *pi,
+         cos = cos(rad),
+         sin = sin(rad))
+```
+
+
+```{r message = F, warning=F}
+da <- fmri3_data_antprobe
+do <- fmri3_data_outprobe
+
+nbins = 360
+angles = seq(0,pi/2, by = pi/(2*nbins))
+angles = data.frame(angle1d = angles*180/pi,
+                    angle1r = angles,
+                    sin1 = sin(angles),
+                    cos1 = cos(angles))
+
+angles <- angles%>%
+  mutate(angle2d = angle1d + 90,
+         angle2r = angle1r + pi/2,
+         sin2 = sin(angle2r),
+         cos2 = cos(angle2r))
+
+lmer_out1 <- {}
+
+for (i in 1:nrow(angles)){
+  angle_info = angles[i,]
+  data_lm_anti_temp <- da%>%
+    mutate(axis1 = valence_scaled * angle_info$cos1 + arousal_scaled * angle_info$sin1,
+           axis2 = valence_scaled * angle_info$cos2 + arousal_scaled * angle_info$sin2)
+  sum_temp1 <- summary(lmer(scale(axis1) ~ scale(mean_pupil_nobc_scaled_ant) + (1|subject) + (1|cue_size),
+              data_lm_anti_temp))
+  sum_temp2 <- summary(lmer(scale(axis2) ~ scale(mean_pupil_nobc_scaled_ant) + (1|subject) + (1|cue_size),
+              data_lm_anti_temp))
+  lmer_out1 <- rbind(lmer_out1, sum_temp1$coefficients[2,],sum_temp2$coefficients[2,])
+}
+
+lmer_out1 <- as.data.frame(lmer_out1)
+lmer_out1$axis = rep(c("axis1","axis2"),nrow(angles))
+  
+lmer_out1[seq(1,nrow(angles)*2,by = 2),"angle"] = angles$angle1d
+lmer_out1[seq(2,nrow(angles)*2,by = 2),"angle"] = angles$angle2d
+
+lmer_out1[seq(1,nrow(angles)*2,by = 2),"sin"] = angles$sin1
+lmer_out1[seq(2,nrow(angles)*2,by = 2),"sin"] = angles$sin2
+
+lmer_out1[seq(1,nrow(angles)*2,by = 2),"cos"] = angles$cos1
+lmer_out1[seq(2,nrow(angles)*2,by = 2),"cos"] = angles$cos2
+
+lmer_out1$p_val <- (lmer_out1$`Pr(>|t|)` < 0.001)
+
+a1f <- lmer_out1[which.max(abs(lmer_out1$Estimate)),]
+
+lmer_out2 <- {}
+
+for (i in 1:nrow(angles)){
+  angle_info = angles[i,]
+  data_lm_out_temp <- do%>%
+    mutate(axis1 = valence_scaled * angle_info$cos1 + arousal_scaled * angle_info$sin1,
+           axis2 = valence_scaled * angle_info$cos2 + arousal_scaled * angle_info$sin2)
+  sum_temp1 <- summary(lmer(scale(axis1) ~ scale(mean_pupil_nobc_scaled_out) + (1|subject) + (1|cue_size),
+              data_lm_out_temp))
+  sum_temp2 <- summary(lmer(scale(axis2) ~ scale(mean_pupil_nobc_scaled_out) + (1|subject) + (1|cue_size),
+              data_lm_out_temp))
+  lmer_out2 <- rbind(lmer_out2, sum_temp1$coefficients[2,],sum_temp2$coefficients[2,])
+}
+
+lmer_out2 <- as.data.frame(lmer_out2)
+lmer_out2$axis = rep(c("axis1","axis2"),nrow(angles))
+  
+lmer_out2[seq(1,nrow(angles)*2,by = 2),"angle"] = angles$angle1d
+lmer_out2[seq(2,nrow(angles)*2,by = 2),"angle"] = angles$angle2d
+
+lmer_out2[seq(1,nrow(angles)*2,by = 2),"sin"] = angles$sin1
+lmer_out2[seq(2,nrow(angles)*2,by = 2),"sin"] = angles$sin2
+
+lmer_out2[seq(1,nrow(angles)*2,by = 2),"cos"] = angles$cos1
+lmer_out2[seq(2,nrow(angles)*2,by = 2),"cos"] = angles$cos2
+
+lmer_out2$p_val <- (lmer_out2$`Pr(>|t|)` < 0.001)
+
+a2f <- lmer_out2[which.max(abs(lmer_out2$Estimate)),]
+
+fmri3_axes <- rbind(a1f,a2f)
+fmri3_axes$condition <- c("anti","outcome")
+
+fmri3_axes <- fmri3_axes%>%
+  mutate(rad = angle/180 *pi,
+         cos = cos(rad),
+         sin = sin(rad))
+```
+
+## plot the axes
+```{r}
+p1<-ggplot(vrmid1_axes%>%
+         mutate(cos = cos * abs(Estimate),
+                sin = sin * abs(Estimate)))+
+  geom_segment(aes(x = -0.4, y = 0,
+                   xend = 0.4, yend = 0),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")),
+               color = "grey")+
+  geom_segment(aes(x = 0, y = -0.4,
+                   xend = 0, yend = 0.4),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")),
+               color = "grey")+
+  geom_segment(aes(x = 0,y = 0,
+                   xend = cos, yend = sin,
+                   color = condition),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")))+
+  geom_segment(aes(x = 0, y = 0,
+                   xend = -0.3, yend = 0.3),
+               size = 1, linetype = "dashed",
+               color = "grey")+ #45 degree line
+  geom_text(aes(x = cos * 1.2, y = sin * 1.1, color = condition, label = round(Estimate,2)),
+            size = 5,check_overlap = F)+
+  scale_color_manual(values = c("purple","skyblue"))+
+  scale_y_continuous()+
+  labs(x = "",
+       y = "",
+       subtitle = "VR study",
+       title = "all trials combined")+
+  theme_blank()+
+  theme(legend.position = "none",
+         axis.ticks = element_blank(),
+    axis.text = element_blank())+
+  annotate("text",x=0.21,y = -0.1, label = "anticipation probe", color = "purple")+
+  annotate("text",x=0.2,y = -0.15, label = "outcome probe", color = "skyblue")+
+  annotate("text",x=0.43,y = 0, label = "z-scored valence rating", color = "grey", angle = 90)+
+  annotate("text",x=-0.04,y = -0.43, label = "z-scored arousal rating", color = "grey")
+
+
+
+p3<-ggplot(fmri3_axes%>%
+         mutate(cos = cos * abs(Estimate),
+                sin = sin * abs(Estimate)))+
+  geom_segment(aes(x = -0.4, y = 0,
+                   xend = 0.4, yend = 0),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")),
+               color = "grey")+
+  geom_segment(aes(x = 0, y = -0.4,
+                   xend = 0, yend = 0.4),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")),
+               color = "grey")+
+    geom_segment(aes(x = 0, y = 0,
+                   xend = -0.3, yend = 0.3),
+               size = 1, linetype = "dashed",
+               color = "grey")+
+  geom_segment(aes(x = 0,y = 0,
+                   xend = cos, yend = sin,
+                   color = condition),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")))+
+  geom_text(aes(x = cos * 1.2, y = sin * 1.2, color = condition, label = round(Estimate,2)),
+            size = 5,check_overlap = F)+
+  scale_color_manual(values = c("purple","skyblue"))+
+  labs(x = "",
+       y = "",
+       subtitle = "FMRI study")+
+  theme_blank()+
+  theme(legend.position = "none",
+         axis.ticks = element_blank(),
+    axis.text = element_blank())+
+  annotate("text",x=0.43,y = 0, label = "z-scored valence rating", color = "grey", angle = 90)+
+  annotate("text",x=-0.04,y = -0.43, label = "z-scored arousal rating", color = "grey")
+
+p1+p3
+
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig2_axes.png"),dpi = 300, height = 4, width = 7)
+
+```
+
+# finding the affective dimension that best matches pupil dilation, dependent on valence
+```{r message = F, warning=F}
+da <- vrmid1_data_antprobe
+do <- vrmid1_data_outprobe
+
+lmer_out1 <- {}
+
+for (v in 1:2){
+  for (i in 1:nrow(angles)){
+    if (v == 1){
+      cues = c("+$5","+$1","+$0")
+    } else {
+      cues = c("-$5","-$1","-$0")
+    }
+    
+    angle_info = angles[i,]
+    data_lm_anti_temp <- da%>%
+      filter(trial_type %in% cues) %>% 
+      mutate(axis1 = valence_scaled * angle_info$cos1 + arousal_scaled * angle_info$sin1,
+             axis2 = valence_scaled * angle_info$cos2 + arousal_scaled * angle_info$sin2)
+    sum_temp1 <- summary(lmer(scale(axis1) ~ scale(mean_pupil_nobc_ant) + (1|Subject) + (1|condition),
+                data_lm_anti_temp))
+    sum_temp2 <- summary(lmer(scale(axis2) ~ scale(mean_pupil_nobc_ant) + (1|Subject) + (1|condition),
+                data_lm_anti_temp))
+    lmer_out1 <- rbind(lmer_out1, sum_temp1$coefficients[2,],sum_temp2$coefficients[2,])
+}
+}
+
+
+lmer_out1 <- as.data.frame(lmer_out1)
+lmer_out1$valence <- rep(c("pos","neg"), each = nrow(angles)*2)
+lmer_out1$axis <- rep(c("axis1","axis2"), times = nrow(angles)*2)
+  
+lmer_out1[seq(1,nrow(angles)*4,by = 2),"angle"] = angles$angle1d
+lmer_out1[seq(2,nrow(angles)*4,by = 2),"angle"] = angles$angle2d
+
+lmer_out1[seq(1,nrow(angles)*4,by = 2),"sin"] = angles$sin1
+lmer_out1[seq(2,nrow(angles)*4,by = 2),"sin"] = angles$sin2
+
+lmer_out1[seq(1,nrow(angles)*4,by = 2),"cos"] = angles$cos1
+lmer_out1[seq(2,nrow(angles)*4,by = 2),"cos"] = angles$cos2
+
+lmer_out1$p_val <- (lmer_out1$`Pr(>|t|)` < 0.001)
+
+lmer_out1a <- lmer_out1 %>% filter(valence == "pos")
+lmer_out1b <- lmer_out1 %>% filter(valence == "neg")
+a1fv <- rbind(lmer_out1a[which.max(abs(lmer_out1a$Estimate)),],
+              lmer_out1b[which.max(abs(lmer_out1b$Estimate)),])
+
+
+lmer_out2 <- {}
+
+for (v in 1:2){
+  if (v == 1){
+    out = "Hit"
+  } else {
+    out = "Miss"
+  }
+  for (i in 1:nrow(angles)){
+    angle_info = angles[i,]
+    data_lm_out_temp <- do%>%
+      filter(reaction_outcome == out) %>% 
+      mutate(axis1 = valence_scaled * angle_info$cos1 + arousal_scaled * angle_info$sin1,
+             axis2 = valence_scaled * angle_info$cos2 + arousal_scaled * angle_info$sin2)
+    sum_temp1 <- summary(lmer(scale(axis1) ~ scale(mean_pupil_nobc_out) + (1|Subject) + (1|condition),
+                data_lm_out_temp))
+    sum_temp2 <- summary(lmer(scale(axis2) ~ scale(mean_pupil_nobc_out) + (1|Subject) + (1|condition),
+                data_lm_out_temp))
+    lmer_out2 <- rbind(lmer_out2, sum_temp1$coefficients[2,],sum_temp2$coefficients[2,])
+}
+}
+
+
+lmer_out2 <- as.data.frame(lmer_out2)
+lmer_out2$valence <- rep(c("pos","neg"), each = nrow(angles)*2)
+lmer_out2$axis <- rep(c("axis1","axis2"), times = nrow(angles)*2)
+
+  
+lmer_out2[seq(1,nrow(angles)*4,by = 2),"angle"] = angles$angle1d
+lmer_out2[seq(2,nrow(angles)*4,by = 2),"angle"] = angles$angle2d
+
+lmer_out2[seq(1,nrow(angles)*4,by = 2),"sin"] = angles$sin1
+lmer_out2[seq(2,nrow(angles)*4,by = 2),"sin"] = angles$sin2
+
+lmer_out2[seq(1,nrow(angles)*4,by = 2),"cos"] = angles$cos1
+lmer_out2[seq(2,nrow(angles)*4,by = 2),"cos"] = angles$cos2
+
+lmer_out2$p_val <- (lmer_out2$`Pr(>|t|)` < 0.001)
+
+lmer_out2a <- lmer_out2 %>% filter(valence == "pos")
+lmer_out2b <- lmer_out2 %>% filter(valence == "neg")
+a2fv <- rbind(lmer_out2a[which.max(abs(lmer_out2a$Estimate)),],
+              lmer_out2b[which.max(abs(lmer_out2b$Estimate)),])
+
+vrmid1_axes_v <- rbind(a1fv,a2fv)
+vrmid1_axes_v$condition <- rep(c("anti","outcome"),each=2)
+
+vrmid1_axes_v <- vrmid1_axes_v%>%
+  mutate(rad = angle/180 *pi,
+         cos = cos(rad),
+         sin = sin(rad))
+```
+
+
+```{r message = F, warning=F}
+da <- fmri3_data_antprobe
+do <- fmri3_data_outprobe
+
+lmer_out1 <- {}
+
+for (v in 1:2){
+  for (i in 1:nrow(angles)){
+    if (v == 1){
+      cues = c("+$5","+$1","+$0")
+    } else {
+      cues = c("-$5","-$1","-$0")
+    }
+    
+    angle_info = angles[i,]
+    data_lm_anti_temp <- da%>%
+      filter(cue_value %in% cues) %>% 
+      mutate(axis1 = valence_scaled * angle_info$cos1 + arousal_scaled * angle_info$sin1,
+             axis2 = valence_scaled * angle_info$cos2 + arousal_scaled * angle_info$sin2)
+    sum_temp1 <- summary(lmer(scale(axis1) ~ scale(mean_pupil_nobc_scaled_ant) + (1|subject) + (1|cue_size),
+                data_lm_anti_temp))
+    sum_temp2 <- summary(lmer(scale(axis2) ~ scale(mean_pupil_nobc_scaled_ant) + (1|subject) + (1|cue_size),
+                data_lm_anti_temp))
+    lmer_out1 <- rbind(lmer_out1, sum_temp1$coefficients[2,],sum_temp2$coefficients[2,])
+}
+}
+
+
+lmer_out1 <- as.data.frame(lmer_out1)
+lmer_out1$valence <- rep(c("pos","neg"), each = nrow(angles)*2)
+lmer_out1$axis <- rep(c("axis1","axis2"), times = nrow(angles)*2)
+  
+lmer_out1[seq(1,nrow(angles)*4,by = 2),"angle"] = angles$angle1d
+lmer_out1[seq(2,nrow(angles)*4,by = 2),"angle"] = angles$angle2d
+
+lmer_out1[seq(1,nrow(angles)*4,by = 2),"sin"] = angles$sin1
+lmer_out1[seq(2,nrow(angles)*4,by = 2),"sin"] = angles$sin2
+
+lmer_out1[seq(1,nrow(angles)*4,by = 2),"cos"] = angles$cos1
+lmer_out1[seq(2,nrow(angles)*4,by = 2),"cos"] = angles$cos2
+
+lmer_out1$p_val <- (lmer_out1$`Pr(>|t|)` < 0.001)
+
+lmer_out1a <- lmer_out1 %>% filter(valence == "pos")
+lmer_out1b <- lmer_out1 %>% filter(valence == "neg")
+a1fv <- rbind(lmer_out1a[which.max(abs(lmer_out1a$Estimate)),],
+              lmer_out1b[which.max(abs(lmer_out1b$Estimate)),])
+
+
+lmer_out2 <- {}
+
+for (v in 1:2){
+  if (v == 1){
+    out = "Hit"
+  } else {
+    out = "Miss"
+  }
+  for (i in 1:nrow(angles)){
+    angle_info = angles[i,]
+    data_lm_out_temp <- do%>%
+      filter(hit == out) %>% 
+      mutate(axis1 = valence_scaled * angle_info$cos1 + arousal_scaled * angle_info$sin1,
+             axis2 = valence_scaled * angle_info$cos2 + arousal_scaled * angle_info$sin2)
+    sum_temp1 <- summary(lmer(scale(axis1) ~ scale(mean_pupil_nobc_scaled_out) + (1|subject) + (1|cue_size),
+                data_lm_out_temp))
+    sum_temp2 <- summary(lmer(scale(axis2) ~ scale(mean_pupil_nobc_scaled_out)+ (1|subject) + (1|cue_size),
+                data_lm_out_temp))
+    lmer_out2 <- rbind(lmer_out2, sum_temp1$coefficients[2,],sum_temp2$coefficients[2,])
+}
+}
+
+
+lmer_out2 <- as.data.frame(lmer_out2)
+lmer_out2$valence <- rep(c("pos","neg"), each = nrow(angles)*2)
+lmer_out2$axis <- rep(c("axis1","axis2"), times = nrow(angles)*2)
+
+  
+lmer_out2[seq(1,nrow(angles)*4,by = 2),"angle"] = angles$angle1d
+lmer_out2[seq(2,nrow(angles)*4,by = 2),"angle"] = angles$angle2d
+
+lmer_out2[seq(1,nrow(angles)*4,by = 2),"sin"] = angles$sin1
+lmer_out2[seq(2,nrow(angles)*4,by = 2),"sin"] = angles$sin2
+
+lmer_out2[seq(1,nrow(angles)*4,by = 2),"cos"] = angles$cos1
+lmer_out2[seq(2,nrow(angles)*4,by = 2),"cos"] = angles$cos2
+
+lmer_out2$p_val <- (lmer_out2$`Pr(>|t|)` < 0.001)
+
+lmer_out2a <- lmer_out2 %>% filter(valence == "pos")
+lmer_out2b <- lmer_out2 %>% filter(valence == "neg")
+a2fv <- rbind(lmer_out2a[which.max(abs(lmer_out2a$Estimate)),],
+              lmer_out2b[which.max(abs(lmer_out2b$Estimate)),])
+
+fmri3_axes_v <- rbind(a1fv,a2fv)
+fmri3_axes_v$condition <- rep(c("anti","outcome"),each=2)
+
+fmri3_axes_v <- fmri3_axes_v%>%
+  mutate(rad = angle/180 *pi,
+         cos = cos(rad),
+         sin = sin(rad))
+```
+
+## plot the axes
+```{r}
+p1<-ggplot(vrmid1_axes_v%>%
+         mutate(cos = cos * abs(Estimate),
+                sin = sin * abs(Estimate)))+
+  geom_segment(aes(x = -0.4, y = 0,
+                   xend = 0.4, yend = 0),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")),
+               color = "grey")+
+  geom_segment(aes(x = 0, y = -0.4,
+                   xend = 0, yend = 0.4),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")),
+               color = "grey")+
+  geom_segment(aes(x = 0,y = 0,
+                   xend = cos, yend = sin,
+                   color = condition,
+                   linetype = valence),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")))+
+  geom_segment(aes(x = 0, y = 0,
+                   xend = -0.3, yend = 0.3),
+               size = 1, linetype = "dashed",
+               color = "grey")+ #45 degree line
+  # geom_text(aes(x = cos * 1.2, y = sin * 1.1, color = condition, label = round(Estimate,2)),
+  #           size = 5,check_overlap = F)+
+  
+  scale_color_manual(values = c("purple","skyblue"))+
+  scale_y_continuous()+
+  labs(x = "",
+       y = "",
+       title = "By cue valence",
+       subtitle = "VR study")+
+  theme_blank()+
+  theme(legend.position = "none",
+         axis.ticks = element_blank(),
+    axis.text = element_blank())+
+  scale_linetype_manual(values = c("pos" = "solid", "neg" = "dotted")) +
+  annotate("text",x=0.21,y = -0.1, label = "anticipation probe", color = "purple")+
+  annotate("text",x=0.2,y = -0.15, label = "outcome probe", color = "skyblue")+
+  annotate("text",x=0.43,y = 0, label = "z-scored valence rating", color = "grey", angle = 90)+
+  annotate("text",x=-0.04,y = -0.43, label = "z-scored arousal rating", color = "grey")
+
+p3<-ggplot(fmri3_axes_v%>%
+         mutate(cos = cos * abs(Estimate),
+                sin = sin * abs(Estimate)))+
+  geom_segment(aes(x = -0.4, y = 0,
+                   xend = 0.4, yend = 0),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")),
+               color = "grey")+
+  geom_segment(aes(x = 0, y = -0.4,
+                   xend = 0, yend = 0.4),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")),
+               color = "grey")+
+    geom_segment(aes(x = 0, y = 0,
+                   xend = -0.3, yend = 0.3),
+               size = 1, linetype = "dashed",
+               color = "grey")+
+  geom_segment(aes(x = 0,y = 0,
+                   xend = cos, yend = sin,
+                   color = condition,
+                   linetype = valence),
+               size = 1, arrow = arrow(length = unit(0.03, "npc")))+
+  # geom_text(aes(x = cos * 1.2, y = sin * 1.2, color = condition, label = round(Estimate,2)),
+  #           size = 5,check_overlap = F)+
+  scale_color_manual(values = c("purple","skyblue"))+
+  scale_linetype_manual(values = c("pos" = "solid", "neg" = "dotted")) +
+  labs(x = "",
+       y = "",
+       subtitle = "FMRI study",
+       caption = "solid = positive, dotted = negative")+
+  theme_blank()+
+  theme(legend.position = "none",
+         axis.ticks = element_blank(),
+    axis.text = element_blank())+
+  annotate("text",x=0.43,y = 0, label = "z-scored valence rating", color = "grey", angle = 90)+
+  annotate("text",x=-0.04,y = -0.43, label = "z-scored arousal rating", color = "grey")
+```
+
+```{r}
+p1+p3
+
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig2_axes2.png"),dpi = 300, height = 4, width = 7)
+
+fig2a <- image_read("~/Desktop/VRMID-analysis/mid-pupil/figures/fig2_axes.png")
+fig2b <- image_read("~/Desktop/VRMID-analysis/mid-pupil/figures/fig2_axes2.png")
+fig2a <- image_annotate(fig2a, "A", size = 60, location = "+30+10", color = "black", gravity = "northwest")
+fig2b <- image_annotate(fig2b, "B", size = 60, location = "+30+10", color = "black", gravity = "northwest")
+# Stack the images vertically
+combined <- image_append(c(fig2a, fig2b), stack = TRUE)
+
+# Save the combined image
+image_write(combined, "~/Desktop/VRMID-analysis/mid-pupil/figures/fig2_axes3.png")
+```
+

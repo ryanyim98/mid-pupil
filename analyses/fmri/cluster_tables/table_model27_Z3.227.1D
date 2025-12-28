@@ -1,0 +1,25 @@
+#
+#  Cluster report 
+#[ Dataset prefix      = model27c_param_arous_early_30z.nii.gz ]
+#[ Threshold vol       = [1] 'SetA_Tstat' ]
+#[ Supplement dat vol  = [1] 'SetA_Tstat' ]
+#[ Option summary      = 2sided,-3.227,3.227,clust_nvox,30,NN2 ]
+#[ Threshold value(s)  = left-tail thr=-3.227000;  right-tail thr=3.227000 ]
+#[ Aux. stat. info.    =  ]
+#[ Nvoxel threshold    = 30;  Volume threshold = 731.670 ]
+#[ Single voxel volume = 24.389 (microliters) ]
+#[ Neighbor type, NN   = 2 ]
+#[ Voxel datum type    = float ]
+#[ Voxel dimensions    = 2.900 mm X 2.900 mm X 2.900 mm ]
+#[ Coordinates Order   = RAI ]
+#[ Mean and SEM based on absolute value of voxel intensities ]
+#
+Volume  CM_RL  CM_AP  CM_IS  minRL  maxRL  minAP  maxAP  minIS  maxIS    Mean     SEM    Max_Int  MI_RL  MI_AP  MI_IS
+#------  -----  -----  -----  -----  -----  -----  -----  -----  -----  -------  -------  -------  -----  -----  -----
+    414   -0.4   78.5  -12.0  -30.5   24.7   57.2   94.9  -38.9   10.4   3.4972     0.01   4.2422   -7.2   77.4  -24.4 
+     95   39.4   55.6  -32.2   27.5   53.7   36.8   68.8  -38.9  -24.4   3.5175    0.027   4.2888   33.3   42.7  -36.0 
+     80  -36.0   50.6  -37.8  -45.0  -30.5   36.8   62.9  -47.6  -30.2   3.6113   0.0346   4.3441  -33.3   39.8  -36.0 
+     80   13.2  -10.8   -6.0    4.3   30.4  -18.2   -3.8  -15.7    7.5   3.4312   0.0182   3.9735    7.2   -6.7  -12.8 
+     75  -52.8   -0.1   42.0  -62.3  -42.1   -9.6    7.8   30.7   53.9   3.4832   0.0255   4.0542  -56.6   -0.9   48.1 
+     44    5.8   61.6   51.2   -1.5   13.0   48.4   68.8   42.3   62.6   3.3842   0.0186   3.7162   10.2   62.9   42.3 
+     30  -20.1    7.0   67.3  -30.5  -10.2   -0.9   13.7   62.6   74.2    3.482   0.0342   3.8726  -18.8    7.8   65.5 

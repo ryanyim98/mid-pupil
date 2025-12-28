@@ -1,0 +1,400 @@
+---
+title: "reg_timecourse"
+output: html_document
+date: "2025-12-27"
+---
+
+## get the correlation time series
+```{r warning = F, message=F}
+vrmid1_regression_coefs_ant_nobc <- {}
+
+for (t in 1:20) {
+  coefs <- {}
+  print(t)
+  for (s in 1:120){
+  df_ant_temp <- vrmid1_pupil_data%>%
+  filter(probe == "anti",Time_sec == t, sample_in_sec == s)
+  lm_ant_temp <- lmer(scale(arousal_scaled) ~ scale(pupil_Avg_scaled) + (1|Subject) + (1|condition),df_ant_temp)
+  lm_out <- c(summary(lm_ant_temp)$coefficient[2,],'r2m' = r.squaredGLMM(lm_ant_temp)[1])
+  coefs <- rbind(coefs,lm_out)
+  }
+  coefs <- as.data.frame(coefs)%>%
+    mutate(sample_in_sec = row_number(),
+           Time_sec = t)
+  rownames(coefs) <- NULL
+  vrmid1_regression_coefs_ant_nobc <- rbind(vrmid1_regression_coefs_ant_nobc,coefs)
+}
+
+vrmid1_regression_coefs_ant_nobc <- vrmid1_regression_coefs_ant_nobc%>%
+  mutate(sample_point = row_number())%>%
+  rename(p_val = `Pr(>|t|)`) %>% 
+  mutate(p_val_fdr = p.adjust(p_val, method = "fdr")) #applies the Benjamini–Hochberg correction
+
+write.csv(vrmid1_regression_coefs_ant_nobc, "../../../data/vrmid1/derivatives/vrmid1_regression_coefs_ant_nobc.csv")
+vrmid1_regression_coefs_ant_nobc<-read_csv("../../../data/vrmid1/derivatives/vrmid1_regression_coefs_ant_nobc.csv")
+
+vrmid1_regression_coefs_out_nobc <- {}
+
+for (t in 1:20) {
+  coefs <- {}
+  print(t)
+  for (s in 1:120){
+  df_out_temp <- vrmid1_pupil_data%>%
+  filter(probe == "out",Time_sec == t, sample_in_sec == s)
+  lm_out_temp <- lmer(scale(arousal_scaled) ~ scale(pupil_Avg_bc_scaled) + (1|Subject) + (1|condition),df_out_temp)
+  lm_out <- summary(lm_out_temp)$coefficient[2,]
+  coefs <- rbind(coefs,lm_out) 
+  }
+  coefs <- as.data.frame(coefs)%>%
+    mutate(sample_in_sec = row_number(),
+           Time_sec = t)
+  rownames(coefs) <- NULL
+  vrmid1_regression_coefs_out_nobc <- rbind(vrmid1_regression_coefs_out_nobc,coefs)
+}
+
+vrmid1_regression_coefs_out_nobc <- vrmid1_regression_coefs_out_nobc%>%
+  mutate(sample_point = row_number())%>%
+  rename(p_val = `Pr(>|t|)`) %>% 
+  mutate(p_val_fdr = p.adjust(p_val, method = "fdr")) #applies the Benjamini–Hochberg correction
+
+write.csv(vrmid1_regression_coefs_out_nobc,  "../../../data/vrmid1/derivatives/vrmid1_regression_coefs_out_nobc.csv")
+vrmid1_regression_coefs_out_nobc<-read_csv("../../../data/vrmid1/derivatives/vrmid1_regression_coefs_out_nobc.csv")
+
+fmri3_regression_coefs_ant_nobc <- {}
+
+for (t in 1:20) {
+  coefs <- {}
+  print(t)
+  for (s in 1:200){
+  df_ant_temp <- fmri3_pupil_data%>%
+  filter(probe == 1,Time_sec == t, sample_in_sec == s)
+  lm_ant_temp <- lmer(scale(arousal_scaled) ~ scale(pupilDiameter_scaled) + (1|subject) + (1|cue_size),df_ant_temp)
+  lm_out <- c(summary(lm_ant_temp)$coefficient[2,],'r2m' = r.squaredGLMM(lm_ant_temp)[1])
+  coefs <- rbind(coefs,lm_out)
+  }
+  coefs <- as.data.frame(coefs)%>%
+    mutate(sample_in_sec = row_number(),
+           Time_sec = t)
+  rownames(coefs) <- NULL
+  fmri3_regression_coefs_ant_nobc <- rbind(fmri3_regression_coefs_ant_nobc,coefs)
+}
+
+fmri3_regression_coefs_ant_nobc <- fmri3_regression_coefs_ant_nobc%>%
+  mutate(sample_point = row_number())%>%
+    rename(p_val = `Pr(>|t|)`) %>% 
+  mutate(p_val_fdr = p.adjust(p_val, method = "fdr")) #applies the Benjamini–Hochberg correction
+
+write.csv(fmri3_regression_coefs_ant_nobc, "../../../data/fmri3//derivatives/fmri3_regression_coefs_ant_nobc.csv")
+fmri3_regression_coefs_ant_nobc<-read_csv("../../../data/fmri3/derivatives/fmri3_regression_coefs_ant_nobc.csv")
+
+fmri3_regression_coefs_out_nobc <- {}
+
+for (t in 1:20) {
+  coefs <- {}
+  print(t)
+  for (s in 1:200){
+  df_out_temp <- fmri3_pupil_data%>%
+  filter(probe == 2,Time_sec == t, sample_in_sec == s)
+  lm_out_temp <-  lmer(scale(arousal_scaled) ~ scale(pupilDiameter_scaled) + (1|subject) + (1|cue_size),df_out_temp)
+  lm_out <- summary(lm_out_temp)$coefficient[2,]
+  coefs <- rbind(coefs,lm_out) 
+  }
+  coefs <- as.data.frame(coefs)%>%
+    mutate(sample_in_sec = row_number(),
+           Time_sec = t)
+  rownames(coefs) <- NULL
+  fmri3_regression_coefs_out_nobc <- rbind(fmri3_regression_coefs_out_nobc,coefs)
+}
+
+fmri3_regression_coefs_out_nobc <- fmri3_regression_coefs_out_nobc%>%
+  mutate(sample_point = row_number())%>%
+    rename(p_val = `Pr(>|t|)`) %>% 
+  mutate(p_val_fdr = p.adjust(p_val, method = "fdr")) #applies the Benjamini–Hochberg correction
+
+write.csv(fmri3_regression_coefs_out_nobc,  "../../../data/fmri3/derivatives/fmri3_regression_coefs_out_nobc.csv")
+fmri3_regression_coefs_out_nobc <- read_csv("../../../data/fmri3/derivatives/fmri3_regression_coefs_out_nobc.csv")
+```
+## make clusters
+```{r}
+
+# threshold and min cluster length
+p_thresh <- 1e-3
+mark_clusters <- function(df, p_thresh, min_cluster_length, merge_gap) {
+  # df must contain columns: p_val_fdr and sample_in_sec (or any per-row index)
+  # min_cluster_length and merge_gap are in SAMPLES (not seconds).
+  
+  # Ensure ordering and create sample index (1..N)
+  df <- df %>%
+    arrange(Time_sec, sample_in_sec) %>%
+    mutate(.row_idx = seq_len(n()))
+  
+  # Logical vector: below threshold
+  below <- df$p_val_fdr < p_thresh
+  
+  # Identify runs of TRUE / FALSE using rle
+  r <- rle(below)
+  lens <- r$lengths
+  vals <- r$values
+  ends <- cumsum(lens)
+  starts <- ends - lens + 1
+  runs <- tibble(
+    run_id = seq_along(lens),
+    start_idx = starts,
+    end_idx = ends,
+    length = lens,
+    is_true = vals
+  )
+  
+  # Keep only TRUE runs (candidate significant clusters)
+  true_runs <- runs %>% filter(is_true)
+  
+  if (nrow(true_runs) == 0) {
+    df$sig_cluster <- NA
+    return(df %>% select(-.row_idx))
+  }
+  
+  # Compute gaps between consecutive TRUE runs
+  true_runs <- true_runs %>%
+    arrange(start_idx) %>%
+    mutate(
+      prev_end = lag(end_idx),
+      gap = if_else(is.na(prev_end), NA, start_idx - prev_end - 1L)
+    )
+  
+  # start new merge group whenever gap > merge_gap or NA
+  true_runs <- true_runs %>%
+    mutate(new_group = cumsum(if_else(is.na(gap) | gap > merge_gap, 1L, 0L)))
+  
+  # Summarize merged groups
+  merged <- true_runs %>%
+    group_by(new_group) %>%
+    summarise(
+      start_idx = first(start_idx),
+      end_idx = last(end_idx),
+      size = sum(length),
+      .groups = "drop"
+    ) %>%
+    filter(size >= min_cluster_length)
+  
+  # If no merged cluster passes min length, return NA sig_cluster
+  if (nrow(merged) == 0) {
+    df$sig_cluster <- NA
+    return(df %>% select(-.row_idx))
+  }
+  
+  # Create logical mask of significant samples
+  sig_mask <- rep(FALSE, nrow(df))
+  for (i in seq_len(nrow(merged))) {
+    si <- merged$start_idx[i]
+    ei <- merged$end_idx[i]
+    si <- max(1L, as.integer(si))
+    ei <- min(nrow(df), as.integer(ei))
+    sig_mask[si:ei] <- TRUE
+  }
+  
+  # Assign sig_cluster column (1 = significant, NA = not)
+  df$sig_cluster <- ifelse(sig_mask, 1L, NA)
+  
+  # Drop helper column and return
+  df <- df %>% select(-.row_idx)
+  return(df)
+}
+
+
+
+min_cluster_length <- 1 * 120  # 1s
+merge_gap <- 0.3 * 120          # 0.1s
+
+# Apply to all datasets
+vrmid1_regression_coefs_out_nobc <- mark_clusters(vrmid1_regression_coefs_out_nobc, p_thresh, min_cluster_length,merge_gap)
+vrmid1_regression_coefs_ant_nobc <- mark_clusters(vrmid1_regression_coefs_ant_nobc, p_thresh, min_cluster_length,merge_gap)
+
+min_cluster_length <- 1 * 200  # 0.5s * 200 samples/sec = 100 samples
+merge_gap <- 0.3 * 200          # 0.1s * 200 samples/sec = 20 samples
+fmri3_regression_coefs_ant_nobc  <- mark_clusters(fmri3_regression_coefs_ant_nobc,  p_thresh, min_cluster_length,merge_gap)
+fmri3_regression_coefs_out_nobc  <- mark_clusters(fmri3_regression_coefs_out_nobc,  p_thresh, min_cluster_length,merge_gap)
+```
+
+## plots
+```{r}
+axis_range=c(min(c(vrmid1_regression_coefs_ant_nobc$Estimate-vrmid1_regression_coefs_ant_nobc$`Std. Error`,
+                   #vrmid2_regression_coefs_ant_nobc$Estimate-vrmid2_regression_coefs_ant_nobc$`Std. Error`,
+                   fmri3_regression_coefs_ant_nobc$Estimate-fmri3_regression_coefs_ant_nobc$`Std. Error`,
+                   vrmid1_regression_coefs_out_nobc$Estimate-vrmid1_regression_coefs_out_nobc$`Std. Error`,
+                   #vrmid2_regression_coefs_out_nobc$Estimate-vrmid2_regression_coefs_out_nobc$`Std. Error`,
+                   fmri3_regression_coefs_out_nobc$Estimate-fmri3_regression_coefs_out_nobc$`Std. Error`)),
+             max(vrmid1_regression_coefs_ant_nobc$Estimate+vrmid1_regression_coefs_ant_nobc$`Std. Error`,
+                   #vrmid2_regression_coefs_ant_nobc$Estimate+vrmid2_regression_coefs_ant_nobc$`Std. Error`,
+                   fmri3_regression_coefs_ant_nobc$Estimate+fmri3_regression_coefs_ant_nobc$`Std. Error`,
+                   vrmid1_regression_coefs_out_nobc$Estimate+vrmid1_regression_coefs_out_nobc$`Std. Error`,
+                   #vrmid2_regression_coefs_out_nobc$Estimate+vrmid2_regression_coefs_out_nobc$`Std. Error`,
+                   fmri3_regression_coefs_out_nobc$Estimate+fmri3_regression_coefs_out_nobc$`Std. Error`))
+
+p1a<-ggplot(vrmid1_regression_coefs_ant_nobc, aes(x = sample_point,y = Estimate))+
+    geom_vline(xintercept = c(0,4,6,14,16,18)*120, size = 1, color = "grey")+
+  geom_vline(xintercept = c(2030,783), size = 1, color = "orange", linetype = "dashed")+
+  annotate("text", x = 2*120,y = 0.1, label = "C",
+          color = "black",size = unit(4,"pt"))+
+  annotate("text", x = 5*120,y = 0.1, label = "F",
+          color = "black",size = unit(4,"pt"))+
+  annotate("text", x = 15*120,y = 0.1, label = "T",
+          color = "black",size = unit(4,"pt"))+
+  annotate("text", x = 17*120,y = 0.1, label = "O",
+          color = "black",size = unit(4,"pt"))+
+  annotate("text", x = 10*120,y = 0.1, label = "R",
+          color = "black",size = unit(4,"pt"))+
+  geom_line(aes(color = Estimate),
+             size = 1)+
+   geom_ribbon(aes(x = sample_point, y = Estimate, ymin = Estimate - `Std. Error`,
+                  ymax = Estimate + `Std. Error`),alpha = 0.1,
+             size = 0.1)+
+  geom_point(aes(x = sample_point, y = sig_cluster-1),
+             size = 0.1)+
+  scale_x_continuous(breaks = seq(0,120*20,5*120), labels =  seq(0,20,5))+
+  labs(x = "time (sec)",
+       y =  "Standardized beta",
+       title = "VR study",
+       subtitle = "anticipation probe",
+       color = "")+
+  scale_color_viridis_c(limits=axis_range)+
+  ylim(axis_range)+
+  theme_blank()+
+  theme(legend.position = "left")+
+  annotation_custom(
+    grob = grid::rectGrob(gp = grid::gpar(fill = "white", alpha = 1, col = NA)),
+    xmin = 14.1*120, xmax = 21*120, ymin = -Inf, ymax = Inf
+  )
+
+p1b<-ggplot(vrmid1_regression_coefs_out_nobc, aes(x = sample_point,y = Estimate))+
+  geom_vline(xintercept = c(0,4,6,8,10,18)*120, size = 1, color = "grey")+
+  geom_vline(xintercept = c(1134), size = 1, color = "orange", linetype = "dashed")+
+  geom_point(aes(x = sample_point, y = sig_cluster-1),
+             size = 0.1)+
+  geom_ribbon(aes(x = sample_point, y = Estimate, ymin = Estimate - `Std. Error`,
+                  ymax = Estimate + `Std. Error`),alpha = 0.1,
+             size = 0.1)+
+  annotate("text", x = 2*120,y = 0.02, label = "C",
+          color = "black",size = unit(4,"pt"))+
+  annotate("text", x = 5*120,y =0.02, label = "F",
+          color = "black",size = unit(4,"pt"))+
+  annotate("text", x = 7*120,y = 0.02, label = "T",
+          color = "black",size = unit(4,"pt"))+
+  annotate("text", x = 9*120,y = 0.02, label = "O",
+          color = "black",size = unit(4,"pt"))+
+    annotate("text", x = 14*120,y = 0.02, label = "R",
+          color = "black",size = unit(4,"pt"))+
+   geom_line(aes(color = Estimate),
+             size = 1)+
+  scale_x_continuous(breaks = seq(0,120*20,5*120), label = seq(0,20,5))+
+  labs(x = "time (sec)",
+       y =  "",
+       title = "VR study",
+       subtitle = "outcome probe")+
+  scale_color_viridis_c(limits=axis_range)+
+  theme_blank()+
+  ylim(axis_range)+
+    theme(legend.position = "none")+
+  annotation_custom(
+    grob = grid::rectGrob(gp = grid::gpar(fill = "white", alpha = 1, col = NA)),
+    xmin = 18.1*120, xmax = 20.5*120, ymin = -Inf, ymax = Inf
+  )
+
+p3a<-ggplot(fmri3_regression_coefs_ant_nobc, aes(x = sample_point,y = Estimate))+
+  geom_vline(xintercept = c(0,2,4,12,14,16,18)*200, size = 1, color = "grey")+
+  geom_vline(xintercept = c(826,3291), size = 1, color = "orange", linetype = "dashed")+
+  geom_point(aes(x = sample_point, y = sig_cluster-1),
+             size = 0.1)+
+     geom_ribbon(aes(x = sample_point, y = Estimate, ymin = Estimate - `Std. Error`,
+                  ymax = Estimate + `Std. Error`),alpha = 0.1,
+             size = 0.1)+
+  annotate("text", x = 1*200,y = 0.1, label = "C",
+          color = "black",size = unit(4,"pt"))+
+  annotate("text", x = 3*200,y = 0.1, label = "F",
+          color = "black",size = unit(4,"pt"))+
+    annotate("text", x = 13*200,y = 0.1, label = "F",
+          color = "black",size = unit(4,"pt"))+
+  annotate("text", x = 15*200,y = 0.1, label = "T",
+          color = "black",size = unit(4,"pt"))+
+  annotate("text", x = 17*200,y = 0.1, label = "O",
+          color = "black",size = unit(4,"pt"))+
+  annotate("text", x = 8*200,y = 0.1, label = "R",
+          color = "black",size = unit(4,"pt"))+
+  geom_line(aes(color = Estimate),
+             size = 1)+
+  scale_x_continuous(breaks = seq(0,200*20,5*200), labels =  seq(0,20,5))+
+  labs(x = "time (sec)",
+       y =  "",
+       title = "FMRI study",
+       subtitle = "anticipation probe")+
+  scale_color_viridis_c(limits=axis_range)+
+  theme_blank()+
+  ylim(axis_range)+
+  theme(legend.position = "none")+
+  annotation_custom(
+    grob = grid::rectGrob(gp = grid::gpar(fill = "white", alpha = 1, col = NA)),
+    xmin = 12.1*200, xmax = 21*200, ymin = -Inf, ymax = Inf
+  )
+
+p3b<-ggplot(fmri3_regression_coefs_out_nobc %>% filter(sample_point <= 18*200), aes(x = sample_point,y = Estimate))+
+  geom_vline(xintercept = c(0,2,4,6,8,16)*200, size = 1, color = "grey")+
+  geom_vline(xintercept = c(1294), size = 1, color = "orange", linetype = "dashed")+
+  geom_point(aes(x = sample_point, y = sig_cluster-1),
+             size = 0.1)+
+   geom_ribbon(aes(x = sample_point, y = Estimate, ymin = Estimate - `Std. Error`,
+                  ymax = Estimate + `Std. Error`),alpha = 0.1,
+             size = 0.1)+
+  annotate("text", x = 1*200,y = 0.02, label = "C",
+          color = "black",size = unit(4,"pt"))+
+  annotate("text", x = 3*200,y =0.02, label = "F",
+          color = "black",size = unit(4,"pt"))+
+  annotate("text", x = 5*200,y = 0.02, label = "T",
+          color = "black",size = unit(4,"pt"))+
+  annotate("text", x = 7*200,y = 0.02, label = "O",
+          color = "black",size = unit(4,"pt"))+
+    annotate("text", x = 12*200,y = 0.02, label = "R",
+          color = "black",size = unit(4,"pt"))+
+    geom_line(aes(color = Estimate),
+             size = 1)+
+ scale_x_continuous(breaks = seq(0,200*20,5*200), labels =  seq(0,20,5))+
+  labs(x = "time (sec)",
+       y =  "",
+       title = "FMRI study",
+       subtitle = "outcome probe",
+      caption = "C = Cue, F = Fixation, \nT = Target, O = Outcome, R = Rating")+
+  scale_color_viridis_c(limits=axis_range)+
+  theme_blank()+
+  ylim(axis_range)+
+  theme(legend.position = "none")+
+  annotation_custom(
+    grob = grid::rectGrob(gp = grid::gpar(fill = "white", alpha = 1, col = NA)),
+    xmin = 16.1*200, xmax = 19*200, ymin = -Inf, ymax = Inf
+  )
+```
+
+
+# combining two probes
+# is tonic pupil a function of the previous iti?
+```{r}
+summary(lmer(scale(mean_pupil_baseline) ~  scale(last_ITI) +(1|Subject),
+              vrmid1_data_2probes))
+
+summary(lmer(scale(mean_pupil_baseline) ~  scale(last_iti) +(1|subject),
+              fmri3_data_2probes))
+```
+
+## group all 3 studies together for a master correlation
+```{r}
+wrap_elements(full = grid::textGrob("Separated by probe type", gp = grid::gpar(fontsize = 14, fontface = "bold"), just = "left"))/
+(p1a+p1b)/(p3a+p3b)+        
+plot_layout(heights = c(0.2,1.5,1.5))
+
+
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig7_howlongago2.png"),dpi = 300, height = 8, width = 8)
+
+fig1 <- magick::image_read("~/Desktop/VRMID-analysis/mid-pupil/figures/fig7_howlongago2.png")
+fig1 <-  magick::image_annotate(fig1, "A", size = 70, location = "+200+120", color = "black", gravity = "northwest")
+fig1 <-  magick::image_annotate(fig1, "B", size = 70, location = "+200+1200", color = "black", gravity = "northwest")
+
+magick::image_write(fig1, "~/Desktop/VRMID-analysis/mid-pupil/figures/fig7_howlongago2.png")
+```
+

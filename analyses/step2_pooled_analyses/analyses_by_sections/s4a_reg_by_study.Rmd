@@ -1,0 +1,656 @@
+---
+title: "reg_by_study"
+output: html_document
+date: "2025-12-27"
+---
+
+This is the RMD file for calculating the pupil-arousal effect size for each study separately
+
+### were ant and out pupil, tonic and phasic pupil correlated?
+```{r}
+#vrmid study 1
+summary(lmer(scale(mean_pupil_bc_ant) ~  scale(mean_pupil_bc_out) +(1|Subject) + (1|condition) + (1|probe),
+              rbind(vrmid1_data_antprobe,
+                    vrmid1_data_outprobe)))
+
+summary(lmer(scale(mean_pupil_baseline_ant) ~  scale(mean_pupil_bc_ant) +(1|Subject) + (1|condition) + (1|probe),
+              rbind(vrmid1_data_antprobe,
+                    vrmid1_data_outprobe)))
+
+summary(lmer(scale(mean_pupil_baseline_ant) ~  scale(mean_pupil_bc_out) +(1|Subject) + (1|condition) + (1|probe),
+              rbind(vrmid1_data_antprobe,
+                    vrmid1_data_outprobe)))
+
+#fmri study
+summary(lmer(scale(mean_pupil_bc_scaled_ant) ~  scale(mean_pupil_bc_scaled_out) +(1|subject) + (1|cue_size) + (1|probe),
+              rbind(fmri3_data_antprobe,
+                    fmri3_data_outprobe)))
+
+summary(lmer(scale(mean_pupil_baseline_scaled) ~  scale(mean_pupil_bc_scaled_ant) +(1|subject) + (1|cue_size) + (1|probe),
+              rbind(fmri3_data_antprobe,
+                    fmri3_data_outprobe)))
+
+summary(lmer(scale(mean_pupil_baseline_scaled) ~  scale(mean_pupil_bc_scaled_out) +(1|subject) + (1|cue_size) + (1|probe),
+              rbind(fmri3_data_antprobe,
+                    fmri3_data_outprobe)))
+```
+
+
+### anticipation
+```{r}
+#vrmid1
+da <- vrmid1_data_antprobe
+summary(t <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_ant) +(1|Subject) + (1|condition),
+              da))
+summary(p <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_ant) +(1|Subject) + (1|condition),
+              da))
+summary(tp <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_ant) +(1|Subject) + (1|condition),
+              da))
+anova(t,p,tp)
+
+v1a<- c(round(r.squaredGLMM(t)*100,2),
+round(r.squaredGLMM(p)*100,2),
+round(r.squaredGLMM(tp)*100,2),
+t(EMAtools::lme.dscore(t,da,"lme4")),
+t(EMAtools::lme.dscore(p,da,"lme4")),
+t(EMAtools::lme.dscore(tp,da,"lme4")))
+
+
+# fit random slope as comparison
+summary(lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_ant) +(1+scale(mean_pupil_nobc_ant)|Subject) + (1|condition),
+              da))
+
+# fit random intercept for cue_value
+summary(lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_ant) +(1+scale(mean_pupil_nobc_ant)|Subject) + (1|condition)
+             + (1|trial_type),
+              da))
+```
+
+
+
+```{r}
+#fmri3
+da <- fmri3_data_antprobe
+t <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_scaled) +(1|subject) + (1|cue_size),
+              da)
+summary(t)
+p <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_scaled_ant) +(1|subject) + (1|cue_size),
+              da)
+summary(p)
+tp <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_ant) +(1|subject) + (1|cue_size),
+              da)
+summary(tp)
+tp_res_conv <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_residual_conv_ant) +(1|subject) + (1|cue_size),
+              da)
+summary(tp_res_conv)
+anova(tp,tp_res_conv)
+
+v3a<- c(round(r.squaredGLMM(t)*100,2),
+round(r.squaredGLMM(p)*100,2),
+round(r.squaredGLMM(tp)*100,2),
+t(EMAtools::lme.dscore(t,da,"lme4")),
+t(EMAtools::lme.dscore(p,da,"lme4")),
+t(EMAtools::lme.dscore(tp,da,"lme4")))
+
+# fit random slope as comparison
+summary(lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_ant) +(1+scale(mean_pupil_nobc_scaled_ant)|subject) + (1|cue_size),da))
+
+# fit random intercept for cue_value
+summary(lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_ant) +(1|subject) + (1|cue_size)
+             + (1|cue_value),
+              da))
+```
+
+### outcome
+
+```{r}
+#vrmid1
+do <- vrmid1_data_outprobe
+t <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_out) +(1|Subject) + (1|condition),
+              do)
+summary(t)
+p <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_out) +(1|Subject) + (1|condition),
+              do)
+summary(p)
+tp <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_out) +(1|Subject) + (1|condition),
+              do)
+summary(tp)
+anova(t,p,tp)
+
+v1o<- c(round(r.squaredGLMM(t)*100,2),
+round(r.squaredGLMM(p)*100,2),
+round(r.squaredGLMM(tp)*100,2),
+t(EMAtools::lme.dscore(t,do,"lme4")),
+t(EMAtools::lme.dscore(p,do,"lme4")),
+t(EMAtools::lme.dscore(tp,do,"lme4")))
+
+summary(lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_out) +(1+scale(mean_pupil_nobc_out)|Subject) + (1|condition),
+              do))
+
+# fit random intercept for cue_value
+summary(lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_out) +(1|Subject) + (1|condition) + (1|trial_type),
+              do))
+```
+
+```{r}
+#fmri3
+do <- fmri3_data_outprobe
+t <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_scaled) +(1|subject) + (1|cue_size),
+              do)
+summary(t)
+p <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_scaled_out) +(1|subject) + (1|cue_size),
+              do)
+summary(p)
+tp <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_out)+(1|subject) + (1|cue_size),
+              do)
+summary(tp)
+tp_res_conv <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_residual_conv_out) +(1|subject) + (1|cue_size),
+              do)
+summary(tp_res_conv)
+anova(tp,tp_res_conv)
+
+# anova(t,p,tp)
+
+v3o<- c(round(r.squaredGLMM(t)*100,2),
+round(r.squaredGLMM(p)*100,2),
+round(r.squaredGLMM(tp)*100,2),
+t(EMAtools::lme.dscore(t,do,"lme4")),
+t(EMAtools::lme.dscore(p,do,"lme4")),
+t(EMAtools::lme.dscore(tp,do,"lme4")))
+
+
+summary(lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_out)+(1+scale(mean_pupil_nobc_scaled_out)|subject) + (1|cue_size),
+              do))
+
+summary(lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_out)+(1|subject) + (1|cue_size) + (1|cue_value),
+              do))
+
+# what about tonic * phasic interaction?
+r.squaredGLMM(lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_scaled_out) * scale(mean_pupil_baseline_scaled)+(1|subject) + (1|cue_size),
+              do))
+r.squaredGLMM(tp)
+```
+
+
+
+```{r}
+r2list <- as.data.frame(Reduce(rbind,list(v1a,v3a,v1o,v3o)))
+names(r2list) <- c(paste0(c("R2m","R2c","R2m","R2c"),"_",c("tonic","tonic","phasic","phasic","t+p","t+p")),
+                   paste0(c("t","df","d","t","df","d"),"_",c("tonic","tonic","tonic","phasic","phasic","phasic","t+p","t+p","t+p"))) 
+
+r2list$study <- c("VR1",'FMRI3',"VR1",'FMRI3')
+
+r2list$probe <- c("anticipation","anticipation","outcome","outcome")
+
+r2list<-remove_rownames(r2list) %>% 
+  relocate(study, probe)
+
+r2list_long <- r2list %>% 
+  pivot_longer(R2m_tonic:`d_t+p`,names_to = c("measure","dataType"),values_to = "value", names_sep = "_") %>% 
+  pivot_wider(names_from = dataType, values_from = "value") %>% 
+  filter(measure %in% c("R2m","t","d"))
+
+r2list_long %>% 
+  arrange(probe,measure) %>% 
+  kable(digits = 2) %>% 
+  kable_styling()%>%
+  save_kable(file = "../../../data/r2.html", self_contained = T)
+```
+
+### both probes
+```{r}
+#vrmid1
+summary(t <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline) +(1|Subject) + (1|condition) + (1|probe),
+              vrmid1_data_2probes))
+summary(p <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc) +(1|Subject) + (1|condition)+ (1|probe),
+              vrmid1_data_2probes))
+summary(tp <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc) +(1|Subject) + (1|condition)+ (1|probe),
+              vrmid1_data_2probes))
+anova(t,p,tp)
+
+rbind(round(r.squaredGLMM(t)*100,2),
+round(r.squaredGLMM(p)*100,2),
+round(r.squaredGLMM(tp)*100,2))
+
+```
+
+```{r}
+#fmri3
+summary(t <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline) +(1|subject) + (1|cue_size)+ (1|probe),
+              fmri3_data_2probes))
+summary(p <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc) +(1|subject) + (1|cue_size)+ (1|probe),
+              fmri3_data_2probes))
+summary(tp <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc) +(1|subject) + (1|cue_size)+ (1|probe),
+              fmri3_data_2probes))
+
+
+rbind(round(r.squaredGLMM(t)*100,2),
+round(r.squaredGLMM(p)*100,2),
+round(r.squaredGLMM(tp)*100,2))
+
+```
+
+
+### make figures (all studies and probes)
+```{r}
+l1a<-lmer(arousal_scaled ~  mean_pupil_nobc_ant + (1|Subject) + (1|condition),vrmid1_data_antprobe)
+l1b<-lmer(valence_scaled ~  mean_pupil_nobc_ant + (1|Subject) + (1|condition),vrmid1_data_antprobe)
+l1c<-lmer(arousal_scaled ~  mean_pupil_nobc_out + (1|Subject) + (1|condition),vrmid1_data_outprobe)
+l1d<-lmer(valence_scaled ~  mean_pupil_nobc_out + (1|Subject) + (1|condition),vrmid1_data_outprobe)
+
+p1a<-plot_model(l1a, type = "pred", terms = "mean_pupil_nobc_ant",
+           show.data = T, dot.size = 0.5, color = 'orange')+
+  labs(y = "z-scored arousal rating", x = "z-scored phasic pupil size \n(non baseline-corrected)",
+       title = "VR study",subtitle = "anticipation probe")
+
+p1b<-plot_model(l1b, type = "pred", terms = "mean_pupil_nobc_ant",
+           show.data = T, dot.size = 0.5, color = 'orange')+
+  labs(y = "z-scored valence rating", x = "z-scored phasic pupil size \n(non baseline-corrected)",
+       title = "VR Study",subtitle = "anticipation probe")
+
+p1c<-plot_model(l1c, type = "pred", terms = "mean_pupil_nobc_out",
+           show.data = T, dot.size = 0.5, color = 'orange')+
+  labs(y = "z-scored arousal rating", x = "z-scored phasic pupil size \n(non baseline-corrected)",
+       title = "VR Study",subtitle = "outcome probe")
+
+p1d<-plot_model(l1d, type = "pred", terms = "mean_pupil_nobc_out",
+           show.data = T, dot.size = 0.5, color = 'orange')+
+  labs(y = "z-scored valence rating", x = "z-scored phasic pupil size \n(non baseline-corrected)",
+       title = "VR Study",subtitle = "outcome probe")
+
+l3a<-lmer(arousal_scaled ~  mean_pupil_nobc_scaled_ant + (1|subject) + (1|cue_size),fmri3_data_antprobe)
+l3b<-lmer(valence_scaled ~  mean_pupil_nobc_scaled_ant + (1|subject) + (1|cue_size),fmri3_data_antprobe)
+l3c<-lmer(arousal_scaled ~  mean_pupil_nobc_scaled_out + (1|subject) + (1|cue_size),fmri3_data_outprobe)
+l3d<-lmer(valence_scaled ~  mean_pupil_nobc_scaled_out + (1|subject) + (1|cue_size),fmri3_data_outprobe)
+
+p3a<-plot_model(l3a, type = "pred", terms = "mean_pupil_nobc_scaled_ant",
+           show.data = T, dot.size = 0.5, color = 'orange')+
+  labs(y = "z-scored arousal rating", x = "z-scored phasic pupil size \n(non baseline-corrected)",
+       title = "FMRI study",subtitle = "anticipation probe")
+
+p3b<-plot_model(l3b, type = "pred", terms = "mean_pupil_nobc_scaled_ant",
+           show.data = T, dot.size = 0.5, color = 'orange')+
+  labs(y = "z-scored valence rating", x = "z-scored phasic pupil size \n(non baseline-corrected)",
+       title = "FMRI study",subtitle = "anticipation probe")
+
+p3c<-plot_model(l3c, type = "pred", terms = "mean_pupil_nobc_scaled_out",
+           show.data = T, dot.size = 0.5, color = 'orange')+
+  labs(y = "z-scored arousal rating", x = "z-scored phasic pupil size \n(non baseline-corrected)",
+       title = "FMRI study",subtitle = "outcome probe")
+
+p3d<-plot_model(l3d, type = "pred", terms = "mean_pupil_nobc_scaled_out",
+           show.data = T, dot.size = 0.5, color = 'orange')+
+  labs(y = "z-scored valence rating", x = "z-scored phasic pupil size \n(non baseline-corrected)",
+       title = "FMRI study",subtitle = "outcome probe")
+
+p1a+p1b+p1c+p1d+
+  p3a+p3b+p3c+p3d+
+  plot_layout(nrow = 2)
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig4_scatter.png"),dpi = 300, height = 6, width = 8)
+```
+
+## pool the effect sizes and make summary plots
+```{r}
+data_antprobe <- Reduce(rbind,list(vrmid1_data_antprobe %>% select(Subject,trial,trial_type,condition,arousal_scaled,valence_scaled,mean_pupil_nobc_ant) %>% 
+                                     mutate(study="VRStudy"),
+                              fmri3_data_antprobe %>%
+                                filter(rating_type == 1) %>% 
+                                select(subject,trial,cue_value,cue_size,arousal_scaled,
+                                       valence_scaled,mean_pupil_nobc_scaled_ant) %>% 
+                                rename(Subject = subject,trial_type = cue_value,condition= cue_size,mean_pupil_nobc_ant=mean_pupil_nobc_scaled_ant)%>% 
+                                     mutate(study="FMRIStudy")))
+
+summary(l1<-lmer(arousal_scaled ~  mean_pupil_nobc_ant + (1|Subject/study) + (1|condition) + (mean_pupil_nobc_ant|study),data_antprobe))
+summary(lmer(arousal_scaled ~  mean_pupil_nobc_ant + (1|trial_type)  + (1|Subject/study) + (1|condition),data_antprobe))
+
+summary(lmer(arousal_scaled ~  mean_pupil_nobc_ant  + (1+mean_pupil_nobc_ant|Subject/study) + (1|condition),data_antprobe))
+
+fixed_effects <- ggpredict(l1)$mean_pupil_nobc_ant
+# Extract random effects
+combined_effects <- ranef(l1)$study
+combined_effects$`(Intercept)` <- combined_effects$`(Intercept)`+summary(l1)$coefficient[1,1]
+combined_effects$mean_pupil_nobc_ant <- combined_effects$mean_pupil_nobc_ant+summary(l1)$coefficient[2,1]
+
+random_slopes_df <- data.frame(
+  study = rownames(combined_effects),
+  slope = combined_effects[, "mean_pupil_nobc_ant"],
+  intercept = combined_effects[, "(Intercept)" ]
+)
+
+x_values <- seq(-5, 5, length.out = 100)
+# Calculate y values for each study
+df_plot <- do.call(rbind, lapply(1:nrow(random_slopes_df), function(i) {
+  data.frame(
+    x = x_values,
+    y = random_slopes_df$slope[i] * x_values + random_slopes_df$intercept[i],
+    study = random_slopes_df$study[i]
+  )
+}))
+
+# Plot the regression lines
+p1<-ggplot() +
+  geom_point(data=data_antprobe, aes(x = mean_pupil_nobc_ant, y = arousal_scaled, color = study),
+            size = 0.5, alpha = 0.4) +
+  geom_line(data=df_plot, aes(x = x, y = y, color = study),
+            size = 2) +
+  geom_line(data = fixed_effects, aes(x = x, y = predicted),
+            color = "black",size = 2,alpha = 0.7, linetype = "dashed")+
+  geom_ribbon(data = fixed_effects, aes(x = x, y = predicted,
+                                        ymin = conf.low,
+                                        ymax = conf.high),
+            color = "black",alpha = 0.1)+
+  labs(title = "Anticipation arousal", 
+       x = "z-scored phasic pupil size \n(non baseline-corrected)", 
+       y = "z-scored arousal rating")+
+  scale_color_brewer(palette = "Dark2")+
+  xlim(range(data_antprobe$mean_pupil_nobc_ant,na.rm = T))+
+  xlim(range(data_antprobe$arousal_scaled,na.rm = T))+
+  theme(legend.position = "left")+
+  ylim(-3.5,3.5)+
+  xlim(-5,5)
+
+summary(l1<-lmer(valence_scaled ~  mean_pupil_nobc_ant + (1|Subject/study) + (1|condition) + (mean_pupil_nobc_ant|study),data_antprobe))
+
+fixed_effects <- ggpredict(l1)$mean_pupil_nobc_ant
+# Extract random effects
+combined_effects <- ranef(l1)$study
+combined_effects$`(Intercept)` <- combined_effects$`(Intercept)`+summary(l1)$coefficient[1,1]
+combined_effects$mean_pupil_nobc_ant <- combined_effects$mean_pupil_nobc_ant+summary(l1)$coefficient[2,1]
+
+random_slopes_df <- data.frame(
+  study = rownames(combined_effects),
+  slope = combined_effects[, "mean_pupil_nobc_ant"],
+  intercept = combined_effects[, "(Intercept)" ]
+)
+
+x_values <- seq(-5, 5, length.out = 100)
+# Calculate y values for each study
+df_plot <- do.call(rbind, lapply(1:nrow(random_slopes_df), function(i) {
+  data.frame(
+    x = x_values,
+    y = random_slopes_df$slope[i] * x_values + random_slopes_df$intercept[i],
+    study = random_slopes_df$study[i]
+  )
+}))
+
+# Plot the regression lines
+p2<-ggplot() +
+  geom_point(data=data_antprobe, aes(x = mean_pupil_nobc_ant, y = valence_scaled, color = study),
+            size = 0.5, alpha = 0.4) +
+  geom_line(data=df_plot, aes(x = x, y = y, color = study),
+            size = 2) +
+  geom_line(data = fixed_effects, aes(x = x, y = predicted),
+            color = "black",size = 2,alpha = 0.7, linetype = "dashed")+
+  geom_ribbon(data = fixed_effects, aes(x = x, y = predicted,
+                                        ymin = conf.low,
+                                        ymax = conf.high),
+            color = "black",alpha = 0.1)+
+  labs(title = "Anticipation valence", 
+       x = "z-scored phasic pupil size \n(non baseline-corrected)", 
+       y = "z-scored valence rating")+
+  scale_color_brewer(palette = "Dark2")+
+  xlim(range(data_antprobe$mean_pupil_nobc_ant,na.rm = T))+
+  xlim(range(data_antprobe$arousal_scaled,na.rm = T))+
+  theme(legend.position = "none")+
+  ylim(-3.5,3.5)+
+  xlim(-5,5)
+
+data_outprobe <- Reduce(rbind,list(vrmid1_data_outprobe %>%
+                                     select(Subject,trial,condition,
+                                            arousal_scaled,valence_scaled,mean_pupil_nobc_out) %>% 
+                                     mutate(study="VRStudy"),
+                              fmri3_data_outprobe %>%
+                                filter(rating_type == 1) %>% 
+                                select(subject,trial,cue_size,arousal_scaled,valence_scaled,
+                                                              mean_pupil_nobc_scaled_out) %>% 
+                                rename(Subject = subject,condition= cue_size,mean_pupil_nobc_out=mean_pupil_nobc_scaled_out)%>% 
+                                     mutate(study="FMRIStudy"))) %>% 
+  ungroup()
+
+summary(l1<-lmer(arousal_scaled ~  mean_pupil_nobc_out + (1|Subject/study) + (1|condition)+ (mean_pupil_nobc_out|study),data_outprobe))
+summary(lmer(arousal_scaled ~  mean_pupil_nobc_out  + (1+mean_pupil_nobc_out|Subject/study) + (1|condition),data_outprobe))
+
+fixed_effects <- ggpredict(l1)$mean_pupil_nobc_out
+# Extract random effects
+combined_effects <- ranef(l1)$study
+combined_effects$`(Intercept)` <- combined_effects$`(Intercept)`+summary(l1)$coefficient[1,1]
+combined_effects$mean_pupil_nobc_out <- combined_effects$mean_pupil_nobc_out+summary(l1)$coefficient[2,1]
+
+random_slopes_df <- data.frame(
+  study = rownames(combined_effects),
+  slope = combined_effects[, "mean_pupil_nobc_out"],
+  intercept = combined_effects[, "(Intercept)" ]
+)
+
+x_values <- seq(-5, 5, length.out = 100)
+# Calculate y values for each study
+df_plot <- do.call(rbind, lapply(1:nrow(random_slopes_df), function(i) {
+  data.frame(
+    x = x_values,
+    y = random_slopes_df$slope[i] * x_values + random_slopes_df$intercept[i],
+    study = random_slopes_df$study[i]
+  )
+}))
+
+# Plot the regression lines
+p3<-ggplot() +
+  geom_point(data=data_outprobe, aes(x = mean_pupil_nobc_out, y = arousal_scaled, color = study),
+            size = 0.5, alpha = 0.4) +
+geom_line(data=df_plot, aes(x = x, y = y, color = study),
+            size = 2) +
+  geom_line(data = fixed_effects, aes(x = x, y = predicted),
+            color = "black",size = 2,alpha = 0.7, linetype = "dashed")+
+  geom_ribbon(data = fixed_effects, aes(x = x, y = predicted,
+                                        ymin = conf.low,
+                                        ymax = conf.high),
+            color = "black",alpha = 0.1)+
+  labs(title = "Outcome arousal", 
+       x = "z-scored phasic pupil size \n(non baseline-corrected)", 
+       y = "z-scored arousal rating")+
+  scale_color_brewer(palette = "Dark2")+
+  xlim(range(data_antprobe$mean_pupil_nobc_ant,na.rm = T))+
+  xlim(range(data_antprobe$arousal_scaled,na.rm = T))+
+  theme(legend.position = "none")+
+  ylim(-3.5,3.5)+
+  xlim(-5,5)
+
+summary(l1<-lmer(valence_scaled ~  mean_pupil_nobc_out + (1|Subject/study) + (1|condition)+ (mean_pupil_nobc_out|study),data_outprobe))
+fixed_effects <- ggpredict(l1)$mean_pupil_nobc_out
+# Extract random effects
+combined_effects <- ranef(l1)$study
+combined_effects$`(Intercept)` <- combined_effects$`(Intercept)`+summary(l1)$coefficient[1,1]
+combined_effects$mean_pupil_nobc_out <- combined_effects$mean_pupil_nobc_out+summary(l1)$coefficient[2,1]
+
+random_slopes_df <- data.frame(
+  study = rownames(combined_effects),
+  slope = combined_effects[, "mean_pupil_nobc_out"],
+  intercept = combined_effects[, "(Intercept)" ]
+)
+
+x_values <- seq(-5, 5, length.out = 100)
+# Calculate y values for each study
+df_plot <- do.call(rbind, lapply(1:nrow(random_slopes_df), function(i) {
+  data.frame(
+    x = x_values,
+    y = random_slopes_df$slope[i] * x_values + random_slopes_df$intercept[i],
+    study = random_slopes_df$study[i]
+  )
+}))
+
+# Plot the regression lines
+p4<-ggplot() +
+  geom_point(data=data_outprobe, aes(x = mean_pupil_nobc_out, y = valence_scaled, color = study),
+            size = 0.5, alpha = 0.4) +
+geom_line(data=df_plot, aes(x = x, y = y, color = study),
+            size = 2) +
+  geom_line(data = fixed_effects, aes(x = x, y = predicted),
+            color = "black",size = 2,alpha = 0.7, linetype = "dashed")+
+  geom_ribbon(data = fixed_effects, aes(x = x, y = predicted,
+                                        ymin = conf.low,
+                                        ymax = conf.high),
+            color = "black",alpha = 0.1)+
+  labs(title = "Outcome valence", 
+       x = "z-scored phasic pupil size \n(non baseline-corrected)", 
+       y = "z-scored arousal rating")+
+  scale_color_brewer(palette = "Dark2")+
+  xlim(range(data_antprobe$mean_pupil_nobc_ant,na.rm = T))+
+  xlim(range(data_antprobe$arousal_scaled,na.rm = T))+
+  theme(legend.position = "none")+
+  ylim(-3.5,3.5)+
+  xlim(-5,5)
+
+p1+p3+p2+p4+plot_layout(nrow = 2)
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig4_pooled_effects.tiff"),dpi = 300, height = 6, width = 8)
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig4_pooled_effects.png"),dpi = 300, height = 6, width = 8)
+```
+
+## also consider non-linear relationship
+### anticipation
+```{r}
+da <- vrmid1_data_antprobe
+summary(t1 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_ant) +(1|Subject) + (1|condition),
+              da))
+summary(t2 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_ant) + scale(I(mean_pupil_baseline_ant^2)) +(1|Subject) + (1|condition),
+              da))
+anova(t1,t2)
+plot_model(t2, type = "pred", terms = "mean_pupil_baseline_ant")
+
+summary(p1 <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_ant) +(1|Subject) + (1|condition),
+              da))
+summary(p2 <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_ant) + scale(I(mean_pupil_bc_ant^2)) +(1|Subject) + (1|condition),
+              da))
+anova(p1,p2)
+plot_model(p2, type = "pred", terms = "mean_pupil_bc_ant")
+
+summary(tp1 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_ant)+(1|Subject) + (1|condition),
+              da))
+summary(tp2 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_ant) + scale(I(mean_pupil_nobc_ant^2))+(1|Subject) + (1|condition),
+              da))
+anova(tp1,tp2)
+plot_model(tp2, type = "pred", terms = "mean_pupil_nobc_ant")
+```
+
+```{r}
+da <- fmri3_data_antprobe
+summary(t1 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_scaled) +(1|subject) + (1|cue_size),
+              da))
+summary(t2 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_scaled) 
+                   + scale(I(mean_pupil_baseline_scaled^2))+(1|subject) + (1|cue_size),
+              da))
+anova(t1,t2)
+plot_model(t2, type = "pred", terms = "mean_pupil_baseline_scaled")
+
+summary(p1 <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_scaled_ant) +(1|subject) + (1|cue_size),
+              da))
+summary(p2 <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_scaled_ant) + scale(I(mean_pupil_bc_scaled_ant^2)) +(1|subject) + (1|cue_size),
+              da))
+anova(p1,p2)
+plot_model(p2, type = "pred", terms = "mean_pupil_bc_scaled_ant")
+
+summary(tp1 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_ant)+(1|subject) + (1|cue_size),
+              da))
+summary(tp2 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_ant) + scale(I(mean_pupil_nobc_scaled_ant^2))+(1|subject) + (1|cue_size),
+              da))
+anova(tp1,tp2)
+plot_model(tp2, type = "pred", terms = "mean_pupil_nobc_scaled_ant")
+```
+
+### outcome
+```{r}
+do <- vrmid1_data_outprobe
+summary(t1 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_out) +(1|Subject) + (1|condition),
+              do))
+summary(t2 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_out) + scale(I(mean_pupil_baseline_out^2)) +(1|Subject) + (1|condition),
+              do))
+anova(t1,t2)
+plot_model(t2, type = "pred", terms = "mean_pupil_baseline_out")
+
+summary(p1 <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_out) +(1|Subject) + (1|condition),
+              do))
+summary(p2 <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_out) + scale(I(mean_pupil_bc_out^2)) +(1|Subject) + (1|condition),
+              do))
+anova(p1,p2)
+plot_model(p2, type = "pred", terms = "mean_pupil_bc_out")
+
+summary(tp1 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_out)+(1|Subject) + (1|condition),
+              do))
+summary(tp2 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_out) + scale(I(mean_pupil_nobc_out^2))+(1|Subject) + (1|condition),
+              do))
+anova(tp1,tp2)
+```
+
+```{r}
+do <- fmri3_data_outprobe
+summary(t1 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_scaled) +(1|subject) + (1|cue_size),
+              do))
+summary(t2 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_scaled) 
+                   + scale(I(mean_pupil_baseline_scaled^2))+(1|subject) + (1|cue_size),
+              do))
+anova(t1,t2)
+plot_model(t2, type = "pred", terms = "mean_pupil_baseline_scaled")
+
+summary(p1 <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_scaled_out) +(1|subject) + (1|cue_size),
+              do))
+summary(p2 <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_scaled_out) + scale(I(mean_pupil_bc_scaled_out^2)) +(1|subject) + (1|cue_size),
+              do))
+anova(p1,p2)
+plot_model(p2, type = "pred", terms = "mean_pupil_bc_scaled_out")
+
+summary(tp1 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_out)+(1|subject) + (1|cue_size),
+              do))
+summary(tp2 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_out) + scale(I(mean_pupil_nobc_scaled_out^2))+(1|subject) + (1|cue_size),
+              do))
+anova(tp1,tp2)
+```
+
+
+### both probes
+```{r}
+summary(t1 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline) +(1|Subject) 
+                   + (1|condition) + (1|probe),
+              vrmid1_data_2probes))
+summary(t2 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline) + scale(I(mean_pupil_baseline^2)) +(1|Subject) + (1|condition)+ (1|probe),
+              vrmid1_data_2probes))
+anova(t1,t2)
+
+
+summary(p1 <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc) +(1|Subject) + (1|condition)+ (1|probe),
+              vrmid1_data_2probes))
+summary(p2 <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc) + scale(I(mean_pupil_bc^2)) +(1|Subject) + (1|condition)+ (1|probe),
+              vrmid1_data_2probes))
+anova(p1,p2)
+
+summary(tp1 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc)+(1|Subject) + (1|condition)+ (1|probe),
+              vrmid1_data_2probes))
+summary(tp2 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc) + scale(I(mean_pupil_nobc^2))+(1|Subject) + (1|condition)+ (1|probe),
+              vrmid1_data_2probes))
+anova(tp1,tp2)
+```
+
+```{r}
+summary(t1 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline) +(1|subject) 
+                   + (1|cue_size) + (1|probe),
+              fmri3_data_2probes))
+summary(t2 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline) + scale(I(mean_pupil_baseline^2)) +(1|subject) 
+                   + (1|cue_size) + (1|probe),
+              fmri3_data_2probes))
+anova(t1,t2)
+
+
+summary(p1 <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc)+(1|subject) 
+                   + (1|cue_size) + (1|probe),
+              fmri3_data_2probes))
+summary(p2 <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc) + scale(I(mean_pupil_bc^2)) + (1|subject) 
+                   + (1|cue_size) + (1|probe),
+              fmri3_data_2probes))
+anova(p1,p2)
+
+summary(tp1 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc)+(1|subject) 
+                   + (1|cue_size) + (1|probe),
+              fmri3_data_2probes))
+summary(tp2 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc) + scale(I(mean_pupil_nobc^2))+
+                      (1|subject) 
+                   + (1|cue_size) + (1|probe),
+              fmri3_data_2probes))
+anova(tp1,tp2)
+```
