@@ -1,4 +1,4 @@
-Code for the manuscript *Inferring subjective arousal from pupil size*
+Code for the manuscript *Pupil size dynamics predict momentary changes in self-reported arousal*
 
 Ryan Yan Yan, Tara Srirangarajan, Jeremy Bailenson, Brian Knutson
 
