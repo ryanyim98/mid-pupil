@@ -46,14 +46,22 @@ summary(p <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_ant) +(1|Subject) 
               da))
 summary(tp <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_ant) +(1|Subject) + (1|condition),
               da))
-anova(t,p,tp)
+summary(t_p <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_baseline_ant)+ scale(mean_pupil_bc_ant) +(1|Subject) + (1|condition),
+              da))
+summary(t_p_int <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_baseline_ant) * scale(mean_pupil_bc_ant) +(1|Subject) + (1|condition),
+              da))
+
+round(c(BIC(t),BIC(p),BIC(tp),BIC(t_p),BIC(t_p_int),
+AIC(t),AIC(p),AIC(tp),AIC(t_p),AIC(t_p_int)),1)
 
 v1a<- c(round(r.squaredGLMM(t)*100,2),
 round(r.squaredGLMM(p)*100,2),
 round(r.squaredGLMM(tp)*100,2),
+round(r.squaredGLMM(t_p)*100,2),
 t(EMAtools::lme.dscore(t,da,"lme4")),
 t(EMAtools::lme.dscore(p,da,"lme4")),
-t(EMAtools::lme.dscore(tp,da,"lme4")))
+t(EMAtools::lme.dscore(tp,da,"lme4")),
+t(EMAtools::lme.dscore(t_p,da,"lme4")))
 
 
 # fit random slope as comparison
@@ -61,8 +69,14 @@ summary(lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_ant) +(1+scale(mean_
               da))
 
 # fit random intercept for cue_value
-summary(lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_ant) +(1+scale(mean_pupil_nobc_ant)|Subject) + (1|condition)
+summary(lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_ant) +(1+scale(mean_pupil_nobc_ant)|Subject) + (scale(mean_pupil_nobc_ant)|condition)
              + (1|trial_type),
+              da))
+# controlling for valence
+summary(lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_ant) + scale(valence_scaled) +(1|Subject) + (1|condition),
+              da))
+
+summary(lmer(scale(arousal_scaled) ~  condition +(1|Subject)+(1|trial_type),
               da))
 ```
 
@@ -80,24 +94,41 @@ summary(p)
 tp <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_ant) +(1|subject) + (1|cue_size),
               da)
 summary(tp)
+summary(t_p <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_scaled) + scale(mean_pupil_bc_scaled_ant)
+                    +(1|subject) + (1|cue_size),
+              da))
+summary(t_p_int <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_scaled) * scale(mean_pupil_bc_scaled_ant)
+                    +(1|subject) + (1|cue_size),
+              da))
 tp_res_conv <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_residual_conv_ant) +(1|subject) + (1|cue_size),
               da)
 summary(tp_res_conv)
 anova(tp,tp_res_conv)
+round(c(BIC(t),BIC(p),BIC(tp),BIC(t_p),BIC(t_p_int),
+AIC(t),AIC(p),AIC(tp),AIC(t_p),AIC(t_p_int)),1)
 
 v3a<- c(round(r.squaredGLMM(t)*100,2),
 round(r.squaredGLMM(p)*100,2),
 round(r.squaredGLMM(tp)*100,2),
+round(r.squaredGLMM(t_p)*100,2),
 t(EMAtools::lme.dscore(t,da,"lme4")),
 t(EMAtools::lme.dscore(p,da,"lme4")),
-t(EMAtools::lme.dscore(tp,da,"lme4")))
-
+t(EMAtools::lme.dscore(tp,da,"lme4")),
+t(EMAtools::lme.dscore(t_p,da,"lme4")))
 # fit random slope as comparison
 summary(lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_ant) +(1+scale(mean_pupil_nobc_scaled_ant)|subject) + (1|cue_size),da))
 
 # fit random intercept for cue_value
 summary(lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_ant) +(1|subject) + (1|cue_size)
-             + (1|cue_value),
+             + (scale(mean_pupil_nobc_scaled_ant)|cue_value),
+              da))
+
+# controlling for valence
+summary(lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_ant) + scale(valence_scaled) +(1|subject) + (1|cue_size),
+              da))
+summary(lmer(scale(arousal_scaled) ~  cue_size +(1|subject)+(1|cue_value),
+              da))
+summary(lmer(scale(mean_pupil_nobc_scaled_ant) ~  cue_size +(1|subject)+(1|cue_value),
               da))
 ```
 
@@ -115,26 +146,44 @@ summary(p)
 tp <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_out) +(1|Subject) + (1|condition),
               do)
 summary(tp)
-anova(t,p,tp)
+t_p <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_out) + scale(mean_pupil_bc_out) +(1|Subject) + (1|condition),
+              do)
+
+summary(t_p)
+summary(t_p_int <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_baseline_out) * scale(mean_pupil_bc_out) +(1|Subject) + (1|condition),
+              do))
+
+round(c(BIC(t),BIC(p),BIC(tp),BIC(t_p),BIC(t_p_int),
+AIC(t),AIC(p),AIC(tp),AIC(t_p),AIC(t_p_int)),1)
+
 
 v1o<- c(round(r.squaredGLMM(t)*100,2),
 round(r.squaredGLMM(p)*100,2),
 round(r.squaredGLMM(tp)*100,2),
+round(r.squaredGLMM(t_p)*100,2),
 t(EMAtools::lme.dscore(t,do,"lme4")),
 t(EMAtools::lme.dscore(p,do,"lme4")),
-t(EMAtools::lme.dscore(tp,do,"lme4")))
+t(EMAtools::lme.dscore(tp,do,"lme4")),
+t(EMAtools::lme.dscore(t_p,do,"lme4")))
 
 summary(lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_out) +(1+scale(mean_pupil_nobc_out)|Subject) + (1|condition),
               do))
 
 # fit random intercept for cue_value
-summary(lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_out) +(1|Subject) + (1|condition) + (1|trial_type),
+summary(lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_out) +(1|Subject) + (1|condition) + (scale(mean_pupil_nobc_out)|trial_type),
               do))
 ```
 
 ```{r}
 #fmri3
-do <- fmri3_data_outprobe
+do <- fmri3_data_outprobe %>%
+  filter(
+    !is.na(arousal_scaled),
+    !is.na(mean_pupil_nobc_scaled_out),
+    !is.na(mean_pupil_baseline_scaled),
+    !is.na(mean_pupil_bc_scaled_out)
+  )
+
 t <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_scaled) +(1|subject) + (1|cue_size),
               do)
 summary(t)
@@ -142,41 +191,45 @@ p <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_scaled_out) +(1|subject) +
               do)
 summary(p)
 tp <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_out)+(1|subject) + (1|cue_size),
-              do)
+              do%>% filter(!is.na(mean_pupil_baseline_scaled),!is.na(mean_pupil_bc_scaled_out)))
 summary(tp)
+t_p <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_scaled) +scale(mean_pupil_bc_scaled_out) +(1|subject) + (1|cue_size),
+              do %>% filter(!is.na(mean_pupil_nobc_scaled_out)))
 tp_res_conv <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_residual_conv_out) +(1|subject) + (1|cue_size),
               do)
 summary(tp_res_conv)
-anova(tp,tp_res_conv)
+summary(t_p_int <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_scaled) *scale(mean_pupil_bc_scaled_out) +(1|subject) + (1|cue_size),
+              do))
+
+round(c(BIC(t),BIC(p),BIC(tp),BIC(t_p),BIC(t_p_int),
+AIC(t),AIC(p),AIC(tp),AIC(t_p),AIC(t_p_int)),1)
 
 # anova(t,p,tp)
 
 v3o<- c(round(r.squaredGLMM(t)*100,2),
 round(r.squaredGLMM(p)*100,2),
 round(r.squaredGLMM(tp)*100,2),
+round(r.squaredGLMM(t_p)*100,2),
 t(EMAtools::lme.dscore(t,do,"lme4")),
 t(EMAtools::lme.dscore(p,do,"lme4")),
-t(EMAtools::lme.dscore(tp,do,"lme4")))
+t(EMAtools::lme.dscore(tp,do,"lme4")),
+t(EMAtools::lme.dscore(t_p,do,"lme4")))
 
 
 summary(lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_out)+(1+scale(mean_pupil_nobc_scaled_out)|subject) + (1|cue_size),
               do))
 
-summary(lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_out)+(1|subject) + (1|cue_size) + (1|cue_value),
+summary(lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_out)+(1|subject) + (1|cue_size) + (scale(mean_pupil_nobc_scaled_out)|cue_value),
               do))
 
-# what about tonic * phasic interaction?
-r.squaredGLMM(lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_scaled_out) * scale(mean_pupil_baseline_scaled)+(1|subject) + (1|cue_size),
-              do))
-r.squaredGLMM(tp)
 ```
 
 
 
 ```{r}
 r2list <- as.data.frame(Reduce(rbind,list(v1a,v3a,v1o,v3o)))
-names(r2list) <- c(paste0(c("R2m","R2c","R2m","R2c"),"_",c("tonic","tonic","phasic","phasic","t+p","t+p")),
-                   paste0(c("t","df","d","t","df","d"),"_",c("tonic","tonic","tonic","phasic","phasic","phasic","t+p","t+p","t+p"))) 
+names(r2list) <- c(paste0(c("R2m","R2c"),"_",c("tonic","tonic","phasic-baseline","phasic-baseline","phasic","phasic","t+p","t+p")),
+                   paste0(c("t","df","d"),"_",c("tonic","tonic","tonic","phasic-baseline","phasic-baseline","phasic-baseline","phasic","phasic","phasic","t+p(t)","t+p(t)","t+p(t)","t+p(p)","t+p(p)","t+p(p)"))) 
 
 r2list$study <- c("VR1",'FMRI3',"VR1",'FMRI3')
 
@@ -186,7 +239,7 @@ r2list<-remove_rownames(r2list) %>%
   relocate(study, probe)
 
 r2list_long <- r2list %>% 
-  pivot_longer(R2m_tonic:`d_t+p`,names_to = c("measure","dataType"),values_to = "value", names_sep = "_") %>% 
+  pivot_longer(R2m_tonic:`d_t+p(p)`,names_to = c("measure","dataType"),values_to = "value", names_sep = "_") %>% 
   pivot_wider(names_from = dataType, values_from = "value") %>% 
   filter(measure %in% c("R2m","t","d"))
 
@@ -200,33 +253,51 @@ r2list_long %>%
 ### both probes
 ```{r}
 #vrmid1
-summary(t <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline) +(1|Subject) + (1|condition) + (1|probe),
+summary(t <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline) +(1|Subject) + (1|condition) + (1+scale(mean_pupil_baseline)|probe),
               vrmid1_data_2probes))
-summary(p <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc) +(1|Subject) + (1|condition)+ (1|probe),
+summary(p <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc) +(1|Subject) + (1|condition)+ (1+scale(mean_pupil_bc)|probe),
               vrmid1_data_2probes))
-summary(tp <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc) +(1|Subject) + (1|condition)+ (1|probe),
+summary(tp <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc) +(1|Subject) + (1|condition)+ (1+scale(mean_pupil_nobc)|probe),
               vrmid1_data_2probes))
-anova(t,p,tp)
+summary(t_p <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline) + scale(mean_pupil_bc) +(1|Subject) + (1|condition)+ (1+scale(mean_pupil_baseline) + scale(mean_pupil_bc)|probe),
+              vrmid1_data_2probes))
+summary(t_p_int <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_baseline) * scale(mean_pupil_bc) +(1|Subject) + (1|condition) + (1+scale(mean_pupil_baseline) * scale(mean_pupil_bc)|probe),
+              vrmid1_data_2probes))
+
+round(c(BIC(t),BIC(p),BIC(tp),BIC(t_p),BIC(t_p_int),
+AIC(t),AIC(p),AIC(tp),AIC(t_p),AIC(t_p_int)),1)
+anova(t,p,tp,t_p)
 
 rbind(round(r.squaredGLMM(t)*100,2),
 round(r.squaredGLMM(p)*100,2),
-round(r.squaredGLMM(tp)*100,2))
+round(r.squaredGLMM(tp)*100,2),
+round(r.squaredGLMM(t_p)*100,2),
+round(r.squaredGLMM(t_p_int)*100,2))
 
 ```
 
 ```{r}
 #fmri3
-summary(t <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline) +(1|subject) + (1|cue_size)+ (1|probe),
+summary(t <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline) +(1|subject) + (1|cue_size)+ (1+scale(mean_pupil_baseline)|probe),
               fmri3_data_2probes))
-summary(p <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc) +(1|subject) + (1|cue_size)+ (1|probe),
+summary(p <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc) +(1|subject) + (1|cue_size)+ (1+scale(mean_pupil_bc)|probe),
               fmri3_data_2probes))
-summary(tp <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc) +(1|subject) + (1|cue_size)+ (1|probe),
+summary(tp <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc) +(1|subject) + (1|cue_size)+ (scale(mean_pupil_nobc)|probe),
+              fmri3_data_2probes))
+summary(t_p <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline) + scale(mean_pupil_bc) +(1|subject) + (1|cue_size)+ ( scale(mean_pupil_baseline) + scale(mean_pupil_bc)|probe),
               fmri3_data_2probes))
 
+summary(t_p_int <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline) * scale(mean_pupil_bc) +(1|subject) + (1|cue_size)+ (scale(mean_pupil_baseline) * scale(mean_pupil_bc)|probe),
+              fmri3_data_2probes))
+
+round(c(BIC(t),BIC(p),BIC(tp),BIC(t_p),BIC(t_p_int),
+AIC(t),AIC(p),AIC(tp),AIC(t_p),AIC(t_p_int)),1)
 
 rbind(round(r.squaredGLMM(t)*100,2),
 round(r.squaredGLMM(p)*100,2),
-round(r.squaredGLMM(tp)*100,2))
+round(r.squaredGLMM(tp)*100,2),
+round(r.squaredGLMM(t_p)*100,2),
+round(r.squaredGLMM(t_p_int)*100,2))
 
 ```
 

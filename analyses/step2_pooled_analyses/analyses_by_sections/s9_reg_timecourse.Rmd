@@ -30,8 +30,8 @@ vrmid1_regression_coefs_ant_nobc <- vrmid1_regression_coefs_ant_nobc%>%
   rename(p_val = `Pr(>|t|)`) %>% 
   mutate(p_val_fdr = p.adjust(p_val, method = "fdr")) #applies the Benjamini–Hochberg correction
 
-write.csv(vrmid1_regression_coefs_ant_nobc, "../../../data/vrmid1/derivatives/vrmid1_regression_coefs_ant_nobc.csv")
-vrmid1_regression_coefs_ant_nobc<-read_csv("../../../data/vrmid1/derivatives/vrmid1_regression_coefs_ant_nobc.csv")
+write.csv(vrmid1_regression_coefs_ant_nobc, "~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivatives/vrmid1_regression_coefs_ant_nobc.csv")
+vrmid1_regression_coefs_ant_nobc<-read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivatives/vrmid1_regression_coefs_ant_nobc.csv")
 
 vrmid1_regression_coefs_out_nobc <- {}
 
@@ -41,7 +41,7 @@ for (t in 1:20) {
   for (s in 1:120){
   df_out_temp <- vrmid1_pupil_data%>%
   filter(probe == "out",Time_sec == t, sample_in_sec == s)
-  lm_out_temp <- lmer(scale(arousal_scaled) ~ scale(pupil_Avg_bc_scaled) + (1|Subject) + (1|condition),df_out_temp)
+  lm_out_temp <- lmer(scale(arousal_scaled) ~ scale(pupil_Avg_scaled) + (1|Subject) + (1|condition),df_out_temp)
   lm_out <- summary(lm_out_temp)$coefficient[2,]
   coefs <- rbind(coefs,lm_out) 
   }
@@ -57,8 +57,8 @@ vrmid1_regression_coefs_out_nobc <- vrmid1_regression_coefs_out_nobc%>%
   rename(p_val = `Pr(>|t|)`) %>% 
   mutate(p_val_fdr = p.adjust(p_val, method = "fdr")) #applies the Benjamini–Hochberg correction
 
-write.csv(vrmid1_regression_coefs_out_nobc,  "../../../data/vrmid1/derivatives/vrmid1_regression_coefs_out_nobc.csv")
-vrmid1_regression_coefs_out_nobc<-read_csv("../../../data/vrmid1/derivatives/vrmid1_regression_coefs_out_nobc.csv")
+write.csv(vrmid1_regression_coefs_out_nobc,  "~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivatives/vrmid1_regression_coefs_out_nobc.csv")
+vrmid1_regression_coefs_out_nobc<-read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivatives/vrmid1_regression_coefs_out_nobc.csv")
 
 fmri3_regression_coefs_ant_nobc <- {}
 
@@ -84,8 +84,8 @@ fmri3_regression_coefs_ant_nobc <- fmri3_regression_coefs_ant_nobc%>%
     rename(p_val = `Pr(>|t|)`) %>% 
   mutate(p_val_fdr = p.adjust(p_val, method = "fdr")) #applies the Benjamini–Hochberg correction
 
-write.csv(fmri3_regression_coefs_ant_nobc, "../../../data/fmri3//derivatives/fmri3_regression_coefs_ant_nobc.csv")
-fmri3_regression_coefs_ant_nobc<-read_csv("../../../data/fmri3/derivatives/fmri3_regression_coefs_ant_nobc.csv")
+write.csv(fmri3_regression_coefs_ant_nobc, "~/Desktop/VRMID-analysis/mid-pupil/data/fmri3//derivatives/fmri3_regression_coefs_ant_nobc.csv")
+fmri3_regression_coefs_ant_nobc<-read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/derivatives/fmri3_regression_coefs_ant_nobc.csv")
 
 fmri3_regression_coefs_out_nobc <- {}
 
@@ -111,8 +111,8 @@ fmri3_regression_coefs_out_nobc <- fmri3_regression_coefs_out_nobc%>%
     rename(p_val = `Pr(>|t|)`) %>% 
   mutate(p_val_fdr = p.adjust(p_val, method = "fdr")) #applies the Benjamini–Hochberg correction
 
-write.csv(fmri3_regression_coefs_out_nobc,  "../../../data/fmri3/derivatives/fmri3_regression_coefs_out_nobc.csv")
-fmri3_regression_coefs_out_nobc <- read_csv("../../../data/fmri3/derivatives/fmri3_regression_coefs_out_nobc.csv")
+write.csv(fmri3_regression_coefs_out_nobc,  "~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/derivatives/fmri3_regression_coefs_out_nobc.csv")
+fmri3_regression_coefs_out_nobc <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/derivatives/fmri3_regression_coefs_out_nobc.csv")
 ```
 ## make clusters
 ```{r}
@@ -382,7 +382,7 @@ summary(lmer(scale(mean_pupil_baseline) ~  scale(last_iti) +(1|subject),
               fmri3_data_2probes))
 ```
 
-## group all 3 studies together for a master correlation
+## group both studies together for a master correlation
 ```{r}
 wrap_elements(full = grid::textGrob("Separated by probe type", gp = grid::gpar(fontsize = 14, fontface = "bold"), just = "left"))/
 (p1a+p1b)/(p3a+p3b)+        
@@ -397,4 +397,128 @@ fig1 <-  magick::image_annotate(fig1, "B", size = 70, location = "+200+1200", co
 
 magick::image_write(fig1, "~/Desktop/VRMID-analysis/mid-pupil/figures/fig7_howlongago2.png")
 ```
+
+# identify the variability of individual peaks
+```{r warning = F, message=F}
+vrmid1_regression_coefs_ant_nobc_ind <- {}
+
+for (sub in unique(vrmid1_pupil_data$Subject)){
+  print(sub)
+  for (t in 1:20) {
+  coefs <- {}
+  for (s in 1:120){
+  df_ant_temp <- vrmid1_pupil_data%>%
+  filter(probe == "anti",Time_sec == t, sample_in_sec == s,
+         Subject == sub)
+  lm_ant_temp <- lmer(scale(arousal_scaled) ~ scale(pupil_Avg_scaled) + (1|condition),df_ant_temp)
+  lm_out <- c(summary(lm_ant_temp)$coefficient[2,],'r2m' = r.squaredGLMM(lm_ant_temp)[1])
+  coefs <- rbind(coefs,lm_out)
+  }
+  coefs <- as.data.frame(coefs)%>%
+    mutate(sample_in_sec = row_number(),
+           Time_sec = t)
+  rownames(coefs) <- NULL
+  vrmid1_regression_coefs_ant_nobc_ind <- rbind(vrmid1_regression_coefs_ant_nobc_ind,coefs)
+}
+}
+
+
+vrmid1_regression_coefs_ant_nobc_ind <- vrmid1_regression_coefs_ant_nobc_ind%>%
+  mutate(sample_point = row_number())%>%
+  rename(p_val = `Pr(>|t|)`) %>% 
+  mutate(p_val_fdr = p.adjust(p_val, method = "fdr")) #applies the Benjamini–Hochberg correction
+
+write.csv(vrmid1_regression_coefs_ant_nobc_ind, "~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivatives/vrmid1_regression_coefs_ant_nobc_ind.csv")
+vrmid1_regression_coefs_ant_nobc_ind<-read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivatives/vrmid1_regression_coefs_ant_nobc_ind.csv")
+
+vrmid1_regression_coefs_out_nobc_ind <- {}
+
+for (sub in unique(vrmid1_pupil_data$Subject)){
+      print(sub)
+  for (t in 1:20) {
+    coefs <- {}
+    for (s in 1:120){
+    df_out_temp <- vrmid1_pupil_data%>%
+    filter(probe == "out",Time_sec == t, sample_in_sec == s,Subject == sub)
+    lm_out_temp <- lmer(scale(arousal_scaled) ~ scale(pupil_Avg_scaled) + (1|condition),df_out_temp)
+    lm_out <- summary(lm_out_temp)$coefficient[2,]
+    coefs <- rbind(coefs,lm_out) 
+    }
+    coefs <- as.data.frame(coefs)%>%
+      mutate(sample_in_sec = row_number(),
+             Time_sec = t)
+    rownames(coefs) <- NULL
+    vrmid1_regression_coefs_out_nobc_ind <- rbind(vrmid1_regression_coefs_out_nobc_ind,coefs)
+  }
+}
+
+vrmid1_regression_coefs_out_nobc_ind <- vrmid1_regression_coefs_out_nobc_ind%>%
+  mutate(sample_point = row_number())%>%
+  rename(p_val = `Pr(>|t|)`) %>% 
+  mutate(p_val_fdr = p.adjust(p_val, method = "fdr")) #applies the Benjamini–Hochberg correction
+
+write.csv(vrmid1_regression_coefs_out_nobc_ind,  "~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivatives/vrmid1_regression_coefs_out_nobc_ind.csv")
+vrmid1_regression_coefs_out_nobc_ind<-read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivatives/vrmid1_regression_coefs_out_nobc_ind.csv")
+
+fmri3_regression_coefs_ant_nobc_ind <- {}
+
+# for (sub in fmri3_subjects){
+for (sub in c("ya240314","yl240330","yz240312")){
+  print(sub)
+  for (t in 1:18) {
+  coefs <- {}
+  for (s in 1:200){
+  df_ant_temp <- fmri3_pupil_data%>%
+  filter(probe == 1,Time_sec == t, sample_in_sec == s,subject == sub)
+  lm_ant_temp <- lmer(scale(arousal_scaled) ~ scale(pupilDiameter_scaled) + (1|cue_size),df_ant_temp)
+  lm_out <- c(summary(lm_ant_temp)$coefficient[2,],'r2m' = r.squaredGLMM(lm_ant_temp)[1])
+  coefs <- rbind(coefs,lm_out)
+  }
+  coefs <- as.data.frame(coefs)%>%
+    mutate(sample_in_sec = row_number(),
+           Time_sec = t)
+  rownames(coefs) <- NULL
+  fmri3_regression_coefs_ant_nobc_ind <- rbind(fmri3_regression_coefs_ant_nobc_ind,coefs)
+}
+}
+
+
+fmri3_regression_coefs_ant_nobc_ind <- fmri3_regression_coefs_ant_nobc_ind%>%
+  mutate(sample_point = row_number())%>%
+    rename(p_val = `Pr(>|t|)`) %>% 
+  mutate(p_val_fdr = p.adjust(p_val, method = "fdr")) #applies the Benjamini–Hochberg correction
+
+write.csv(fmri3_regression_coefs_ant_nobc_ind, "~/Desktop/VRMID-analysis/mid-pupil/data/fmri3//derivatives/fmri3_regression_coefs_ant_nobc_ind.csv")
+fmri3_regression_coefs_ant_nobc<-read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/derivatives/fmri3_regression_coefs_ant_nobc_ind.csv")
+
+fmri3_regression_coefs_out_nobc_ind <- {}
+
+for (sub in fmri3_subjects){
+  print(sub)
+  for (t in 1:18) {
+    coefs <- {}
+    for (s in 1:200){
+    df_out_temp <- fmri3_pupil_data%>%
+    filter(probe == 2,Time_sec == t, sample_in_sec == s,subject == sub)
+    lm_out_temp <-  lmer(scale(arousal_scaled) ~ scale(pupilDiameter_scaled) + (1|cue_size),df_out_temp)
+    lm_out <- summary(lm_out_temp)$coefficient[2,]
+    coefs <- rbind(coefs,lm_out) 
+    }
+    coefs <- as.data.frame(coefs)%>%
+      mutate(sample_in_sec = row_number(),
+             Time_sec = t)
+    rownames(coefs) <- NULL
+    fmri3_regression_coefs_out_nobc_ind <- rbind(fmri3_regression_coefs_out_nobc_ind,coefs)
+  }
+}
+
+fmri3_regression_coefs_out_nobc_ind <- fmri3_regression_coefs_out_nobc_ind%>%
+  mutate(sample_point = row_number())%>%
+    rename(p_val = `Pr(>|t|)`) %>% 
+  mutate(p_val_fdr = p.adjust(p_val, method = "fdr")) #applies the Benjamini–Hochberg correction
+
+write.csv(fmri3_regression_coefs_out_nobc_ind,  "~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/derivatives/fmri3_regression_coefs_out_nobc_ind.csv")
+fmri3_regression_coefs_out_nobc_ind <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/derivatives/fmri3_regression_coefs_out_nobc_ind.csv")
+```
+
 

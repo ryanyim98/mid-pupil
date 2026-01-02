@@ -196,7 +196,7 @@ p1a<-ggplot() +
        x = "",
        shape = "") +
   theme(legend.position = "none")+
-  geom_line(data= combined_pupil_avg %>% filter(probe != "anticipation"),
+  geom_line(data= combined_pupil_avg,
             aes(x = x_pos, y = pupil_mean, color = trial_type), linetype = "dotted")+
   ylim(-0.5,1.5)
   
@@ -262,7 +262,7 @@ p3a<-ggplot() +
        title = "FMRI study",
        x = "")+
   theme(legend.position = "none")+
-  geom_line(data= combined_pupil_avg%>% filter(probe != "anticipation"),
+  geom_line(data= combined_pupil_avg,
             aes(x = x_pos, y = pupil_mean, color = cue_value), linetype = "dotted")+
   ylim(-0.5,1.5)
   

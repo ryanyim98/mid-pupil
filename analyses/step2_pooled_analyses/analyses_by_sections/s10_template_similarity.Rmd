@@ -214,7 +214,7 @@ my_array_s1 <- rbind(my_array_s1_run12,my_array_s1_run34)
 my_array_s1__ <- my_array_s1%>% 
   ungroup() %>% 
   select(trial,subject,tr_in_trial,glmArousal,trial_tr,threshold,split) %>% 
-  pivot_wider(names_from = c(tr_in_trial), values_from = c(glmArousal), names_prefix = "glmArousal_TR_") %>% 
+  pivot_wider(names_from = c(tr_in_trial), values_from = c(glmArousal), names_prefix = "glmArousal_TR_") %>%
   arrange(subject,trial)
 
 TR_DELAY = 14
@@ -247,6 +247,16 @@ my_array_s1__<-left_join(my_array_s1__ %>%
 my_array_s1__ <- my_array_s1__ %>% 
   mutate(tr_in_trial = as.numeric(tr_in_trial),
          time = (tr_in_trial-1) * 2)
+
+my_array_s1__ <- my_array_s1__ %>% 
+  left_join(my_array_s1 %>% 
+              group_by(subject,threshold,split) %>% 
+        mutate(pupil_lag2= lag(pupil,2))%>% 
+      ungroup() %>% 
+  mutate(tr_in_trial = as.numeric(tr_in_trial))%>% 
+        select(pupil_lag2,subject,threshold,trial,tr_in_trial))
+      
+lm.beta::lm.beta(lm(glmArousal~pupil_lag2,my_array_s1__))
 ```
 
 
@@ -445,6 +455,11 @@ summary(l1<-glmer(hit_num ~ scale(glmArousal) + (1|split),family = binomial,
                     my_array_s1__ %>% 
                       filter(tr_in_trial == 5,threshold == 0.5) %>% 
                       mutate(hit_num = as.factor(hit == "Hit"))))
+## controlling for pupil size
+summary(glmer(hit_num ~ scale(glmArousal) +scale(pupil_lag2)+ (1|split),family = binomial,
+                    my_array_s1__ %>% 
+                      filter(tr_in_trial == 5,threshold == 0.5) %>% 
+                      mutate(hit_num = as.factor(hit == "Hit"))))
 
 # Get effect size (standardized beta)
 beta <- summary(l1)$coefficients["scale(glmArousal)", "Estimate"]
@@ -529,6 +544,10 @@ ggplot(df_performance %>% filter(tr == 5), aes(x = threshold, y = Estimate))+
   scale_x_continuous(breaks = 1:14)
 
 summary(l1<-lmer(scale(rt) ~ scale(glmArousal) + (1|split),
+                   my_array_s1__ %>% 
+                   filter(tr_in_trial == 5, hit == "Hit",threshold == 0.5)))
+#controlling for pupil size
+summary(lmer(scale(rt) ~ scale(glmArousal) + scale(pupil_lag2) + (1|split),
                    my_array_s1__ %>% 
                    filter(tr_in_trial == 5, hit == "Hit",threshold == 0.5)))
 
@@ -620,7 +639,15 @@ summary(l1<-lmer(scale(cue_value_abs) ~ scale(glmArousal) + (1|split),
                                                     ifelse(cue_value %in% c("+$1","-$1"),1,
                                                            ifelse(cue_value %in% 
                                                                     c("+$0","-$0"),1,NA))))))
+## controlling for pupil size
 
+summary(lmer(scale(cue_value_abs) ~ scale(glmArousal) +scale(pupil_lag2) + (1|split),
+                    my_array_s1__ %>% 
+                      filter(tr_in_trial == 5,threshold == 0.5) %>% 
+                      mutate(cue_value_abs = ifelse(cue_value %in% c("+$5","-$5"),5,
+                                                    ifelse(cue_value %in% c("+$1","-$1"),1,
+                                                           ifelse(cue_value %in% 
+                                                                    c("+$0","-$0"),1,NA))))))
 # Get effect size (standardized beta)
 beta <- summary(l1)$coefficients["scale(glmArousal)", "Estimate"]
 r2   <- r.squaredGLMM(l1)[1]
@@ -700,6 +727,8 @@ ggplot(df_rating %>% filter(tr == 5), aes(x = threshold, y = Estimate))+
   scale_fill_manual(values = c("purple","skyblue"))+
   labs(title = "FMRI study")+
   scale_x_continuous(breaks = 1:14)
+
+
 ```
 
 #### visualize peak correlation
@@ -723,6 +752,11 @@ get_stats <- function(model) {
 s1 <- get_stats(l1)
 s2 <- get_stats(l2)
 s3 <- get_stats(l3)
+
+## controlling for pupil size
+summary(ll<-lmer(scale(arousal_scaled) ~ scale(glmArousal) + scale(pupil_lag2)+ (1|split), d1))
+summary(lmer(scale(arousal_scaled) ~ scale(glmArousal) + scale(pupil_lag2)+ (1|split), d2))
+summary(lmer(scale(arousal_scaled) ~ scale(glmArousal) + scale(pupil_lag2)+ (1|split), d3))
 
 predict_ci <- function(model, newdata, confirm = FALSE) {
   X <- model.matrix(delete.response(terms(model)), newdata)
@@ -857,6 +891,16 @@ my_array_s1_<-left_join(my_array_s1_ %>%
 my_array_s1_ <- my_array_s1_ %>% 
   mutate(tr_in_trial = as.numeric(tr_in_trial),
          time = (tr_in_trial-1) * 2)
+
+my_array_s1_ <- my_array_s1_ %>% 
+  left_join(my_array_s1 %>% 
+              group_by(subject,threshold,split) %>% 
+        mutate(pupil_lag2= lag(pupil,2))%>% 
+      ungroup() %>% 
+  mutate(tr_in_trial = as.numeric(tr_in_trial))%>% 
+        select(pupil_lag2,subject,threshold,trial,tr_in_trial))
+      
+lm.beta::lm.beta(lm(glmPupil~pupil_lag2,my_array_s1_))
 ```
 
 ## plot as function of cue value / outcome value
@@ -888,8 +932,7 @@ p1m2p<-plot_spacer()+ggplot(d1 %>% filter(probe == "anticipation probe",threshol
   scale_color_manual(values = redOrange_palette6)+
   theme(legend.position = "top")+
   ylim(-0.1,0.1)+
-  scale_x_continuous(breaks = seq(1,15,5),labels = seq(1,28,10))+
-  plot_spacer()+
+  scale_x_continuous(breaks = seq(1,15,3),labels = seq(0,28,6)-6)+
 ggplot(d1 %>% filter(probe == "outcome probe",threshold == 0.5),
        aes(x = tr_in_trial, y = mean))+
   geom_vline(xintercept = c(3.5,4.5,5.5,6.5,7.5,11.5), size = 1, color = "grey")+
@@ -908,9 +951,8 @@ ggplot(d1 %>% filter(probe == "outcome probe",threshold == 0.5),
   scale_color_manual(values = redOrange_palette6)+
   theme(legend.position = "top")+
   ylim(-0.1,0.1)+
-  scale_x_continuous(breaks = seq(1,15,5),labels = seq(0,28,10))+
-  plot_spacer()+
-  plot_layout(widths = c(0.3,1,0.3,1,0.3))
+  scale_x_continuous(breaks = seq(1,15,3),labels = seq(0,28,6)-6)+
+  plot_layout(widths = c(0.3,1,1))
 
 d2<-my_array_s1_ %>% 
          filter(!is.na(hit),
@@ -936,7 +978,7 @@ p2m2p<-ggplot(d2 %>% filter(threshold == 0.5),
   geom_errorbar(aes(x = cue_value, ymin = mean-se,ymax = mean+se), width = 0.3)+
   labs(y = "Simalirty",
        x = "time (s)",
-       subtitle = "Inferred arousal (8s)")+
+       subtitle = "Inferred arousal at fixation")+
   scale_color_manual(values = redOrange_palette6)+
   theme(legend.position = "none")+  # show shape legend
   scale_x_discrete(breaks =c("-$5","-$1","-$0","+$0","+$1","+$5"))+
@@ -1054,7 +1096,11 @@ summary(l1<-glmer(hit_num ~ scale(glmPupil) + (1|split),family = binomial,
                     my_array_s1_ %>% 
                       filter(tr_in_trial == 5,threshold == 0.5) %>% 
                       mutate(hit_num = as.factor(hit == "Hit"))))
-
+## controlling for pupil size
+summary(glmer(hit_num ~ scale(glmPupil) + scale(pupil_lag2) + (1|split),family = binomial,
+                    my_array_s1_ %>% 
+                      filter(tr_in_trial == 5,threshold == 0.5) %>% 
+                      mutate(hit_num = as.factor(hit == "Hit"))))
 # Get effect size (standardized beta)
 beta <- summary(l1)$coefficients["scale(glmPupil)", "Estimate"]
 r2   <- r.squaredGLMM(l1)[1,1]
@@ -1180,6 +1226,10 @@ summary(l1<-lmer(scale(rt) ~ scale(glmPupil) + (1|split),
                    my_array_s1_ %>% 
                    filter(tr_in_trial == 5, hit == "Hit",threshold == 0.5)))
 
+## controlling for pupil size
+summary(lmer(scale(rt) ~ scale(glmPupil) + scale(pupil_lag2) + (1|split),
+                   my_array_s1_ %>% 
+                   filter(tr_in_trial == 5, hit == "Hit",threshold == 0.5)))
 # Get effect size (standardized beta)
 beta <- summary(l1)$coefficients["scale(glmPupil)", "Estimate"]
 r2   <- r.squaredGLMM(l1)[1]
@@ -1269,6 +1319,13 @@ summary(l1<-lmer(scale(cue_value_abs) ~ scale(glmPupil) + (1|split),
                                                            ifelse(cue_value %in% 
                                                                     c("+$0","-$0"),1,NA))))))
 
+summary(lmer(scale(cue_value_abs) ~ scale(glmPupil)+ scale(pupil_lag2) + (1|split),
+                    my_array_s1_ %>% 
+                      filter(tr_in_trial == 5,threshold == 0.5) %>% 
+                      mutate(cue_value_abs = ifelse(cue_value %in% c("+$5","-$5"),5,
+                                                    ifelse(cue_value %in% c("+$1","-$1"),1,
+                                                           ifelse(cue_value %in% 
+                                                                    c("+$0","-$0"),1,NA))))))
 # Get effect size (standardized beta)
 beta <- summary(l1)$coefficients["scale(glmPupil)", "Estimate"]
 r2   <- r.squaredGLMM(l1)[1]
@@ -1384,6 +1441,11 @@ s1 <- get_stats(l1)
 s2 <- get_stats(l2)
 s3 <- get_stats(l3)
 
+## controlling for pupil size
+summary(lmer(scale(arousal_scaled) ~ scale(glmPupil) + scale(pupil_lag2) + (1|split), d1))
+summary(lmer(scale(arousal_scaled) ~ scale(glmPupil) + scale(pupil_lag2) + (1|split), d2))
+summary(lmer(scale(arousal_scaled) ~ scale(glmPupil) + scale(pupil_lag2) + (1|split), d3))
+
 predict_ci <- function(model, newdata, confirm = FALSE) {
   X <- model.matrix(delete.response(terms(model)), newdata)
   beta <- fixef(model)
@@ -1455,15 +1517,15 @@ p_m2_pupil_c <- ggplot() +
 
   # Add beta + p-value text with < .001 formatting
   annotate("text", x = -1.5, y = max(new1$upr)+0.6, size=3.5,
-           label = paste0("both (8s): β=", round(s1$beta,2), 
+           label = paste0("both (fix): β=", round(s1$beta,2), 
                           ", p", ifelse(s1$p < 0.001, "< .001", paste0("= ",round(s1$p, 3)))),
            color = "black", hjust = 0) +
   annotate("text", x = -1.5, y = max(new1$upr)+0.2, size=3.5,
-           label = paste0("ant (8s): β=", round(s2$beta,2), 
+           label = paste0("ant (fix): β=", round(s2$beta,2), 
                           ", p", ifelse(s2$p < 0.001, "< .001",paste0("= ",round(s2$p, 3)))),
            color = "purple", hjust = 0) +
   annotate("text", x = -1.5, y = max(new1$upr)+0.4, size=3.5,
-           label = paste0("out (12s): β=", round(s3$beta,2), 
+           label = paste0("out (out): β=", round(s3$beta,2), 
                           ", p", ifelse(s3$p < 0.001, "< .001", paste0("= ",round(s3$p, 3)))),
            color = "skyblue", hjust = 0)+
   labs(
@@ -1477,17 +1539,40 @@ p_m2_pupil_c <- ggplot() +
 ```{r}
 cor(my_array_s1 %>% 
       filter(threshold == 0.5) %>% 
-      group_by(subject) %>% 
+      group_by(subject,split) %>% 
       mutate(pupil_lag2= lag(pupil,2))%>% 
       ungroup() %>% 
       select(glmPupil,glmArousal,pupil_lag2),use = "complete.obs")
 
-# cor(my_array_s2 %>% 
-#       filter(threshold == 1.5) %>% 
-#       group_by(subject) %>% 
-#       mutate(pupil_lag2= lag(pupil,2))%>% 
-#       ungroup() %>% 
-#       select(glmPupil,glmPupil_posonly,glmPupil,pupil_lag2),use = "complete.obs")
+# get the cross-correlogram
+lags <- -3:5
+
+
+lag_results <- lapply(lags, function(l){
+
+  dat_lag <- my_array_s1 %>%
+    filter(threshold == 0.5) %>%
+    group_by(subject, split) %>%
+    mutate(pupil_lag = if (l >= 0) {lag(pupil,  l)} 
+           else {lead(pupil, -l)}
+    ) %>%
+    ungroup() %>%
+    filter(!is.na(pupil_lag), !is.na(glmPupil))
+
+  m <- lmer(
+    scale(glmPupil) ~ scale(pupil_lag) + (1 | split),
+    data = dat_lag,
+    REML = FALSE
+  )
+
+  broom.mixed::tidy(m) %>%
+    filter(term == "scale(pupil_lag)") %>%
+    mutate(lag = l)
+})
+
+lag_df <- bind_rows(lag_results)
+
+
 
 # continuous correlation
 #the neural arousal index needs to be lagged for 3 TRs, and pupil 1TR. Thus, it's a relative lag of 2TRs.
@@ -1547,6 +1632,7 @@ corr_long2 <- reshape2::melt(corr_mat2)
 # Plot correlation heatmap
 new_labels <- c("glm_pupil", "glm_arousal", "pupil_size")
 
+  
 ggplot(corr_long1, aes(Var1, Var2, fill = value)) +
   geom_tile(color = "white") +
   geom_text(aes(label = round(value, 2)), color = "black", size = 5) +
@@ -1582,10 +1668,31 @@ ggplot(corr_long2, aes(Var1, Var2, fill = value)) +
   ) +
   coord_fixed() +
   labs(x = "", y = "",
-       subtitle = "test 2nd half")
+       subtitle = "test 2nd half")+
+  plot_annotation(tag_levels = "A")
 
 
 ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/arousal_index_corr_s2_split.png"),dpi = 300, height = 5, width = 10)
+
+p_cc <- 
+ggplot(lag_df, aes(x = lag, y = estimate)) +
+  geom_hline(yintercept = 0,  color = "grey") +
+    geom_vline(xintercept = 3, color = "grey", size = 1)+
+  geom_line() +
+  geom_point(size = 2) +
+  geom_errorbar(
+    aes(ymin = estimate - std.error,
+        ymax = estimate + std.error),
+    width = 0.2
+  ) +
+  labs(
+    x = "Lag (s)",
+    y = "β",
+    title = "Cross-correlation",
+    subtitle = "pupil's lag relative to arousal index"
+  ) +
+  scale_x_continuous(breaks = lags, labels = 2*(lags - 3))#lags + 3 because the arousal index was lagged for 3TRs
+
 ```
 
 ```{r}
@@ -1603,10 +1710,11 @@ p_brain <- ggplot() +
 
 ```{r}
 p_brain/
-(p1m2p)/
+(p_cc+p1m2p+
+  plot_layout(nrow=1,widths = c(1,3.5)))/
 (p2m2p+p3m2p+p4m2p+p_m2_pupil_c+
   plot_layout(nrow=1,widths = c(1.2,1,1,1.2)))+
-plot_annotation(title = "Pupil template",
+plot_annotation(
                   tag_levels = "A")+
   plot_layout(heights = c(1.5,1,1))
 
