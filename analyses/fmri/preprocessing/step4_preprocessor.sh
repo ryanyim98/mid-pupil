@@ -33,8 +33,7 @@ QA_DIR=$MAIN_DIR/qa/qa_motion_MIDaffemo
 ###############################################################
 
 
-#for SUBJECT in $SUBJECTS
-for SUBJECT in ag240330 nq240330 yl240330
+for SUBJECT in $SUBJECTS
 do
 	echo; echo;
 	echo -----------------------------------------------

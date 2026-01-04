@@ -1,6 +1,6 @@
 #!/bin/bash
-#glm27 is the model with parametric regressors for arousal ratings REGARDLESS of probe type and probe timing (ant-ant, out-out)
-# (neural activity 1 TR prior predicting subsequent affect)
+#model with parametric regressors for arousal ratings REGARDLESS of probe type and probe timing (ant-ant, out-out)
+# (neural activity 1-2 TR prior predicting subsequent affect)
 
 SCRIPTS_DIR=$(pwd)
 
@@ -46,7 +46,7 @@ do
 						-stim_file 12 regs/button_c.1D -stim_label 12 button \
 						-stim_file 13 regs/reportaff_rtmod_c.1D -stim_label 13 reportaff_rtmod \
 						-stim_file 14 regs/reportemo_rtmod_c.1D -stim_label 14 reportemo_rtmod \
-						-stim_file 15 regs/param_arous_c.1D -stim_label 15 param_arous \
+						-stim_file 15 regs/param_arous_early_c.1D -stim_label 15 param_arous_early \
 		        -tout -fout -rout -bucket $OUT_DIR/${SUBJECT}_glm27_b${KERNEL}
 
 		    3dmerge -doall -1zscore -prefix $OUT_DIR/${SUBJECT}_glm27_z_b${KERNEL} $OUT_DIR/${SUBJECT}_glm27_b${KERNEL}+orig
