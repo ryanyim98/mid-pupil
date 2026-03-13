@@ -1532,36 +1532,35 @@ cld_df <- as.data.frame(cld_results)
 
 par1<-ggplot() +
   geom_violin(data=acf_results_vrmid1, aes(x = variable, y = AR),
-              fill = "gray90", color = NA, width = 0.8) +
+              fill = "gray40", color = NA, width = 0.8) +
   # individual data points
   geom_jitter(data=acf_results_vrmid1, aes(x = variable, y = AR),
-              width = 0.15, size = 1.2, alpha = 0.4, color = "gray40") +
+              width = 0.15, size = 0.4,color = "black") +
   # mean and CI
   geom_point(data=cld_df,aes(x = variable, y = emmean),
              size = 1,color = "#2E86AB") +
   geom_errorbar(data=cld_df,aes(x = variable, ymin = emmean - SE, ymax = emmean + SE),  color = "#2E86AB", linewidth = 0.8,width = 0.2) +
-  geom_text(data=cld_df,aes(x = variable, label = .group, y = emmean + SE + 0.1), vjust = 0) +
   labs(
     x = NULL,
     y = "Autocorrelation (lag 1)",
-    subtitle = "VR Study",
-  )+
+    subtitle = "VR Study")+
   ylim(-0.5,1)+
   coord_flip()+
   # add semi-transparent white squares behind "valence" and "uncorrected phasic"
   annotate("rect",
            xmin = 1.5, xmax = 2.5,  # for "valence"
            ymin = -Inf, ymax = Inf,
-           fill = "white", alpha = 0.5) +
+           fill = "white", alpha = 0.6) +
   annotate("rect",
            xmin = 4.5, xmax = 5.5,  # for "uncorrected phasic"
            ymin = -Inf, ymax = Inf,
-           fill = "white", alpha = 0.5)+
+           fill = "white", alpha = 0.6)+
   annotate("rect",
            xmin = 0.5, xmax = 1.5,  # for "arousal"
            ymin = -Inf, ymax = Inf,
-           fill = "white", alpha = 0.5)+
-  geom_hline(yintercept = 0)
+           fill = "white", alpha = 0.6)+
+  geom_hline(yintercept = 0)+
+    geom_text(data=cld_df,aes(x = variable, label = .group, y = 0.9), vjust=0.5) 
 
 
 acf_results_fmri3 <- fmri3_pupil_data_tonic %>%
@@ -1592,37 +1591,38 @@ cld_df <- as.data.frame(cld_results)
 
 par3<-ggplot() +
   geom_violin(data=acf_results_fmri3, aes(x = variable, y = AR),
-              fill = "gray90", color = NA, width = 0.8) +
+              fill = "gray40", color = NA, width = 0.8) +
   # individual data points
   geom_jitter(data=acf_results_fmri3, aes(x = variable, y = AR),
-              width = 0.15, size = 1.2, alpha = 0.4, color = "gray40") +
+              width = 0.15, size = 0.4,color = "black") +
   # mean and CI
   geom_point(data=cld_df,aes(x = variable, y = emmean),
              size = 1,color = "#2E86AB") +
   geom_errorbar(data=cld_df,aes(x = variable, ymin = emmean - SE, ymax = emmean + SE),  color = "#2E86AB", linewidth = 0.8,width = 0.2) +
-  geom_text(data=cld_df,aes(x = variable, label = .group, y = emmean + SE + 0.1), vjust = 0) +
   labs(
     x = NULL,
     y = "Autocorrelation (lag 1)",
-    subtitle = "FMRI Study",
-  )+
+    subtitle = "FMRI Study")+
   ylim(-0.5,1)+
   coord_flip()+
   # add semi-transparent white squares behind "valence" and "uncorrected phasic"
   annotate("rect",
            xmin = 1.5, xmax = 2.5,  # for "valence"
            ymin = -Inf, ymax = Inf,
-           fill = "white", alpha = 0.5) +
+           fill = "white", alpha = 0.6) +
   annotate("rect",
            xmin = 4.5, xmax = 5.5,  # for "uncorrected phasic"
            ymin = -Inf, ymax = Inf,
-           fill = "white", alpha = 0.5)+
+           fill = "white", alpha = 0.6)+
   annotate("rect",
            xmin = 0.5, xmax = 1.5,  # for "arousal"
            ymin = -Inf, ymax = Inf,
-           fill = "white", alpha = 0.5)+
-  geom_hline(yintercept = 0)
+           fill = "white", alpha = 0.6)+
+  geom_hline(yintercept = 0)+
+    geom_text(data=cld_df,aes(x = variable, label = .group, y = 0.9), vjust=0.5) 
+
 par1+par3
+
 ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/ar.png"),dpi = 300, height = 3, width = 9)
 ```
 
