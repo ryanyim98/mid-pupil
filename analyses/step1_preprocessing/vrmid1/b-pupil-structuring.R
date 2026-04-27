@@ -17,8 +17,8 @@ data_pupil <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivativ
 data_pupil <- data_pupil %>% 
   group_by(Subject) %>% 
   mutate(pupil_L_scaled = as.numeric(scale(pupil_L)),
-         pupil_R_scaled = as.numeric(scale(pupil_L)),
-         pupil_Avg_scaled = as.numeric(scale(pupil_L)))
+         pupil_R_scaled = as.numeric(scale(pupil_R)),
+         pupil_Avg_scaled = as.numeric(scale(pupil_Avg)))
 
 data_pupil%>%
   head(100)
