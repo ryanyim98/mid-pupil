@@ -1,0 +1,104 @@
+---
+title: "pupilAvg_vs_xyvar_comparison"
+output: html_document
+date: "2026-04-27"
+---
+
+Compare original vs gaze-regressed pupil signals and their associations with arousal.
+
+```{r}
+source("~/Desktop/VRMID-analysis/mid-pupil/analyses/load_libraries.R")
+```
+
+## Load processed datasets
+
+```{r}
+vrmid1 <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivatives/pupillometry_lowpass_baselineCorrected.csv")
+vrmid2 <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/vrmid2/derivatives/pupillometry_baselineCorrected.csv")
+```
+
+## Example participant timecourse overlay
+
+```{r}
+example_sub <- vrmid2 %>%
+  group_by(Subject) %>%
+  summarise(n_arousal = sum(!is.na(arousal)),
+            n_both_signal = sum(!is.na(pupil_Avg_scaled) & !is.na(pupil_Avg_xyvar_scaled)),
+            .groups = "drop") %>%
+  filter(n_arousal > 20, n_both_signal > 500) %>%
+  arrange(desc(n_arousal), desc(n_both_signal)) %>%
+  slice(1) %>%
+  pull(Subject)
+
+example_df <- vrmid2 %>%
+  filter(Subject == example_sub,
+         sample_in_trial_t >= 0,
+         Time_sec >= 0) %>%
+  mutate(sample_point = row_number()) %>%
+  select(Subject, trial, sample_point, sample_in_trial_t, arousal_start, Time,
+         pupil_Avg_scaled, pupil_Avg_xyvar_scaled) %>%
+  pivot_longer(cols = c(pupil_Avg_scaled, pupil_Avg_xyvar_scaled),
+               names_to = "signal",
+               values_to = "pupil_value")
+
+ggplot(example_df,
+       aes(x = sample_point, y = pupil_value, color = signal)) +
+  geom_line(alpha = 0.8, linewidth = 0.4) +
+  scale_color_manual(values = c("pupil_Avg_scaled" = "steelblue4",
+                                "pupil_Avg_xyvar_scaled" = "firebrick3")) +
+  theme_classic() +
+  labs(title = paste0("Example participant: ", example_sub),
+       x = "Sample index (continuous)",
+       y = "Scaled pupil",
+       color = "Signal")
+```
+
+## Trial-level correlation with arousal
+
+```{r}
+trial_level <- bind_rows(
+  vrmid1 %>%
+    mutate(study = "vrmid1"),
+  vrmid2 %>%
+    mutate(study = "vrmid2")
+) %>%
+  group_by(study, Subject, trial) %>%
+  summarise(
+    arousal = suppressWarnings(as.numeric(first(na.omit(arousal)))),
+    mean_pupil_Avg_scaled = mean(pupil_Avg_scaled, na.rm = TRUE),
+    mean_pupil_Avg_xyvar_scaled = mean(pupil_Avg_xyvar_scaled, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  filter(!is.na(arousal))
+
+trial_level_long <- trial_level %>%
+  pivot_longer(cols = c(mean_pupil_Avg_scaled, mean_pupil_Avg_xyvar_scaled),
+               names_to = "signal",
+               values_to = "pupil_value")
+
+corr_summary <- trial_level_long %>%
+  group_by(study, signal) %>%
+  summarise(
+    n = sum(!is.na(pupil_value) & !is.na(arousal)),
+    r = cor(pupil_value, arousal, use = "complete.obs"),
+    p_value = cor.test(pupil_value, arousal)$p.value,
+    .groups = "drop"
+  )
+
+corr_summary
+```
+
+```{r}
+ggplot(trial_level_long,
+       aes(x = pupil_value, y = arousal, color = signal)) +
+  geom_point(alpha = 0.25, size = 0.8) +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 0.8) +
+  facet_wrap(~study, scales = "free") +
+  scale_color_manual(values = c("mean_pupil_Avg_scaled" = "steelblue4",
+                                "mean_pupil_Avg_xyvar_scaled" = "firebrick3")) +
+  theme_classic() +
+  labs(x = "Mean pupil signal (trial-level)",
+       y = "Self-reported arousal",
+       color = "Signal")
+```
+

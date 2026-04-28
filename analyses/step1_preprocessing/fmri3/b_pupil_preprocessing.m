@@ -24,6 +24,11 @@ hist3([T.xp T.yp],[101 101]);
 % imagesc(values.')
 % colorbar
 
+%%
+plot(T.xp(10000:15000));
+hold on;
+plot(T.yp(10000:15000));hold on;
+plot(T.ps(10000:15000));
 %% convert file structure
 clear alldata;
 subjects_list = readtable('../subjects_list/subjects-pupil.txt','ReadVariableNames',false);
@@ -321,10 +326,19 @@ RAW_vis4l = alldata.subjectdata(subj).Physio.LeftPDil.data.interpolation(ind);
 RAW_vis5l = alldata.subjectdata(subj).Physio.LeftPDil.data.filter(ind);
 
 RAW_vis6l = alldata.subjectdata(subj).Physio.LeftPDil.data.out(ind);
+gaze_x_raw = alldata.subjectdata(subj).Physio.pupil_position.xp(ind);
+gaze_y_raw = alldata.subjectdata(subj).Physio.pupil_position.yp(ind);
+gaze_invalid = alldata.subjectdata(subj).Physio.LeftPDil.valid_id(ind) == 0;
+gaze_x_preproc = gaze_x_raw;
+gaze_y_preproc = gaze_y_raw;
+gaze_x_preproc(gaze_invalid) = NaN;
+gaze_y_preproc(gaze_invalid) = NaN;
+gaze_x_preproc = fillmissing(gaze_x_preproc,'linear','EndValues','nearest');
+gaze_y_preproc = fillmissing(gaze_y_preproc,'linear','EndValues','nearest');
 
-makefigure(18,18);
+makefigure(18,22);
 
-subplot(2,2,1);
+subplot(3,2,1);
 plot(ind/sr,RAW_visl,'lineWidth',3); hold on;
 plot(ind/sr,RAW_vis2l+0.1,'lineWidth',3); hold on;
 plot(ind/sr,blks,'r','lineWidth',3); hold on;
@@ -336,7 +350,7 @@ ylim([my_ylim(1),my_ylim(2)+0.1]);
 xlim(vis_duration);
 
 
-subplot(2,2,2);
+subplot(3,2,2);
 plot(ind/sr,RAW_vis2l,'lineWidth',3); hold on;
 plot(ind/sr,RAW_vis3l+0.1,'lineWidth',3); hold on;
 legend({'gapExpand','speedfilter'},'Location','southeast');
@@ -346,7 +360,7 @@ ylim([my_ylim(1),my_ylim(2)+0.1]);
 xlim(vis_duration);
 
 
-subplot(2,2,3);
+subplot(3,2,3);
 % plot(ind/120,RAW_vis3,'k', 'lineWidth',3); hold on;
 plot(ind/sr,RAW_vis4l,'lineWidth',3); hold on;
 plot(ind/sr,RAW_vis5l+0.1,'lineWidth',3); hold on;
@@ -356,11 +370,25 @@ colororder(ax,cm([4 5],:));
 ylim([my_ylim(1),my_ylim(2)+0.1]);
 xlim(vis_duration);
 
-subplot(2,2,4);
+subplot(3,2,4);
 % plot(ind/120,RAW_vis3,'k', 'lineWidth',3); hold on;
 plot(ind/sr,RAW_vis6l,'k', 'lineWidth',1); hold on;
 legend({'used data left','used data right'},'Location','southeast');
 ylim([my_ylim(1),my_ylim(2)+0.1]);
+xlim(vis_duration);
+
+subplot(3,2,5);
+plot(ind/sr,gaze_x_raw,'lineWidth',2); hold on;
+plot(ind/sr,gaze_x_preproc,'lineWidth',2); hold on;
+legend({'gaze x raw','gaze x preproc'},'Location','southeast');
+title("gaze x");
+xlim(vis_duration);
+
+subplot(3,2,6);
+plot(ind/sr,gaze_y_raw,'lineWidth',2); hold on;
+plot(ind/sr,gaze_y_preproc,'lineWidth',2); hold on;
+legend({'gaze y raw','gaze y preproc'},'Location','southeast');
+title("gaze y");
 xlim(vis_duration);
 
 print(['~/Desktop/VRMID-analysis/mid-pupil/figures/fmri3/example_pupil_sub',num2str(p),'.tiff'],'-dtiff','-r300');
@@ -389,11 +417,20 @@ TdataOut = [];
 for p = 1:nsubjects
     disp(["processing participant " + p]);
     if ~isempty(alldata.subjectdata(p).beh) & ~ismember(string(alldata.subjectdata(p).ID),subject_to_drop)
+            gaze_x_raw = alldata.subjectdata(p).Physio.pupil_position.xp;
+            gaze_y_raw = alldata.subjectdata(p).Physio.pupil_position.yp;
+            gaze_invalid = alldata.subjectdata(p).Physio.LeftPDil.valid_id == 0;
+            gaze_x_preproc = gaze_x_raw;
+            gaze_y_preproc = gaze_y_raw;
+            gaze_x_preproc(gaze_invalid) = NaN;
+            gaze_y_preproc(gaze_invalid) = NaN;
+            gaze_x_preproc = fillmissing(gaze_x_preproc,'linear','EndValues','nearest');
+            gaze_y_preproc = fillmissing(gaze_y_preproc,'linear','EndValues','nearest');
 
             temp_TdataOut = [table(repmat(alldata.subjectdata(p).ID,[height(alldata.subjectdata(p).beh),1]),'VariableNames',{'subject'}), alldata.subjectdata(p).beh, ...
                 array2table([alldata.subjectdata(p).Physio.LeftPDil.data.out, alldata.subjectdata(p).Physio.pupil_size.blink, ...
-                alldata.subjectdata(p).Physio.pupil_position.xp, alldata.subjectdata(p).Physio.pupil_position.yp],...
-                'VariableNames',{'pupilDiameter','blinks','pupil_x','pupil_y'})];
+                gaze_x_raw, gaze_y_raw, gaze_x_preproc, gaze_y_preproc],...
+                'VariableNames',{'pupilDiameter','blinks','pupil_x','pupil_y','pupil_x_preproc','pupil_y_preproc'})];
 
         TdataOut = [TdataOut; temp_TdataOut];
 

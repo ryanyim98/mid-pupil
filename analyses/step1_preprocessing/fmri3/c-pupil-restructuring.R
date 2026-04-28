@@ -82,9 +82,11 @@ data_pupil <- data_pupil %>%
   filter(!sub_id %in% bad_participants)
 
 data_pupil <- data_pupil %>%
+  mutate(pupil_x_reg = if ("pupil_x_preproc" %in% names(.)) pupil_x_preproc else pupil_x,
+         pupil_y_reg = if ("pupil_y_preproc" %in% names(.)) pupil_y_preproc else pupil_y) %>%
   group_by(subject, block) %>%
-  mutate(pupil_x_d = c(NA, diff(pupil_x)),
-         pupil_y_d = c(NA, diff(pupil_y))) %>%
+  mutate(pupil_x_d = c(NA, diff(pupil_x_reg)),
+         pupil_y_d = c(NA, diff(pupil_y_reg))) %>%
   ungroup()
 
 data_pupil$pupilDiameter_xyvar <- NA_real_
@@ -94,7 +96,7 @@ for (sub in unique(data_pupil$subject)){
   ind <- which(data_pupil$subject == sub)
   d <- data_pupil[ind, ]
   fit <- tryCatch(
-    lm(pupilDiameter ~ pupil_x + pupil_y + pupil_x_d + pupil_y_d,
+    lm(pupilDiameter ~ pupil_x_reg + pupil_y_reg + pupil_x_d + pupil_y_d,
        data = d, na.action = na.exclude),
     error = function(e) NULL
   )
@@ -128,7 +130,8 @@ write_csv(xyvar_fit_summary,
 
 data_pupil <- data_pupil %>%
   group_by(subject) %>%
-  mutate(pupilDiameter_scaled = as.numeric(scale(pupilDiameter_xyvar))) %>%
+  mutate(pupilDiameter_scaled = as.numeric(scale(pupilDiameter)),
+         pupilDiameter_xyvar_scaled = as.numeric(scale(pupilDiameter_xyvar))) %>%
   ungroup()
 
 unique(data_pupil$subject)
@@ -245,11 +248,13 @@ unique(data_pupil_out$subject)
 baseline <- data_pupil_out%>%
   group_by(subject,block,trial)%>%
   filter(Time_sec == -1)%>%
-  summarise_at(vars(pupilDiameter,pupilDiameter_scaled), ~mean(.x, na.rm = TRUE))%>%
+  summarise_at(vars(pupilDiameter,pupilDiameter_scaled,pupilDiameter_xyvar,pupilDiameter_xyvar_scaled), ~mean(.x, na.rm = TRUE))%>%
   ungroup()
 
 data_pupil_out$pupilDiameter_baseline <- NA
 data_pupil_out$pupilDiameter_baseline_scaled <- NA
+data_pupil_out$pupilDiameter_xyvar_baseline <- NA
+data_pupil_out$pupilDiameter_xyvar_baseline_scaled <- NA
 
 for (i in 1:nrow(baseline)){
   ind = which(data_pupil_out$subject == baseline$subject[i] &
@@ -260,12 +265,16 @@ for (i in 1:nrow(baseline)){
     #baseline is from last trial's ITI
     data_pupil_out$pupilDiameter_baseline[ind] = baseline$pupilDiameter[i]
     data_pupil_out$pupilDiameter_baseline_scaled[ind] = baseline$pupilDiameter_scaled[i]
+    data_pupil_out$pupilDiameter_xyvar_baseline[ind] = baseline$pupilDiameter_xyvar[i]
+    data_pupil_out$pupilDiameter_xyvar_baseline_scaled[ind] = baseline$pupilDiameter_xyvar_scaled[i]
   }
 }
 
 #baseline correction; first trial of each participant was excluded
 data_pupil_out <- data_pupil_out%>%
   mutate(pupilDiameter_bc = pupilDiameter - pupilDiameter_baseline,
-         pupilDiameter_bc_scaled = pupilDiameter_scaled - pupilDiameter_baseline_scaled)
+         pupilDiameter_bc_scaled = pupilDiameter_scaled - pupilDiameter_baseline_scaled,
+         pupilDiameter_xyvar_bc = pupilDiameter_xyvar - pupilDiameter_xyvar_baseline,
+         pupilDiameter_xyvar_bc_scaled = pupilDiameter_xyvar_scaled - pupilDiameter_xyvar_baseline_scaled)
 
 write_csv(data_pupil_out, "~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/derivatives/pupillometry_baselineCorrected.csv")

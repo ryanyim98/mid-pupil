@@ -303,10 +303,22 @@ RAW_vis6r = alldata.subjectdata(p).Physio.RightPDil.data.filter(ind);
 
 RAW_vis7l = alldata.subjectdata(p).Physio.LeftPDil.data.out(ind)+0.01;
 RAW_vis7r = alldata.subjectdata(p).Physio.RightPDil.data.out(ind)+0.01;
+gaze_x_raw = alldata.subjectdata(p).Physio.pupil_position.AvgPPos_x(ind);
+gaze_y_raw = alldata.subjectdata(p).Physio.pupil_position.AvgPPos_y(ind);
+gaze_x_raw(gaze_x_raw == -1) = NaN;
+gaze_y_raw(gaze_y_raw == -1) = NaN;
+gaze_invalid = alldata.subjectdata(p).Physio.LeftPDil.valid_id(ind) == 0 | ...
+    alldata.subjectdata(p).Physio.RightPDil.valid_id(ind) == 0;
+gaze_x_preproc = gaze_x_raw;
+gaze_y_preproc = gaze_y_raw;
+gaze_x_preproc(gaze_invalid) = NaN;
+gaze_y_preproc(gaze_invalid) = NaN;
+gaze_x_preproc = fillmissing(gaze_x_preproc,'linear','EndValues','nearest');
+gaze_y_preproc = fillmissing(gaze_y_preproc,'linear','EndValues','nearest');
 
-makefigure(18,18);
+makefigure(18,22);
 
-subplot(5,2,1);
+subplot(6,2,1);
 plot(ind/120,RAW_visl,'lineWidth',2); hold on;
 plot(ind/120,RAW_vis2l+0.01,'lineWidth',2); hold on;
 legend({'raw','gapExpand'},'Location','southeast');
@@ -316,7 +328,7 @@ title("left eye");
 ylim([min(RAW_visl),max(RAW_visl)]);
 xlim(vis_duration);
 
-subplot(5,2,2);
+subplot(6,2,2);
 plot(ind/120,RAW_visr,'lineWidth',2); hold on;
 plot(ind/120,RAW_vis2r+0.01,'lineWidth',2); hold on;
 legend({'raw','gapExpand'},'Location','southeast');
@@ -326,7 +338,7 @@ colororder(ax,cm([1 2],:));
 ylim([min(RAW_visr),max(RAW_visr)]);
 xlim(vis_duration);
 
-subplot(5,2,3);
+subplot(6,2,3);
 plot(ind/120,RAW_vis2l,'lineWidth',2); hold on;
 plot(ind/120,RAW_vis3l+0.01,'lineWidth',2); hold on;
 legend({'gapExpand','speedfilter'},'Location','southeast');
@@ -335,7 +347,7 @@ colororder(ax,cm([2 3],:));
 ylim([min(RAW_visl),max(RAW_visl)]);
 xlim(vis_duration);
 
-subplot(5,2,4);
+subplot(6,2,4);
 plot(ind/120,RAW_vis2r,'lineWidth',2); hold on;
 plot(ind/120,RAW_vis3r+0.01, 'lineWidth',2); hold on;
 legend({'gapExpand','speedfilter'},'Location','southeast');
@@ -344,7 +356,7 @@ colororder(ax,cm([2 3],:));
 ylim([min(RAW_visr),max(RAW_visr)]);
 xlim(vis_duration);
 
-subplot(5,2,5);
+subplot(6,2,5);
 % plot(ind/120,RAW_vis3,'k', 'lineWidth',3); hold on;
 plot(ind/120,RAW_vis3l,'lineWidth',2); hold on;
 plot(ind/120,RAW_vis4l+0.01,'lineWidth',2); hold on;
@@ -354,7 +366,7 @@ colororder(ax,cm([4 5],:));
 ylim([min(RAW_visl),max(RAW_visl)]);
 xlim(vis_duration);
 
-subplot(5,2,6);
+subplot(6,2,6);
 % plot(ind/120,RAW_vis3,'k', 'lineWidth',3); hold on;
 plot(ind/120,RAW_vis3r,'lineWidth',2); hold on;
 plot(ind/120,RAW_vis4r+0.01,'lineWidth',2); hold on;
@@ -364,7 +376,7 @@ colororder(ax,cm([4 5],:));
 ylim([min(RAW_visr),max(RAW_visr)]);
 xlim(vis_duration);
 
-subplot(5,2,7);
+subplot(6,2,7);
 % plot(ind/120,RAW_vis3,'k', 'lineWidth',3); hold on;
 plot(ind/120,RAW_vis4l,'lineWidth',2); hold on;
 plot(ind/120,RAW_vis5l+0.01,'lineWidth',2); hold on;
@@ -374,7 +386,7 @@ colororder(ax,cm([6 7],:));
 ylim([min(RAW_visl),max(RAW_visl)]);
 xlim(vis_duration);
 
-subplot(5,2,8);
+subplot(6,2,8);
 % plot(ind/120,RAW_vis3,'k', 'lineWidth',3); hold on;
 plot(ind/120,RAW_vis4r,'lineWidth',2); hold on;
 plot(ind/120,RAW_vis5r+0.01,'lineWidth',2); hold on;
@@ -384,12 +396,26 @@ colororder(ax,cm([6 7],:));
 ylim([min(RAW_visr),max(RAW_visr)]);
 xlim(vis_duration);
 
-subplot(5,2,9);
+subplot(6,2,9);
 % plot(ind/120,RAW_vis3,'k', 'lineWidth',3); hold on;
 plot(ind/120,RAW_vis7l,'k', 'lineWidth',1); hold on;
 plot(ind/120,RAW_vis7r+0.01,'k', 'lineWidth',2); hold on;
 % legend({'used data left','used data right'},'Location','NorthEastOutside');
 ylim([min([RAW_visl;RAW_visr]),max([RAW_visl;RAW_visr])]);
+xlim(vis_duration);
+
+subplot(6,2,11);
+plot(ind/120,gaze_x_raw,'lineWidth',2); hold on;
+plot(ind/120,gaze_x_preproc,'lineWidth',2); hold on;
+legend({'gaze x raw','gaze x preproc'},'Location','southeast');
+title("Avg gaze x");
+xlim(vis_duration);
+
+subplot(6,2,12);
+plot(ind/120,gaze_y_raw,'lineWidth',2); hold on;
+plot(ind/120,gaze_y_preproc,'lineWidth',2); hold on;
+legend({'gaze y raw','gaze y preproc'},'Location','southeast');
+title("Avg gaze y");
 xlim(vis_duration);
 
 print(['~/Desktop/VRMID-analysis/mid-pupil/figures/vrmid2/example_pupil_sub',num2str(p),'.tiff'],'-dtiff','-r300');
@@ -451,8 +477,18 @@ for nsub = 1:nsubjects
         avg_y = alldata.subjectdata(nsub).Physio.pupil_position.AvgPPos_y;
         avg_x(avg_x == -1) = NaN;
         avg_y(avg_y == -1) = NaN;
+        gaze_invalid = alldata.subjectdata(nsub).Physio.LeftPDil.valid_id == 0 | ...
+            alldata.subjectdata(nsub).Physio.RightPDil.valid_id == 0;
+        avg_x_preproc = avg_x;
+        avg_y_preproc = avg_y;
+        avg_x_preproc(gaze_invalid) = NaN;
+        avg_y_preproc(gaze_invalid) = NaN;
+        avg_x_preproc = fillmissing(avg_x_preproc,'linear','EndValues','nearest');
+        avg_y_preproc = fillmissing(avg_y_preproc,'linear','EndValues','nearest');
         dataOut.subject(p).AvgPPos_x = avg_x;
         dataOut.subject(p).AvgPPos_y = avg_y;
+        dataOut.subject(p).AvgPPos_x_preproc = avg_x_preproc;
+        dataOut.subject(p).AvgPPos_y_preproc = avg_y_preproc;
 
         for i = 1:length(dataOut.subject(p).Times_s)
             if dataOut.subject(p).Times_s(i) < duration('07:00:00')
@@ -492,6 +528,8 @@ for p = 1:nsubjects
     dataOut.subject(p).pupil_Avg =dataOut.subject(p).pupil_Avg(physio_ind_retain, :);
     dataOut.subject(p).AvgPPos_x =dataOut.subject(p).AvgPPos_x(physio_ind_retain, :);
     dataOut.subject(p).AvgPPos_y =dataOut.subject(p).AvgPPos_y(physio_ind_retain, :);
+    dataOut.subject(p).AvgPPos_x_preproc =dataOut.subject(p).AvgPPos_x_preproc(physio_ind_retain, :);
+    dataOut.subject(p).AvgPPos_y_preproc =dataOut.subject(p).AvgPPos_y_preproc(physio_ind_retain, :);
     dataOut.subject(p).Times_ms =dataOut.subject(p).Times_ms(physio_ind_retain, :);
     dataOut.subject(p).Times_s =dataOut.subject(p).Times_s(physio_ind_retain, :);
 
@@ -509,8 +547,9 @@ for p = 1:nsubjects
     temp_TdataOut = [dataOut.subject(p).behavior, ...
         array2table([dataOut.subject(p).pupil_L, dataOut.subject(p).pupil_R,...
         dataOut.subject(p).pupil_Avg, ...
-        dataOut.subject(p).AvgPPos_x, dataOut.subject(p).AvgPPos_y],...
-        'VariableNames',{'pupil_L','pupil_R','pupil_Avg','AvgPPos_x','AvgPPos_y'})];
+        dataOut.subject(p).AvgPPos_x, dataOut.subject(p).AvgPPos_y,...
+        dataOut.subject(p).AvgPPos_x_preproc, dataOut.subject(p).AvgPPos_y_preproc],...
+        'VariableNames',{'pupil_L','pupil_R','pupil_Avg','AvgPPos_x','AvgPPos_y','AvgPPos_x_preproc','AvgPPos_y_preproc'})];
     TdataOut = [TdataOut; temp_TdataOut];
 end
 

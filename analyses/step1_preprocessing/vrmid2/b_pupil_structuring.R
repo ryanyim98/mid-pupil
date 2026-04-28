@@ -21,9 +21,11 @@ data_pupil <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/vrmid2/derivativ
          sample_in_trial_t = sample_in_trial_n/sr)
 
 data_pupil <- data_pupil %>%
+  mutate(AvgPPos_x_reg = if ("AvgPPos_x_preproc" %in% names(.)) AvgPPos_x_preproc else AvgPPos_x,
+         AvgPPos_y_reg = if ("AvgPPos_y_preproc" %in% names(.)) AvgPPos_y_preproc else AvgPPos_y) %>%
   group_by(Subject) %>%
-  mutate(AvgPPos_x_d = c(NA, diff(AvgPPos_x)),
-         AvgPPos_y_d = c(NA, diff(AvgPPos_y))) %>%
+  mutate(AvgPPos_x_d = c(NA, diff(AvgPPos_x_reg)),
+         AvgPPos_y_d = c(NA, diff(AvgPPos_y_reg))) %>%
   ungroup()
 
 data_pupil$pupil_L_xyvar <- NA_real_
@@ -38,7 +40,7 @@ for (sub in unique(data_pupil$Subject)){
     y_col <- paste0("pupil_", signal)
     res_col <- paste0("pupil_", signal, "_xyvar")
     fit_formula <- reformulate(
-      c("AvgPPos_x", "AvgPPos_y", "AvgPPos_x_d", "AvgPPos_y_d"),
+      c("AvgPPos_x_reg", "AvgPPos_y_reg", "AvgPPos_x_d", "AvgPPos_y_d"),
       response = y_col
     )
     fit <- tryCatch(
@@ -78,9 +80,12 @@ write_csv(xyvar_fit_summary,
 
 data_pupil <- data_pupil %>%
   group_by(Subject) %>%
-  mutate(pupil_L_scaled = as.numeric(scale(pupil_L_xyvar)),
-         pupil_R_scaled = as.numeric(scale(pupil_R_xyvar)),
-         pupil_Avg_scaled = as.numeric(scale(pupil_Avg_xyvar)))
+  mutate(pupil_L_scaled = as.numeric(scale(pupil_L)),
+         pupil_R_scaled = as.numeric(scale(pupil_R)),
+         pupil_Avg_scaled = as.numeric(scale(pupil_Avg)),
+         pupil_L_xyvar_scaled = as.numeric(scale(pupil_L_xyvar)),
+         pupil_R_xyvar_scaled = as.numeric(scale(pupil_R_xyvar)),
+         pupil_Avg_xyvar_scaled = as.numeric(scale(pupil_Avg_xyvar)))
 
 length(unique(data_pupil$Subject))
 unique(data_pupil$emotion)
@@ -137,7 +142,8 @@ for (i in 1:length(unique(data_pupil$Subject))){
             select(Subject,Time,Time_sec,Time_str,Time_in_trial_sec,current_stimulus,sample_in_sec,sample_in_trial_n:sample_in_trial_t,
                    pupil_L,pupil_R,pupil_Avg,
                    pupil_L_xyvar,pupil_R_xyvar,pupil_Avg_xyvar,
-                   pupil_L_scaled,pupil_R_scaled,pupil_Avg_scaled)
+                   pupil_L_scaled,pupil_R_scaled,pupil_Avg_scaled,
+                   pupil_L_xyvar_scaled,pupil_R_xyvar_scaled,pupil_Avg_xyvar_scaled)
           
           d <- merge(temp_trial_data,last_trial_iti_data,
                      all.x = T, all.y = T)%>%
@@ -159,7 +165,9 @@ for (i in 1:length(unique(data_pupil$Subject))){
 baseline <- data_pupil_out%>%
   group_by(Subject, trial)%>%
   filter(Time_sec == 0)%>%
-  summarise_at(vars(pupil_L,pupil_R,pupil_Avg,pupil_L_scaled,pupil_R_scaled,pupil_Avg_scaled), ~mean(.x, na.rm = TRUE))%>%
+  summarise_at(vars(pupil_L,pupil_R,pupil_Avg,pupil_L_scaled,pupil_R_scaled,pupil_Avg_scaled,
+                    pupil_L_xyvar,pupil_R_xyvar,pupil_Avg_xyvar,
+                    pupil_L_xyvar_scaled,pupil_R_xyvar_scaled,pupil_Avg_xyvar_scaled), ~mean(.x, na.rm = TRUE))%>%
   ungroup()
 
 data_pupil_out$pupil_L_baseline <- NA
@@ -169,6 +177,12 @@ data_pupil_out$pupil_Avg_baseline <- NA
 data_pupil_out$pupil_L_baseline_scaled <- NA
 data_pupil_out$pupil_R_baseline_scaled <- NA
 data_pupil_out$pupil_Avg_baseline_scaled <- NA
+data_pupil_out$pupil_L_xyvar_baseline <- NA
+data_pupil_out$pupil_R_xyvar_baseline <- NA
+data_pupil_out$pupil_Avg_xyvar_baseline <- NA
+data_pupil_out$pupil_L_xyvar_baseline_scaled <- NA
+data_pupil_out$pupil_R_xyvar_baseline_scaled <- NA
+data_pupil_out$pupil_Avg_xyvar_baseline_scaled <- NA
 
 for (i in 1:nrow(baseline)){
   ind = which(data_pupil_out$Subject == baseline$Subject[i] &
@@ -182,6 +196,12 @@ for (i in 1:nrow(baseline)){
     data_pupil_out$pupil_L_baseline_scaled[ind] = baseline$pupil_L_scaled[i]
     data_pupil_out$pupil_R_baseline_scaled[ind] = baseline$pupil_R_scaled[i]
     data_pupil_out$pupil_Avg_baseline_scaled[ind] = baseline$pupil_Avg_scaled[i]
+    data_pupil_out$pupil_L_xyvar_baseline[ind] = baseline$pupil_L_xyvar[i]
+    data_pupil_out$pupil_R_xyvar_baseline[ind] = baseline$pupil_R_xyvar[i]
+    data_pupil_out$pupil_Avg_xyvar_baseline[ind] = baseline$pupil_Avg_xyvar[i]
+    data_pupil_out$pupil_L_xyvar_baseline_scaled[ind] = baseline$pupil_L_xyvar_scaled[i]
+    data_pupil_out$pupil_R_xyvar_baseline_scaled[ind] = baseline$pupil_R_xyvar_scaled[i]
+    data_pupil_out$pupil_Avg_xyvar_baseline_scaled[ind] = baseline$pupil_Avg_xyvar_scaled[i]
   }
 }
 
@@ -192,7 +212,13 @@ data_pupil_out <- data_pupil_out%>%
          pupil_Avg_bc = pupil_Avg - pupil_Avg_baseline,
          pupil_L_bc_scaled = pupil_L_scaled - pupil_L_baseline_scaled,
          pupil_R_bc_scaled = pupil_R_scaled - pupil_R_baseline_scaled,
-         pupil_Avg_bc_scaled = pupil_Avg_scaled - pupil_Avg_baseline_scaled)
+         pupil_Avg_bc_scaled = pupil_Avg_scaled - pupil_Avg_baseline_scaled,
+         pupil_L_xyvar_bc = pupil_L_xyvar - pupil_L_xyvar_baseline,
+         pupil_R_xyvar_bc = pupil_R_xyvar - pupil_R_xyvar_baseline,
+         pupil_Avg_xyvar_bc = pupil_Avg_xyvar - pupil_Avg_xyvar_baseline,
+         pupil_L_xyvar_bc_scaled = pupil_L_xyvar_scaled - pupil_L_xyvar_baseline_scaled,
+         pupil_R_xyvar_bc_scaled = pupil_R_xyvar_scaled - pupil_R_xyvar_baseline_scaled,
+         pupil_Avg_xyvar_bc_scaled = pupil_Avg_xyvar_scaled - pupil_Avg_xyvar_baseline_scaled)
 
 write_csv(data_pupil_out, "~/Desktop/VRMID-analysis/mid-pupil/data/vrmid2/derivatives/pupillometry_baselineCorrected.csv")
 

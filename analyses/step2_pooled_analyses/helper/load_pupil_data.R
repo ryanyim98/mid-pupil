@@ -26,6 +26,12 @@ vrmid1_subject_n
 #   facet_wrap(~trial)+
 #   labs(title = 1)
 
+ggplot(vrmid1_pupil_data %>% filter(Subject == "ay220916",trial < 5))+
+  geom_line(aes(x = sample_in_trial_t, y = AvgPPos_x),color='red')+
+  geom_line(aes(x = sample_in_trial_t, y = AvgPPos_y))+
+  facet_wrap(~trial)+
+  labs(title = 1)
+
 
 for (i in 1:vrmid1_subject_n){
   ggplot(vrmid1_pupil_data %>% filter(Subject == vrmid1_subjects[i]), aes(x = sample_in_trial_t, y = pupil_Avg_scaled))+
