@@ -1,4 +1,9 @@
 #convolve luminance with a gamma function
+fmri3_pupil_data <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/derivatives/pupillometry_baselineCorrected.csv") %>% 
+  mutate(cue_value = factor(trialtype, levels = 1:6, labels = c("-$0","-$1","-$5","+$0","+$1","+$5"))) %>% 
+  filter(!is.na(subject)) %>% 
+  ungroup() 
+
 k_s1=2.40
 k_s2=3.24
 c_s1=0.77

@@ -54,7 +54,8 @@ for s = 1:nsubjects
     alldata.subjectdata(s).ID = sub{1};
     times = temp.Time;
     pupil_position = temp(:,["LeftPPos_x","LeftPPos_y","LeftPPos_c",...
-        "RightPPos_x","RightPPos_y","RightPPos_c"]);
+        "RightPPos_x","RightPPos_y","RightPPos_c",...
+        "AvgPPos_x","AvgPPos_y","AvgPPos_c"]);
     pupil_size = temp(:,["LeftOpen","LeftOpen_c","LeftPDil",...
         "LeftPDil_c","RightOpen","RightOpen_c","RightPDil","RightPDil_c"]);
     % go through every seconds
@@ -439,9 +440,16 @@ for p = 1:nsubjects
     dataOut.subject(p).pupil_Avg = alldata.subjectdata(p).Physio.AvgPDil.data.out;
     dataOut.subject(p).Times_ms = alldata.subjectdata(p).Times.timess;
     dataOut.subject(p).Times_s = alldata.subjectdata(p).Times.time;
+
+    avg_x = alldata.subjectdata(p).Physio.pupil_position.AvgPPos_x;
+    avg_y = alldata.subjectdata(p).Physio.pupil_position.AvgPPos_y;
+    avg_x(avg_x == -1) = NaN;
+    avg_y(avg_y == -1) = NaN;
+    dataOut.subject(p).AvgPPos_x = avg_x;
+    dataOut.subject(p).AvgPPos_y = avg_y;
 end
 
-% this takes a long time. ~15 min
+% this takes a longer time
 for p = 1:nsubjects
     disp(["processing participant " + p]);
     
@@ -467,8 +475,9 @@ for p = 1:nsubjects
     disp(["processing participant " + p]);
     temp_TdataOut = [dataOut.subject(p).behavior, ...
         array2table([dataOut.subject(p).pupil_L, dataOut.subject(p).pupil_R,...
-        dataOut.subject(p).pupil_Avg],...
-        'VariableNames',{'pupil_L','pupil_R','pupil_Avg'})];
+        dataOut.subject(p).pupil_Avg, ...
+        dataOut.subject(p).AvgPPos_x, dataOut.subject(p).AvgPPos_y],...
+        'VariableNames',{'pupil_L','pupil_R','pupil_Avg','AvgPPos_x','AvgPPos_y'})];
     TdataOut = [TdataOut; temp_TdataOut];
 end
 

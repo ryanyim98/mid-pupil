@@ -1,0 +1,14 @@
+rm(list = ls())
+source("~/Desktop/VRMID-analysis/mid-pupil/analyses/load_libraries.R")
+
+
+### run the code below to regress out the luminance component
+
+fmri3_pupil_data <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/derivatives/pupillometry_baselineCorrected.csv") %>% 
+  mutate(cue_value = factor(trialtype, levels = 1:6, labels = c("-$0","-$1","-$5","+$0","+$1","+$5"))) %>% 
+  filter(!is.na(subject)) %>% 
+  ungroup() 
+
+# # ## run the code for binding luminance data to fmri3
+source("../step1_preprocessing/fmri3/bind_luminance_fmri3.R", local = TRUE)
+source("../step1_preprocessing/fmri3/convolve_luminance_fmri3.R", local = TRUE)

@@ -1,3 +1,4 @@
+rm(list = ls())
 library(dplyr)
 library(tidyverse)
 library(zoo)
@@ -77,12 +78,58 @@ for (sub in subjs_temp){
 unique(data_pupil$sub_id)
 unique(data_pupil$subject)
 
-data_pupil <- data_pupil %>% 
-  group_by(subject) %>% 
-  mutate(pupilDiameter_scaled = as.numeric(scale(pupilDiameter)))
-
-data_pupil <- data_pupil %>% 
+data_pupil <- data_pupil %>%
   filter(!sub_id %in% bad_participants)
+
+data_pupil <- data_pupil %>%
+  group_by(subject, block) %>%
+  mutate(pupil_x_d = c(NA, diff(pupil_x)),
+         pupil_y_d = c(NA, diff(pupil_y))) %>%
+  ungroup()
+
+data_pupil$pupilDiameter_xyvar <- NA_real_
+xyvar_fit_summary <- list()
+
+for (sub in unique(data_pupil$subject)){
+  ind <- which(data_pupil$subject == sub)
+  d <- data_pupil[ind, ]
+  fit <- tryCatch(
+    lm(pupilDiameter ~ pupil_x + pupil_y + pupil_x_d + pupil_y_d,
+       data = d, na.action = na.exclude),
+    error = function(e) NULL
+  )
+  if (is.null(fit)) {
+    warning(paste0("xyvar regression failed for subject ", sub, "; leaving NAs"))
+    next
+  }
+  gs <- summary(fit)
+  fstat <- gs$fstatistic
+  if (is.null(fstat)) {
+    f_val <- NA_real_
+    f_p   <- NA_real_
+  } else {
+    f_val <- unname(fstat["value"])
+    f_p   <- unname(pf(fstat["value"], fstat["numdf"], fstat["dendf"], lower.tail = FALSE))
+  }
+  xyvar_fit_summary[[sub]] <- tibble(
+    subject = sub,
+    n_obs = nobs(fit),
+    r2 = gs$r.squared,
+    adj_r2 = gs$adj.r.squared,
+    F = f_val,
+    F_pvalue = f_p
+  )
+  data_pupil$pupilDiameter_xyvar[ind] <- as.numeric(residuals(fit))
+}
+
+xyvar_fit_summary <- bind_rows(xyvar_fit_summary)
+write_csv(xyvar_fit_summary,
+          "~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/derivatives/pupil_xyvar_fit_summary.csv")
+
+data_pupil <- data_pupil %>%
+  group_by(subject) %>%
+  mutate(pupilDiameter_scaled = as.numeric(scale(pupilDiameter_xyvar))) %>%
+  ungroup()
 
 unique(data_pupil$subject)
 

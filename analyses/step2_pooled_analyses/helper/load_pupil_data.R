@@ -19,6 +19,14 @@ vrmid1_subjects <- unique(vrmid1_pupil_data$Subject)
 vrmid1_subject_n<-length(vrmid1_subjects)
 vrmid1_subject_n
 
+# ggplot(vrmid1_pupil_data %>% filter(Subject == "ay220916",trial < 5))+
+#   geom_line(aes(x = sample_in_trial_t, y = pupil_Avg_xyvar),color='red')+
+#   geom_line(aes(x = sample_in_trial_t, y = pupil_Avg_scaled))+
+#   geom_line(aes(x = sample_in_trial_t, y = pupil_Avg),color="blue")+
+#   facet_wrap(~trial)+
+#   labs(title = 1)
+
+
 for (i in 1:vrmid1_subject_n){
   ggplot(vrmid1_pupil_data %>% filter(Subject == vrmid1_subjects[i]), aes(x = sample_in_trial_t, y = pupil_Avg_scaled))+
     geom_line()+

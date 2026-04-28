@@ -54,7 +54,8 @@ for s = 1:nsubjects
     alldata.subjectdata(s).ID = sub{1};
     times = temp.Time;
     pupil_position = temp(:,["LeftPPos_x","LeftPPos_y","LeftPPos_c",...
-        "RightPPos_x","RightPPos_y","RightPPos_c"]);
+        "RightPPos_x","RightPPos_y","RightPPos_c",...
+        "AvgPPos_x","AvgPPos_y","AvgPPos_c"]);
     pupil_size = temp(:,["LeftOpen","LeftOpen_c","LeftPDil",...
         "LeftPDil_c","RightOpen","RightOpen_c","RightPDil","RightPDil_c"]);
     % go through every seconds
@@ -445,6 +446,14 @@ for nsub = 1:nsubjects
         dataOut.subject(p).pupil_Avg = alldata.subjectdata(nsub).Physio.AvgPDil.data.out;
         dataOut.subject(p).Times_ms = alldata.subjectdata(nsub).Times.timess;
         dataOut.subject(p).Times_s = alldata.subjectdata(nsub).Times.time;
+
+        avg_x = alldata.subjectdata(nsub).Physio.pupil_position.AvgPPos_x;
+        avg_y = alldata.subjectdata(nsub).Physio.pupil_position.AvgPPos_y;
+        avg_x(avg_x == -1) = NaN;
+        avg_y(avg_y == -1) = NaN;
+        dataOut.subject(p).AvgPPos_x = avg_x;
+        dataOut.subject(p).AvgPPos_y = avg_y;
+
         for i = 1:length(dataOut.subject(p).Times_s)
             if dataOut.subject(p).Times_s(i) < duration('07:00:00')
                 dataOut.subject(p).Times_s(i) = dataOut.subject(p).Times_s(i) + duration('12:00:00');
@@ -481,6 +490,8 @@ for p = 1:nsubjects
     dataOut.subject(p).pupil_L =dataOut.subject(p).pupil_L(physio_ind_retain, :);
     dataOut.subject(p).pupil_R =dataOut.subject(p).pupil_R(physio_ind_retain, :);
     dataOut.subject(p).pupil_Avg =dataOut.subject(p).pupil_Avg(physio_ind_retain, :);
+    dataOut.subject(p).AvgPPos_x =dataOut.subject(p).AvgPPos_x(physio_ind_retain, :);
+    dataOut.subject(p).AvgPPos_y =dataOut.subject(p).AvgPPos_y(physio_ind_retain, :);
     dataOut.subject(p).Times_ms =dataOut.subject(p).Times_ms(physio_ind_retain, :);
     dataOut.subject(p).Times_s =dataOut.subject(p).Times_s(physio_ind_retain, :);
 
@@ -497,8 +508,9 @@ for p = 1:nsubjects
     disp(["processing participant " + p]);
     temp_TdataOut = [dataOut.subject(p).behavior, ...
         array2table([dataOut.subject(p).pupil_L, dataOut.subject(p).pupil_R,...
-        dataOut.subject(p).pupil_Avg],...
-        'VariableNames',{'pupil_L','pupil_R','pupil_Avg'})];
+        dataOut.subject(p).pupil_Avg, ...
+        dataOut.subject(p).AvgPPos_x, dataOut.subject(p).AvgPPos_y],...
+        'VariableNames',{'pupil_L','pupil_R','pupil_Avg','AvgPPos_x','AvgPPos_y'})];
     TdataOut = [TdataOut; temp_TdataOut];
 end
 

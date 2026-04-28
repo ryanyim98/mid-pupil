@@ -14,11 +14,67 @@ data_pupil <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivativ
   mutate(sample_in_trial_n = row_number(),
          sample_in_trial_t = sample_in_trial_n/120)
 
-data_pupil <- data_pupil %>% 
-  group_by(Subject) %>% 
-  mutate(pupil_L_scaled = as.numeric(scale(pupil_L)),
-         pupil_R_scaled = as.numeric(scale(pupil_R)),
-         pupil_Avg_scaled = as.numeric(scale(pupil_Avg)))
+data_pupil <- data_pupil %>%
+  group_by(Subject) %>%
+  mutate(AvgPPos_x_d = c(NA, diff(AvgPPos_x)),
+         AvgPPos_y_d = c(NA, diff(AvgPPos_y))) %>%
+  ungroup()
+
+data_pupil$pupil_L_xyvar <- NA_real_
+data_pupil$pupil_R_xyvar <- NA_real_
+data_pupil$pupil_Avg_xyvar <- NA_real_
+xyvar_fit_summary <- list()
+
+for (sub in unique(data_pupil$Subject)){
+  ind <- which(data_pupil$Subject == sub)
+  d <- data_pupil[ind, ]
+  for (signal in c("L","R","Avg")){
+    y_col <- paste0("pupil_", signal)
+    res_col <- paste0("pupil_", signal, "_xyvar")
+    fit_formula <- reformulate(
+      c("AvgPPos_x", "AvgPPos_y", "AvgPPos_x_d", "AvgPPos_y_d"),
+      response = y_col
+    )
+    fit <- tryCatch(
+      lm(fit_formula, data = d, na.action = na.exclude),
+      error = function(e) NULL
+    )
+    if (is.null(fit)) {
+      warning(paste0("xyvar regression failed for subject ", sub,
+                     " signal ", signal, "; leaving NAs"))
+      next
+    }
+    gs <- summary(fit)
+    fstat <- gs$fstatistic
+    if (is.null(fstat)) {
+      f_val <- NA_real_
+      f_p   <- NA_real_
+    } else {
+      f_val <- unname(fstat["value"])
+      f_p   <- unname(pf(fstat["value"], fstat["numdf"], fstat["dendf"], lower.tail = FALSE))
+    }
+    xyvar_fit_summary[[paste(sub, signal, sep = "_")]] <- tibble(
+      Subject = sub,
+      pupil_signal = signal,
+      n_obs = nobs(fit),
+      r2 = gs$r.squared,
+      adj_r2 = gs$adj.r.squared,
+      F = f_val,
+      F_pvalue = f_p
+    )
+    data_pupil[[res_col]][ind] <- as.numeric(residuals(fit))
+  }
+}
+
+xyvar_fit_summary <- bind_rows(xyvar_fit_summary)
+write_csv(xyvar_fit_summary,
+          "~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivatives/pupil_xyvar_fit_summary.csv")
+
+data_pupil <- data_pupil %>%
+  group_by(Subject) %>%
+  mutate(pupil_L_scaled = as.numeric(scale(pupil_L_xyvar)),
+         pupil_R_scaled = as.numeric(scale(pupil_R_xyvar)),
+         pupil_Avg_scaled = as.numeric(scale(pupil_Avg_xyvar)))
 
 data_pupil%>%
   head(100)
@@ -60,7 +116,9 @@ for (i in 1:length(unique(data_pupil$Subject))){
                sample_in_trial_t = sample_in_trial_t - max(last_trial_iti_data$sample_in_trial_t),
                current_stimulus = "prestim_baseline")%>%
         select(Subject,Time,Time_sec,current_stimulus,Time_str,Time_str_start,Time_in_trial_sec,sample_in_sec,sample_in_trial_n:sample_in_trial_t,
-               pupil_L:pupil_Avg,pupil_L_scaled:pupil_Avg_scaled)
+               pupil_L,pupil_R,pupil_Avg,
+               pupil_L_xyvar,pupil_R_xyvar,pupil_Avg_xyvar,
+               pupil_L_scaled,pupil_R_scaled,pupil_Avg_scaled)
       
       d <- merge(temp_trial_data,last_trial_iti_data,
                  all.x = T, all.y = T)%>%
