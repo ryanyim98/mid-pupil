@@ -328,7 +328,7 @@ RAW_vis5l = alldata.subjectdata(subj).Physio.LeftPDil.data.filter(ind);
 RAW_vis6l = alldata.subjectdata(subj).Physio.LeftPDil.data.out(ind);
 gaze_x_raw = alldata.subjectdata(subj).Physio.pupil_position.xp(ind);
 gaze_y_raw = alldata.subjectdata(subj).Physio.pupil_position.yp(ind);
-gaze_invalid = alldata.subjectdata(subj).Physio.LeftPDil.valid_id(ind) == 0;
+gaze_invalid = isnan(alldata.subjectdata(subj).Physio.LeftPDil.data.gapExpand(ind));
 gaze_x_preproc = gaze_x_raw;
 gaze_y_preproc = gaze_y_raw;
 gaze_x_preproc(gaze_invalid) = NaN;
@@ -417,18 +417,31 @@ TdataOut = [];
 for p = 1:nsubjects
     disp(["processing participant " + p]);
     if ~isempty(alldata.subjectdata(p).beh) & ~ismember(string(alldata.subjectdata(p).ID),subject_to_drop)
-            gaze_x_raw = alldata.subjectdata(p).Physio.pupil_position.xp;
-            gaze_y_raw = alldata.subjectdata(p).Physio.pupil_position.yp;
-            gaze_invalid = alldata.subjectdata(p).Physio.LeftPDil.valid_id == 0;
+            gaze_x_raw = alldata.subjectdata(p).Physio.pupil_position.xp(:);
+            gaze_y_raw = alldata.subjectdata(p).Physio.pupil_position.yp(:);
+            gap_expand_ds = downsample(alldata.subjectdata(p).Physio.LeftPDil.data.gapExpand,sr_old/sr_new);
+            gaze_invalid = isnan(gap_expand_ds(:));
             gaze_x_preproc = gaze_x_raw;
             gaze_y_preproc = gaze_y_raw;
             gaze_x_preproc(gaze_invalid) = NaN;
             gaze_y_preproc(gaze_invalid) = NaN;
             gaze_x_preproc = fillmissing(gaze_x_preproc,'linear','EndValues','nearest');
             gaze_y_preproc = fillmissing(gaze_y_preproc,'linear','EndValues','nearest');
+            pupil_out = alldata.subjectdata(p).Physio.LeftPDil.data.out(:);
+            blink_out = alldata.subjectdata(p).Physio.pupil_size.blink(:);
+            n_keep = min([length(pupil_out), length(blink_out), length(gaze_x_raw), ...
+                          length(gaze_y_raw), length(gaze_x_preproc), length(gaze_y_preproc), ...
+                          height(alldata.subjectdata(p).beh)]);
+            pupil_out = pupil_out(1:n_keep);
+            blink_out = blink_out(1:n_keep);
+            gaze_x_raw = gaze_x_raw(1:n_keep);
+            gaze_y_raw = gaze_y_raw(1:n_keep);
+            gaze_x_preproc = gaze_x_preproc(1:n_keep);
+            gaze_y_preproc = gaze_y_preproc(1:n_keep);
+            beh_out = alldata.subjectdata(p).beh(1:n_keep,:);
 
-            temp_TdataOut = [table(repmat(alldata.subjectdata(p).ID,[height(alldata.subjectdata(p).beh),1]),'VariableNames',{'subject'}), alldata.subjectdata(p).beh, ...
-                array2table([alldata.subjectdata(p).Physio.LeftPDil.data.out, alldata.subjectdata(p).Physio.pupil_size.blink, ...
+            temp_TdataOut = [table(repmat(alldata.subjectdata(p).ID,[n_keep,1]),'VariableNames',{'subject'}), beh_out, ...
+                array2table([pupil_out, blink_out, ...
                 gaze_x_raw, gaze_y_raw, gaze_x_preproc, gaze_y_preproc],...
                 'VariableNames',{'pupilDiameter','blinks','pupil_x','pupil_y','pupil_x_preproc','pupil_y_preproc'})];
 

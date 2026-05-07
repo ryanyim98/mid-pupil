@@ -109,6 +109,11 @@ rmarkdown::render("analyses_by_sections/s4a_reg_by_study.Rmd")
 ```{r}
 rmarkdown::render("analyses_by_sections/s4b_lmer_cross_validation.Rmd")
 ```
+
+## compare with covaried pupil (controlling for gaze)
+```{r}
+rmarkdown::render("analyses_by_sections/s4c_pupilAvg_vs_xyvar_comparison.Rmd")
+```
 # in addition to lmer, also try a machine learning approach in predicting arousal
 ```{r}
 rmarkdown::render("analyses_by_sections/s5_pupil_svr.Rmd")

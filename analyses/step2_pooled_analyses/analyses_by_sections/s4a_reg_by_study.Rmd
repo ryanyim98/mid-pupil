@@ -39,7 +39,13 @@ summary(lmer(scale(mean_pupil_baseline_scaled) ~  scale(mean_pupil_bc_scaled_out
 ### anticipation
 ```{r}
 #vrmid1
-da <- vrmid1_data_antprobe
+da <- vrmid1_data_antprobe %>%
+  filter(
+    !is.na(arousal_scaled),
+    !is.na(mean_pupil_nobc_ant),
+    !is.na(mean_pupil_baseline_ant),
+    !is.na(mean_pupil_bc_ant)
+  )
 summary(t <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_ant) +(1|Subject) + (1|condition),
               da))
 summary(p <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_ant) +(1|Subject) + (1|condition),
@@ -84,7 +90,13 @@ summary(lmer(scale(arousal_scaled) ~  condition +(1|Subject)+(1|trial_type),
 
 ```{r}
 #fmri3
-da <- fmri3_data_antprobe
+da <- fmri3_data_antprobe %>%
+  filter(
+    !is.na(arousal_scaled),
+    !is.na(mean_pupil_nobc_scaled_ant),
+    !is.na(mean_pupil_baseline_scaled),
+    !is.na(mean_pupil_bc_scaled_ant)
+  )
 t <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_scaled) +(1|subject) + (1|cue_size),
               da)
 summary(t)
@@ -136,7 +148,13 @@ summary(lmer(scale(mean_pupil_nobc_scaled_ant) ~  cue_size +(1|subject)+(1|cue_v
 
 ```{r}
 #vrmid1
-do <- vrmid1_data_outprobe
+do <- vrmid1_data_outprobe %>%
+  filter(
+    !is.na(arousal_scaled),
+    !is.na(mean_pupil_nobc_out),
+    !is.na(mean_pupil_baseline_out),
+    !is.na(mean_pupil_bc_out)
+  )
 t <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_out) +(1|Subject) + (1|condition),
               do)
 summary(t)
@@ -191,10 +209,10 @@ p <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc_scaled_out) +(1|subject) +
               do)
 summary(p)
 tp <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_out)+(1|subject) + (1|cue_size),
-              do%>% filter(!is.na(mean_pupil_baseline_scaled),!is.na(mean_pupil_bc_scaled_out)))
+              do)
 summary(tp)
 t_p <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_scaled) +scale(mean_pupil_bc_scaled_out) +(1|subject) + (1|cue_size),
-              do %>% filter(!is.na(mean_pupil_nobc_scaled_out)))
+              do)
 tp_res_conv <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_residual_conv_out) +(1|subject) + (1|cue_size),
               do)
 summary(tp_res_conv)
@@ -254,15 +272,20 @@ r2list_long %>%
 ```{r}
 #vrmid1
 summary(t <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline) +(1|Subject) + (1|condition) + (1+scale(mean_pupil_baseline)|probe),
-              vrmid1_data_2probes))
+              vrmid1_data_2probes%>% 
+                drop_na(mean_pupil_baseline)))
 summary(p <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc) +(1|Subject) + (1|condition)+ (1+scale(mean_pupil_bc)|probe),
-              vrmid1_data_2probes))
+              vrmid1_data_2probes %>% 
+                drop_na(mean_pupil_baseline)))
 summary(tp <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc) +(1|Subject) + (1|condition)+ (1+scale(mean_pupil_nobc)|probe),
-              vrmid1_data_2probes))
+              vrmid1_data_2probes%>% 
+                drop_na(mean_pupil_baseline)))
 summary(t_p <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline) + scale(mean_pupil_bc) +(1|Subject) + (1|condition)+ (1+scale(mean_pupil_baseline) + scale(mean_pupil_bc)|probe),
-              vrmid1_data_2probes))
+              vrmid1_data_2probes%>% 
+                drop_na(mean_pupil_baseline)))
 summary(t_p_int <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_baseline) * scale(mean_pupil_bc) +(1|Subject) + (1|condition) + (1+scale(mean_pupil_baseline) * scale(mean_pupil_bc)|probe),
-              vrmid1_data_2probes))
+              vrmid1_data_2probes%>% 
+                drop_na(mean_pupil_baseline)))
 
 round(c(BIC(t),BIC(p),BIC(tp),BIC(t_p),BIC(t_p_int),
 AIC(t),AIC(p),AIC(tp),AIC(t_p),AIC(t_p_int)),1)
@@ -578,7 +601,13 @@ ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig4_pooled_effects.pn
 ## also consider non-linear relationship
 ### anticipation
 ```{r}
-da <- vrmid1_data_antprobe
+da <- vrmid1_data_antprobe %>%
+  filter(
+    !is.na(arousal_scaled),
+    !is.na(mean_pupil_nobc_ant),
+    !is.na(mean_pupil_baseline_ant),
+    !is.na(mean_pupil_bc_ant)
+  )
 summary(t1 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_ant) +(1|Subject) + (1|condition),
               da))
 summary(t2 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_ant) + scale(I(mean_pupil_baseline_ant^2)) +(1|Subject) + (1|condition),
@@ -602,7 +631,13 @@ plot_model(tp2, type = "pred", terms = "mean_pupil_nobc_ant")
 ```
 
 ```{r}
-da <- fmri3_data_antprobe
+da <- fmri3_data_antprobe %>%
+  filter(
+    !is.na(arousal_scaled),
+    !is.na(mean_pupil_nobc_scaled_ant),
+    !is.na(mean_pupil_baseline_scaled),
+    !is.na(mean_pupil_bc_scaled_ant)
+  )
 summary(t1 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_scaled) +(1|subject) + (1|cue_size),
               da))
 summary(t2 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_scaled) 
@@ -628,7 +663,13 @@ plot_model(tp2, type = "pred", terms = "mean_pupil_nobc_scaled_ant")
 
 ### outcome
 ```{r}
-do <- vrmid1_data_outprobe
+do <- vrmid1_data_outprobe %>%
+  filter(
+    !is.na(arousal_scaled),
+    !is.na(mean_pupil_nobc_out),
+    !is.na(mean_pupil_baseline_out),
+    !is.na(mean_pupil_bc_out)
+  )
 summary(t1 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_out) +(1|Subject) + (1|condition),
               do))
 summary(t2 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_out) + scale(I(mean_pupil_baseline_out^2)) +(1|Subject) + (1|condition),
@@ -651,7 +692,13 @@ anova(tp1,tp2)
 ```
 
 ```{r}
-do <- fmri3_data_outprobe
+do <- fmri3_data_outprobe %>%
+  filter(
+    !is.na(arousal_scaled),
+    !is.na(mean_pupil_nobc_scaled_out),
+    !is.na(mean_pupil_baseline_scaled),
+    !is.na(mean_pupil_bc_scaled_out)
+  )
 summary(t1 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_scaled) +(1|subject) + (1|cue_size),
               do))
 summary(t2 <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_scaled) 

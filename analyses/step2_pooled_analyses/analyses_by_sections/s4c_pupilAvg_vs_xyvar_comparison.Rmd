@@ -4,23 +4,12 @@ output: html_document
 date: "2026-04-27"
 ---
 
-Compare original vs gaze-regressed pupil signals and their associations with arousal.
+Compare original vs gaze-regressed pupil signals and their associations with arousal (VR study 1 and fMRI study 3 only).
+
+### VR study 1 (vrmid1) — example participant timecourse overlay
 
 ```{r}
-source("~/Desktop/VRMID-analysis/mid-pupil/analyses/load_libraries.R")
-```
-
-## Load processed datasets
-
-```{r}
-vrmid1 <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivatives/pupillometry_lowpass_baselineCorrected.csv")
-vrmid2 <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/vrmid2/derivatives/pupillometry_baselineCorrected.csv")
-```
-
-## Example participant timecourse overlay
-
-```{r}
-example_sub <- vrmid2 %>%
+example_sub <- vrmid1_pupil_data %>%
   group_by(Subject) %>%
   summarise(n_arousal = sum(!is.na(arousal)),
             n_both_signal = sum(!is.na(pupil_Avg_scaled) & !is.na(pupil_Avg_xyvar_scaled)),
@@ -30,75 +19,332 @@ example_sub <- vrmid2 %>%
   slice(1) %>%
   pull(Subject)
 
-example_df <- vrmid2 %>%
+example_df <- vrmid1_pupil_data %>%
   filter(Subject == example_sub,
          sample_in_trial_t >= 0,
-         Time_sec >= 0) %>%
-  mutate(sample_point = row_number()) %>%
-  select(Subject, trial, sample_point, sample_in_trial_t, arousal_start, Time,
+         Time_sec >= 0, trial< 5) %>%
+  select(Subject, trial, sample_in_trial_t, arousal_start, Time,
          pupil_Avg_scaled, pupil_Avg_xyvar_scaled) %>%
   pivot_longer(cols = c(pupil_Avg_scaled, pupil_Avg_xyvar_scaled),
                names_to = "signal",
                values_to = "pupil_value")
 
 ggplot(example_df,
-       aes(x = sample_point, y = pupil_value, color = signal)) +
+       aes(x = sample_in_trial_t, y = pupil_value, color = signal)) +
   geom_line(alpha = 0.8, linewidth = 0.4) +
   scale_color_manual(values = c("pupil_Avg_scaled" = "steelblue4",
                                 "pupil_Avg_xyvar_scaled" = "firebrick3")) +
   theme_classic() +
-  labs(title = paste0("Example participant: ", example_sub),
+  labs(title = paste0("VR study 1 — example participant: ", example_sub),
        x = "Sample index (continuous)",
        y = "Scaled pupil",
-       color = "Signal")
+       color = "Signal")+
+  facet_wrap(~trial)
 ```
 
-## Trial-level correlation with arousal
+### fMRI study 3 (fmri3) — example participant timecourse overlay
 
 ```{r}
-trial_level <- bind_rows(
-  vrmid1 %>%
-    mutate(study = "vrmid1"),
-  vrmid2 %>%
-    mutate(study = "vrmid2")
-) %>%
-  group_by(study, Subject, trial) %>%
-  summarise(
-    arousal = suppressWarnings(as.numeric(first(na.omit(arousal)))),
-    mean_pupil_Avg_scaled = mean(pupil_Avg_scaled, na.rm = TRUE),
-    mean_pupil_Avg_xyvar_scaled = mean(pupil_Avg_xyvar_scaled, na.rm = TRUE),
-    .groups = "drop"
-  ) %>%
-  filter(!is.na(arousal))
+example_sub_fmri <- fmri3_pupil_data %>%
+  group_by(subject) %>%
+  summarise(n_arousal = sum(!is.na(arousal)),
+            n_both_signal = sum(!is.na(pupilDiameter_scaled) & !is.na(pupilDiameter_xyvar_scaled)),
+            .groups = "drop") %>%
+  filter(n_arousal > 20, n_both_signal > 500) %>%
+  arrange(desc(n_arousal), desc(n_both_signal)) %>%
+  slice(1) %>%
+  pull(subject)
 
-trial_level_long <- trial_level %>%
-  pivot_longer(cols = c(mean_pupil_Avg_scaled, mean_pupil_Avg_xyvar_scaled),
+example_df_fmri <- fmri3_pupil_data %>%
+  filter(subject == example_sub_fmri,
+         sample_in_trial_t >= 0,
+         Time_sec >= 0, trial<5) %>%
+  select(subject, trial, sample_in_trial_t, times, Time_sec,
+         pupilDiameter_scaled, pupilDiameter_xyvar_scaled) %>%
+  pivot_longer(cols = c(pupilDiameter_scaled, pupilDiameter_xyvar_scaled),
                names_to = "signal",
                values_to = "pupil_value")
 
-corr_summary <- trial_level_long %>%
-  group_by(study, signal) %>%
-  summarise(
-    n = sum(!is.na(pupil_value) & !is.na(arousal)),
-    r = cor(pupil_value, arousal, use = "complete.obs"),
-    p_value = cor.test(pupil_value, arousal)$p.value,
-    .groups = "drop"
-  )
+ggplot(example_df_fmri,
+       aes(x = sample_in_trial_t, y = pupil_value, color = signal)) +
+  geom_line(alpha = 0.8, linewidth = 0.4) +
+  scale_color_manual(values = c("pupilDiameter_scaled" = "steelblue4",
+                                "pupilDiameter_xyvar_scaled" = "firebrick3")) +
+  theme_classic() +
+  labs(title = paste0("fMRI study 3 — example participant: ", example_sub_fmri),
+       x = "Sample index (continuous)",
+       y = "Scaled pupil",
+       color = "Signal")+
+  facet_wrap(~trial)
+```
 
-corr_summary
+## LMER comparison by study (parallel to s4a style)
+
+### anticipation
+```{r}
+# vrmid1
+vrmid1_xy_ant <- vrmid1_pupil_data %>%
+  filter(
+    probe == "anti",
+    sample_in_trial_t <= vrmid1_ant_window[2],
+    sample_in_trial_t > vrmid1_ant_window[1]
+  ) %>%
+  group_by(Subject, trial) %>%
+  summarise(mean_pupil_xyvar = mean(pupil_Avg_xyvar_scaled, na.rm = TRUE), .groups = "drop")
+
+da <- vrmid1_data_antprobe %>%
+  select(Subject, trial, condition, arousal_scaled, mean_pupil_nobc_ant) %>%
+  rename(mean_pupil_avg = mean_pupil_nobc_ant) %>%
+  left_join(vrmid1_xy_ant, by = c("Subject", "trial")) %>%
+  filter(!is.na(arousal_scaled), !is.na(mean_pupil_avg), !is.na(mean_pupil_xyvar))
+
+summary(avg <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_avg) + (1 | Subject) + (1 | condition), da))
+summary(xy <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar) + (1 | Subject) + (1 | condition), da))
+
+r.squaredGLMM(avg)
+r.squaredGLMM(xy)
 ```
 
 ```{r}
-ggplot(trial_level_long,
-       aes(x = pupil_value, y = arousal, color = signal)) +
-  geom_point(alpha = 0.25, size = 0.8) +
-  geom_smooth(method = "lm", se = TRUE, linewidth = 0.8) +
-  facet_wrap(~study, scales = "free") +
-  scale_color_manual(values = c("mean_pupil_Avg_scaled" = "steelblue4",
-                                "mean_pupil_Avg_xyvar_scaled" = "firebrick3")) +
-  theme_classic() +
-  labs(x = "Mean pupil signal (trial-level)",
-       y = "Self-reported arousal",
-       color = "Signal")
+# fmri3
+fmri3_xy_ant <- fmri3_pupil_data %>%
+  filter(
+    probe == 1,
+    sample_in_trial_t <= fmri3_ant_window[2],
+    sample_in_trial_t > fmri3_ant_window[1]
+  ) %>%
+  group_by(subject, trial) %>%
+  summarise(mean_pupil_xyvar = mean(pupilDiameter_xyvar_scaled, na.rm = TRUE), .groups = "drop")
+
+da <- fmri3_data_antprobe %>%
+  select(subject, trial, cue_size, arousal_scaled, mean_pupil_nobc_scaled_ant) %>%
+  rename(mean_pupil_avg = mean_pupil_nobc_scaled_ant) %>%
+  left_join(fmri3_xy_ant, by = c("subject", "trial")) %>%
+  filter(!is.na(arousal_scaled), !is.na(mean_pupil_avg), !is.na(mean_pupil_xyvar))
+
+summary(avg <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_avg) + (1 | subject) + (1 | cue_size), da))
+summary(xy <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar) + (1 | subject) + (1 | cue_size), da))
+
+r.squaredGLMM(avg)
+r.squaredGLMM(xy)
 ```
 
+### outcome
+```{r}
+# vrmid1
+vrmid1_xy_out <- vrmid1_pupil_data %>%
+  filter(
+    probe == "out",
+    sample_in_trial_t <= vrmid1_outprobe_out_window[2],
+    sample_in_trial_t > vrmid1_outprobe_out_window[1]
+  ) %>%
+  group_by(Subject, trial) %>%
+  summarise(mean_pupil_xyvar = mean(pupil_Avg_xyvar_scaled, na.rm = TRUE), .groups = "drop")
+
+do <- vrmid1_data_outprobe %>%
+  select(Subject, trial, condition, arousal_scaled, mean_pupil_nobc_out) %>%
+  rename(mean_pupil_avg = mean_pupil_nobc_out) %>%
+  left_join(vrmid1_xy_out, by = c("Subject", "trial")) %>%
+  filter(!is.na(arousal_scaled), !is.na(mean_pupil_avg), !is.na(mean_pupil_xyvar))
+
+summary(avg <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_avg) + (1 | Subject) + (1 | condition), do))
+summary(xy <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar) + (1 | Subject) + (1 | condition), do))
+
+r.squaredGLMM(avg)
+r.squaredGLMM(xy)
+```
+
+```{r}
+# fmri3
+fmri3_xy_out <- fmri3_pupil_data %>%
+  filter(
+    probe == 2,
+    sample_in_trial_t <= fmri3_outprobe_out_window[2],
+    sample_in_trial_t > fmri3_outprobe_out_window[1]
+  ) %>%
+  group_by(subject, trial) %>%
+  summarise(mean_pupil_xyvar = mean(pupilDiameter_xyvar_scaled, na.rm = TRUE), .groups = "drop")
+
+do <- fmri3_data_outprobe %>%
+  select(subject, trial, cue_size, arousal_scaled, mean_pupil_nobc_scaled_out) %>%
+  rename(mean_pupil_avg = mean_pupil_nobc_scaled_out) %>%
+  left_join(fmri3_xy_out, by = c("subject", "trial")) %>%
+  filter(!is.na(arousal_scaled), !is.na(mean_pupil_avg), !is.na(mean_pupil_xyvar))
+
+summary(avg <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_avg) + (1 | subject) + (1 | cue_size), do))
+summary(xy <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar) + (1 | subject) + (1 | cue_size), do))
+
+r.squaredGLMM(avg)
+r.squaredGLMM(xy)
+```
+
+### both probes
+```{r}
+# vrmid1
+vrmid1_xy_both <- bind_rows(
+  vrmid1_xy_ant %>% mutate(probe_model = "anti"),
+  vrmid1_xy_out %>% mutate(probe_model = "out")
+) %>% mutate(probe_model = factor(probe_model, levels = c("anti", "out")))
+
+db <- vrmid1_data_2probes %>%
+  select(Subject, trial, probe, condition, arousal_scaled, mean_pupil_nobc) %>%
+  mutate(probe_model = factor(probe, levels = c("anti", "out"))) %>%
+  rename(mean_pupil_avg = mean_pupil_nobc) %>%
+  left_join(vrmid1_xy_both, by = c("Subject", "trial", "probe_model")) %>%
+  filter(!is.na(arousal_scaled), !is.na(mean_pupil_avg), !is.na(mean_pupil_xyvar))
+
+summary(avg <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_avg) + (1 | Subject) + (1 | condition) + (1 | probe_model), db))
+summary(xy <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar) + (1 | Subject) + (1 | condition) + (1 | probe_model), db))
+
+r.squaredGLMM(avg)
+r.squaredGLMM(xy)
+```
+
+```{r}
+# fmri3
+fmri3_xy_both <- bind_rows(
+  fmri3_xy_ant %>% mutate(probe_model = "anti"),
+  fmri3_xy_out %>% mutate(probe_model = "out")
+) %>% mutate(probe_model = factor(probe_model, levels = c("anti", "out")))
+
+db <- fmri3_data_2probes %>%
+  select(subject, trial, probe, cue_size, arousal_scaled, mean_pupil_nobc) %>%
+  mutate(probe_model = factor(probe, levels = c(1, 2), labels = c("anti", "out"))) %>%
+  rename(mean_pupil_avg = mean_pupil_nobc) %>%
+  left_join(fmri3_xy_both, by = c("subject", "trial", "probe_model")) %>%
+  filter(!is.na(arousal_scaled), !is.na(mean_pupil_avg), !is.na(mean_pupil_xyvar))
+
+summary(avg <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_avg) + (1 | subject) + (1 | cue_size) + (1 | probe_model), db))
+summary(xy <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar) + (1 | subject) + (1 | cue_size) + (1 | probe_model), db))
+
+r.squaredGLMM(avg)
+r.squaredGLMM(xy)
+```
+
+## pool the effect sizes and make summary plots
+```{r}
+# trial-level pooled data (anticipation)
+data_antprobe <- bind_rows(
+  vrmid1_data_antprobe %>%
+    select(Subject, trial, condition, arousal_scaled, mean_pupil_nobc_ant) %>%
+    rename(mean_pupil_avg = mean_pupil_nobc_ant) %>%
+    left_join(vrmid1_xy_ant, by = c("Subject", "trial")) %>%
+    mutate(study = "VRStudy"),
+  fmri3_data_antprobe %>%
+    select(subject, trial, cue_size, arousal_scaled, mean_pupil_nobc_scaled_ant) %>%
+    rename(mean_pupil_avg = mean_pupil_nobc_scaled_ant) %>%
+    left_join(fmri3_xy_ant, by = c("subject", "trial")) %>%
+    rename(Subject = subject, condition = cue_size) %>%
+    mutate(study = "FMRIStudy")
+) %>%
+  filter(!is.na(arousal_scaled), !is.na(mean_pupil_avg), !is.na(mean_pupil_xyvar)) %>%
+  ungroup()
+
+# trial-level pooled data (outcome)
+data_outprobe <- bind_rows(
+  vrmid1_data_outprobe %>%
+    select(Subject, trial, condition, arousal_scaled, mean_pupil_nobc_out) %>%
+    rename(mean_pupil_avg = mean_pupil_nobc_out) %>%
+    left_join(vrmid1_xy_out, by = c("Subject", "trial")) %>%
+    mutate(study = "VRStudy"),
+  fmri3_data_outprobe %>%
+    select(subject, trial, cue_size, arousal_scaled, mean_pupil_nobc_scaled_out) %>%
+    rename(mean_pupil_avg = mean_pupil_nobc_scaled_out) %>%
+    left_join(fmri3_xy_out, by = c("subject", "trial")) %>%
+    rename(Subject = subject, condition = cue_size) %>%
+    mutate(study = "FMRIStudy")
+) %>%
+  filter(!is.na(arousal_scaled), !is.na(mean_pupil_avg), !is.na(mean_pupil_xyvar)) %>%
+  ungroup()
+
+plot_dat <- bind_rows(
+  data_antprobe %>% mutate(probe = "Anticipation"),
+  data_outprobe %>% mutate(probe = "Outcome")
+) %>%
+  mutate(
+    study = recode(study, VRStudy = "VR", FMRIStudy = "fMRI"),
+    study = factor(study, levels = c("VR", "fMRI"))
+  ) %>%
+  pivot_longer(
+    cols = c(mean_pupil_avg, mean_pupil_xyvar),
+    names_to = "signal",
+    values_to = "pupil_value"
+  ) %>%
+  mutate(
+    signal = recode(signal,
+                    mean_pupil_avg = "Original",
+                    mean_pupil_xyvar = "XYvar"),
+    signal = factor(signal, levels = c("Original", "XYvar")),
+    probe = factor(probe, levels = c("Anticipation", "Outcome"))
+  )
+
+ggplot(plot_dat, aes(x = pupil_value, y = arousal_scaled, color = signal)) +
+  geom_point(alpha = 0.22, size = 0.5) +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 1) +
+  facet_grid(probe ~ study, scales = "free_x") +
+  scale_color_manual(values = c("Original" = "steelblue4", "XYvar" = "firebrick3")) +
+  theme_classic() +
+  labs(
+    x = "z-scored pupil size",
+    y = "z-scored arousal rating",
+    color = "Signal"
+  )
+# ggsave("~/Desktop/VRMID-analysis/mid-pupil/figures/fig4c_pooled_effects_xyvar.tiff", dpi = 300, height = 6, width = 8)
+# ggsave("~/Desktop/VRMID-analysis/mid-pupil/figures/fig4c_pooled_effects_xyvar.png", dpi = 300, height = 6, width = 8)
+```
+
+```{r}
+get_model_stats <- function(dat, predictor, study_label, probe_label) {
+  if (study_label == "VR") {
+    fit <- lmer(
+      as.formula(paste0("scale(arousal_scaled) ~ scale(", predictor, ") + (1|Subject) + (1|condition)")),
+      dat
+    )
+  } else {
+    fit <- lmer(
+      as.formula(paste0("scale(arousal_scaled) ~ scale(", predictor, ") + (1|subject) + (1|cue_size)")),
+      dat
+    )
+  }
+
+  cf <- summary(fit)$coefficient
+  r2 <- r.squaredGLMM(fit)
+
+  data.frame(
+    probe = probe_label,
+    study = study_label,
+    signal = ifelse(predictor == "mean_pupil_avg", "Original", "XYvar"),
+    beta = unname(cf[2, "Estimate"]),
+    p_value = unname(cf[2, "Pr(>|t|)"]),
+    R2m = unname(r2[1]),
+    R2c = unname(r2[2])
+  )
+}
+
+vr_ant <- data_antprobe %>% filter(study == "VRStudy")
+fmri_ant <- data_antprobe %>% filter(study == "FMRIStudy") %>% rename(subject = Subject, cue_size = condition)
+vr_out <- data_outprobe %>% filter(study == "VRStudy")
+fmri_out <- data_outprobe %>% filter(study == "FMRIStudy") %>% rename(subject = Subject, cue_size = condition)
+
+model_table <- bind_rows(
+  get_model_stats(vr_ant, "mean_pupil_avg", "VR", "Anticipation"),
+  get_model_stats(vr_ant, "mean_pupil_xyvar", "VR", "Anticipation"),
+  get_model_stats(fmri_ant, "mean_pupil_avg", "fMRI", "Anticipation"),
+  get_model_stats(fmri_ant, "mean_pupil_xyvar", "fMRI", "Anticipation"),
+  get_model_stats(vr_out, "mean_pupil_avg", "VR", "Outcome"),
+  get_model_stats(vr_out, "mean_pupil_xyvar", "VR", "Outcome"),
+  get_model_stats(fmri_out, "mean_pupil_avg", "fMRI", "Outcome"),
+  get_model_stats(fmri_out, "mean_pupil_xyvar", "fMRI", "Outcome")
+) %>%
+  mutate(
+    p_value = signif(p_value, 3),
+    beta = round(beta, 3),
+    R2m = round(R2m, 3),
+    R2c = round(R2c, 3)
+  ) %>%
+  arrange(probe, study, signal)
+
+model_table %>%
+  kable() %>%
+  kable_styling()
+```

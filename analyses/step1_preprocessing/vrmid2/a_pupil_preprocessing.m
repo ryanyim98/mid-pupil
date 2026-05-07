@@ -307,8 +307,8 @@ gaze_x_raw = alldata.subjectdata(p).Physio.pupil_position.AvgPPos_x(ind);
 gaze_y_raw = alldata.subjectdata(p).Physio.pupil_position.AvgPPos_y(ind);
 gaze_x_raw(gaze_x_raw == -1) = NaN;
 gaze_y_raw(gaze_y_raw == -1) = NaN;
-gaze_invalid = alldata.subjectdata(p).Physio.LeftPDil.valid_id(ind) == 0 | ...
-    alldata.subjectdata(p).Physio.RightPDil.valid_id(ind) == 0;
+gaze_invalid = isnan(alldata.subjectdata(p).Physio.LeftPDil.data.gapExpand(ind)) | ...
+    isnan(alldata.subjectdata(p).Physio.RightPDil.data.gapExpand(ind));
 gaze_x_preproc = gaze_x_raw;
 gaze_y_preproc = gaze_y_raw;
 gaze_x_preproc(gaze_invalid) = NaN;
@@ -477,8 +477,8 @@ for nsub = 1:nsubjects
         avg_y = alldata.subjectdata(nsub).Physio.pupil_position.AvgPPos_y;
         avg_x(avg_x == -1) = NaN;
         avg_y(avg_y == -1) = NaN;
-        gaze_invalid = alldata.subjectdata(nsub).Physio.LeftPDil.valid_id == 0 | ...
-            alldata.subjectdata(nsub).Physio.RightPDil.valid_id == 0;
+        gaze_invalid = isnan(alldata.subjectdata(nsub).Physio.LeftPDil.data.gapExpand) | ...
+            isnan(alldata.subjectdata(nsub).Physio.RightPDil.data.gapExpand);
         avg_x_preproc = avg_x;
         avg_y_preproc = avg_y;
         avg_x_preproc(gaze_invalid) = NaN;

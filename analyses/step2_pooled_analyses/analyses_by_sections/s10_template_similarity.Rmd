@@ -6,7 +6,8 @@ date: "2025-11-15"
 
 ## first, look at correlation between two regressors
 ```{r}
-subjects_list<-read_delim('~/Desktop/midaffemo/analyses/subjects-pupil-fmri.txt',delim = '\t', col_names = F)
+subjects_list<-read_delim('~/Desktop/midaffemo/analyses/subjects-pupil-fmri.txt',delim = '\t', col_names = F) %>% 
+  filter(X1 != "ag240330")
 
 reg_corr_list <- NULL
 all_reg <- NULL
@@ -31,12 +32,29 @@ names(all_reg) <- c("pupil","rating","subject")
 summary(lmer(scale(pupil)~scale(rating)+ (1|subject),all_reg))
 ```
 
+# read in motion data
+```{r}
+all_sub_beh_data <- NULL
+for (sub in subjects_list$X1){
+  sub_data <- read_csv(paste0("~/Desktop/midaffemo/svr/data/beh_index/",sub,".csv")) %>% 
+    mutate(tr_in_trial=tr,
+           tr = row_number())
+  all_sub_beh_data <- rbind(all_sub_beh_data,sub_data)
+}
+
+all_sub_beh_data <- all_sub_beh_data %>% 
+  select(tr,subject,censor)
+```
+
+
 ## split-half validation
 
 ### make dataframe of all similarities, all thresholds
 #### first half (using h2 template)
 ```{r}
-subjects_list<-read_delim('~/Desktop/midaffemo/analyses/subjects-pupil-fmri.txt',delim = '\t', col_names = F)
+subjects_list<-read_delim('~/Desktop/midaffemo/analyses/subjects-pupil-fmri.txt',delim = '\t', col_names = F)%>% 
+  filter(X1 != "ag240330")
+
 thresh_str <- c("0","05","1","15","2","25","3","35")
 thresh <- c(0,0.5,1,1.5,2,2.5,3,3.5)
 splits = c("run12","run34")
@@ -46,9 +64,10 @@ pupil_array <- NULL
 
 for (t in 1:length(thresh_str)){
   filepath = paste0("~/Desktop/midaffemo/glm_maps/glm27c_h2_array_threshold",thresh_str[t],".csv")
+  #manually drop ag240330 (low hit rate)
   glmArousal_array<-rbind(glmArousal_array,
                           as.data.frame(t(read_csv(filepath, 
-                                           col_names = F))) %>% 
+                                                   col_names = F)[c(1,3:24),])) %>% 
                             mutate(type = "glmArousal", 
                                    tr = row_number(), 
                                    threshold = thresh[t]) #self-reported arousal GLM
@@ -138,7 +157,7 @@ for (t in 1:length(thresh_str)){
   filepath = paste0("~/Desktop/midaffemo/glm_maps/glm27c_h1_array_threshold",thresh_str[t],".csv")
   glmArousal_array<-rbind(glmArousal_array,
                           as.data.frame(t(read_csv(filepath, 
-                                           col_names = F))) %>% 
+                                           col_names = F)[c(1,3:24),])) %>% 
                             mutate(type = "glmArousal", 
                                    tr = row_number(), 
                                    threshold = thresh[t]) #self-reported arousal GLM
@@ -201,11 +220,14 @@ my_array_s1_run34 <- left_join(my_array_s1_run34,df.1sub %>%
   group_by(subject,trial,threshold) %>% 
   mutate(tr_in_trial = row_number())%>% 
   relocate(tr_in_trial,.after = tr) %>% 
-  mutate(split = "run34")
+  mutate(split = "run34") %>% 
+  mutate(tr = tr + 490)
 ```
 
 ```{r}
-my_array_s1 <- rbind(my_array_s1_run12,my_array_s1_run34)
+my_array_s1 <- rbind(my_array_s1_run12,my_array_s1_run34) %>% 
+  left_join(all_sub_beh_data, by = c("subject","tr")) %>%  #combine censor file
+  filter(censor == 1) #motion censoring
 ```
 
 
@@ -1724,5 +1746,5 @@ plot_annotation(
   plot_layout(heights = c(1.5,1,1))
 
 
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig_glmPupil.png"),dpi = 300, height = 8.5, width = 10)
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig_glmPupil.png"),dpi = 300, height = 8.5, width = 10.5)
 ```

@@ -6,6 +6,14 @@ date: "2025-12-27"
 
 ## get the correlation time series
 ```{r warning = F, message=F}
+read_file <- 1
+
+if (read_file == 1) {
+  vrmid1_regression_coefs_ant_nobc <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivatives/vrmid1_regression_coefs_ant_nobc.csv")
+  vrmid1_regression_coefs_out_nobc <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivatives/vrmid1_regression_coefs_out_nobc.csv")
+  fmri3_regression_coefs_ant_nobc <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/derivatives/fmri3_regression_coefs_ant_nobc.csv")
+  fmri3_regression_coefs_out_nobc <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/derivatives/fmri3_regression_coefs_out_nobc.csv")
+  } else {
 vrmid1_regression_coefs_ant_nobc <- {}
 
 for (t in 1:20) {
@@ -31,7 +39,6 @@ vrmid1_regression_coefs_ant_nobc <- vrmid1_regression_coefs_ant_nobc%>%
   mutate(p_val_fdr = p.adjust(p_val, method = "fdr")) #applies the Benjamini–Hochberg correction
 
 write.csv(vrmid1_regression_coefs_ant_nobc, "~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivatives/vrmid1_regression_coefs_ant_nobc.csv")
-vrmid1_regression_coefs_ant_nobc<-read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivatives/vrmid1_regression_coefs_ant_nobc.csv")
 
 vrmid1_regression_coefs_out_nobc <- {}
 
@@ -58,7 +65,6 @@ vrmid1_regression_coefs_out_nobc <- vrmid1_regression_coefs_out_nobc%>%
   mutate(p_val_fdr = p.adjust(p_val, method = "fdr")) #applies the Benjamini–Hochberg correction
 
 write.csv(vrmid1_regression_coefs_out_nobc,  "~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivatives/vrmid1_regression_coefs_out_nobc.csv")
-vrmid1_regression_coefs_out_nobc<-read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivatives/vrmid1_regression_coefs_out_nobc.csv")
 
 fmri3_regression_coefs_ant_nobc <- {}
 
@@ -85,7 +91,6 @@ fmri3_regression_coefs_ant_nobc <- fmri3_regression_coefs_ant_nobc%>%
   mutate(p_val_fdr = p.adjust(p_val, method = "fdr")) #applies the Benjamini–Hochberg correction
 
 write.csv(fmri3_regression_coefs_ant_nobc, "~/Desktop/VRMID-analysis/mid-pupil/data/fmri3//derivatives/fmri3_regression_coefs_ant_nobc.csv")
-fmri3_regression_coefs_ant_nobc<-read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/derivatives/fmri3_regression_coefs_ant_nobc.csv")
 
 fmri3_regression_coefs_out_nobc <- {}
 
@@ -112,7 +117,7 @@ fmri3_regression_coefs_out_nobc <- fmri3_regression_coefs_out_nobc%>%
   mutate(p_val_fdr = p.adjust(p_val, method = "fdr")) #applies the Benjamini–Hochberg correction
 
 write.csv(fmri3_regression_coefs_out_nobc,  "~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/derivatives/fmri3_regression_coefs_out_nobc.csv")
-fmri3_regression_coefs_out_nobc <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/derivatives/fmri3_regression_coefs_out_nobc.csv")
+}
 ```
 ## make clusters
 ```{r}
@@ -230,9 +235,14 @@ axis_range=c(min(c(vrmid1_regression_coefs_ant_nobc$Estimate-vrmid1_regression_c
                    #vrmid2_regression_coefs_out_nobc$Estimate+vrmid2_regression_coefs_out_nobc$`Std. Error`,
                    fmri3_regression_coefs_out_nobc$Estimate+fmri3_regression_coefs_out_nobc$`Std. Error`))
 
+vrmid_ant_peak = vrmid1_regression_coefs_ant_nobc %>% 
+  filter(sample_point < 14 * 120) %>% 
+  arrange(desc(Estimate)) %>% 
+  slice(1)
+
 p1a<-ggplot(vrmid1_regression_coefs_ant_nobc, aes(x = sample_point,y = Estimate))+
     geom_vline(xintercept = c(0,4,6,14,16,18)*120, size = 1, color = "grey")+
-  geom_vline(xintercept = c(2030,783), size = 1, color = "orange", linetype = "dashed")+
+  geom_vline(xintercept = vrmid_ant_peak$sample_point, size = 1, color = "orange", linetype = "dashed")+
   annotate("text", x = 2*120,y = 0.1, label = "C",
           color = "black",size = unit(4,"pt"))+
   annotate("text", x = 5*120,y = 0.1, label = "F",
@@ -265,9 +275,14 @@ p1a<-ggplot(vrmid1_regression_coefs_ant_nobc, aes(x = sample_point,y = Estimate)
     xmin = 14.1*120, xmax = 21*120, ymin = -Inf, ymax = Inf
   )
 
+vrmid_out_peak = vrmid1_regression_coefs_out_nobc %>% 
+  filter(sample_point < 18 * 120) %>% 
+  arrange(desc(Estimate)) %>% 
+  slice(1)
+
 p1b<-ggplot(vrmid1_regression_coefs_out_nobc, aes(x = sample_point,y = Estimate))+
   geom_vline(xintercept = c(0,4,6,8,10,18)*120, size = 1, color = "grey")+
-  geom_vline(xintercept = c(1134), size = 1, color = "orange", linetype = "dashed")+
+  geom_vline(xintercept = vrmid_out_peak$sample_point, size = 1, color = "orange", linetype = "dashed")+
   geom_point(aes(x = sample_point, y = sig_cluster-1),
              size = 0.1)+
   geom_ribbon(aes(x = sample_point, y = Estimate, ymin = Estimate - `Std. Error`,
@@ -299,9 +314,14 @@ p1b<-ggplot(vrmid1_regression_coefs_out_nobc, aes(x = sample_point,y = Estimate)
     xmin = 18.1*120, xmax = 20.5*120, ymin = -Inf, ymax = Inf
   )
 
+fmri_ant_peak = fmri3_regression_coefs_ant_nobc %>% 
+  filter(sample_point < 10 * 200) %>% 
+  arrange(desc(Estimate)) %>% 
+  slice(1)
+
 p3a<-ggplot(fmri3_regression_coefs_ant_nobc, aes(x = sample_point,y = Estimate))+
   geom_vline(xintercept = c(0,2,4,12,14,16,18)*200, size = 1, color = "grey")+
-  geom_vline(xintercept = c(826,3291), size = 1, color = "orange", linetype = "dashed")+
+  geom_vline(xintercept = fmri_ant_peak$sample_point, size = 1, color = "orange", linetype = "dashed")+
   geom_point(aes(x = sample_point, y = sig_cluster-1),
              size = 0.1)+
      geom_ribbon(aes(x = sample_point, y = Estimate, ymin = Estimate - `Std. Error`,
@@ -335,9 +355,14 @@ p3a<-ggplot(fmri3_regression_coefs_ant_nobc, aes(x = sample_point,y = Estimate))
     xmin = 12.1*200, xmax = 21*200, ymin = -Inf, ymax = Inf
   )
 
+fmri_out_peak = fmri3_regression_coefs_out_nobc %>% 
+  filter(sample_point < 16 * 200) %>% 
+  arrange(desc(Estimate)) %>% 
+  slice(1)
+
 p3b<-ggplot(fmri3_regression_coefs_out_nobc %>% filter(sample_point <= 18*200), aes(x = sample_point,y = Estimate))+
   geom_vline(xintercept = c(0,2,4,6,8,16)*200, size = 1, color = "grey")+
-  geom_vline(xintercept = c(1294), size = 1, color = "orange", linetype = "dashed")+
+  geom_vline(xintercept = fmri_out_peak$sample_point, size = 1, color = "orange", linetype = "dashed")+
   geom_point(aes(x = sample_point, y = sig_cluster-1),
              size = 0.1)+
    geom_ribbon(aes(x = sample_point, y = Estimate, ymin = Estimate - `Std. Error`,
@@ -400,6 +425,13 @@ magick::image_write(fig1, "~/Desktop/VRMID-analysis/mid-pupil/figures/fig7_howlo
 
 # identify the variability of individual peaks
 ```{r warning = F, message=F}
+if (read_file == 1) {
+  vrmid1_regression_coefs_ant_nobc_ind <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivatives/vrmid1_regression_coefs_ant_nobc_ind.csv")
+  vrmid1_regression_coefs_out_nobc_ind <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivatives/vrmid1_regression_coefs_out_nobc_ind.csv")
+  fmri3_regression_coefs_ant_nobc_ind <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/derivatives/fmri3_regression_coefs_ant_nobc_ind.csv")
+  fmri3_regression_coefs_out_nobc_ind <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/derivatives/fmri3_regression_coefs_out_nobc_ind.csv")
+} else {
+  
 vrmid1_regression_coefs_ant_nobc_ind <- {}
 
 for (sub in unique(vrmid1_pupil_data$Subject)){
@@ -416,20 +448,20 @@ for (sub in unique(vrmid1_pupil_data$Subject)){
   }
   coefs <- as.data.frame(coefs)%>%
     mutate(sample_in_sec = row_number(),
-           Time_sec = t)
+           Time_sec = t,
+           subject = sub)
   rownames(coefs) <- NULL
   vrmid1_regression_coefs_ant_nobc_ind <- rbind(vrmid1_regression_coefs_ant_nobc_ind,coefs)
 }
 }
 
-
 vrmid1_regression_coefs_ant_nobc_ind <- vrmid1_regression_coefs_ant_nobc_ind%>%
+  group_by(subject) %>% 
   mutate(sample_point = row_number())%>%
   rename(p_val = `Pr(>|t|)`) %>% 
   mutate(p_val_fdr = p.adjust(p_val, method = "fdr")) #applies the Benjamini–Hochberg correction
 
 write.csv(vrmid1_regression_coefs_ant_nobc_ind, "~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivatives/vrmid1_regression_coefs_ant_nobc_ind.csv")
-vrmid1_regression_coefs_ant_nobc_ind<-read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivatives/vrmid1_regression_coefs_ant_nobc_ind.csv")
 
 vrmid1_regression_coefs_out_nobc_ind <- {}
 
@@ -446,24 +478,24 @@ for (sub in unique(vrmid1_pupil_data$Subject)){
     }
     coefs <- as.data.frame(coefs)%>%
       mutate(sample_in_sec = row_number(),
-             Time_sec = t)
+             Time_sec = t,
+            subject = sub)
     rownames(coefs) <- NULL
     vrmid1_regression_coefs_out_nobc_ind <- rbind(vrmid1_regression_coefs_out_nobc_ind,coefs)
   }
 }
 
 vrmid1_regression_coefs_out_nobc_ind <- vrmid1_regression_coefs_out_nobc_ind%>%
+  group_by(subject) %>% 
   mutate(sample_point = row_number())%>%
   rename(p_val = `Pr(>|t|)`) %>% 
   mutate(p_val_fdr = p.adjust(p_val, method = "fdr")) #applies the Benjamini–Hochberg correction
 
 write.csv(vrmid1_regression_coefs_out_nobc_ind,  "~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivatives/vrmid1_regression_coefs_out_nobc_ind.csv")
-vrmid1_regression_coefs_out_nobc_ind<-read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivatives/vrmid1_regression_coefs_out_nobc_ind.csv")
 
 fmri3_regression_coefs_ant_nobc_ind <- {}
 
-# for (sub in fmri3_subjects){
-for (sub in c("ya240314","yl240330","yz240312")){
+for (sub in fmri3_subjects){
   print(sub)
   for (t in 1:18) {
   coefs <- {}
@@ -476,20 +508,20 @@ for (sub in c("ya240314","yl240330","yz240312")){
   }
   coefs <- as.data.frame(coefs)%>%
     mutate(sample_in_sec = row_number(),
-           Time_sec = t)
+           Time_sec = t,
+           subject = sub)
   rownames(coefs) <- NULL
   fmri3_regression_coefs_ant_nobc_ind <- rbind(fmri3_regression_coefs_ant_nobc_ind,coefs)
 }
 }
 
-
 fmri3_regression_coefs_ant_nobc_ind <- fmri3_regression_coefs_ant_nobc_ind%>%
+  group_by(subject) %>% 
   mutate(sample_point = row_number())%>%
     rename(p_val = `Pr(>|t|)`) %>% 
   mutate(p_val_fdr = p.adjust(p_val, method = "fdr")) #applies the Benjamini–Hochberg correction
 
 write.csv(fmri3_regression_coefs_ant_nobc_ind, "~/Desktop/VRMID-analysis/mid-pupil/data/fmri3//derivatives/fmri3_regression_coefs_ant_nobc_ind.csv")
-fmri3_regression_coefs_ant_nobc<-read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/derivatives/fmri3_regression_coefs_ant_nobc_ind.csv")
 
 fmri3_regression_coefs_out_nobc_ind <- {}
 
@@ -506,19 +538,105 @@ for (sub in fmri3_subjects){
     }
     coefs <- as.data.frame(coefs)%>%
       mutate(sample_in_sec = row_number(),
-             Time_sec = t)
+             Time_sec = t,
+             subject=sub)
     rownames(coefs) <- NULL
     fmri3_regression_coefs_out_nobc_ind <- rbind(fmri3_regression_coefs_out_nobc_ind,coefs)
   }
 }
 
 fmri3_regression_coefs_out_nobc_ind <- fmri3_regression_coefs_out_nobc_ind%>%
+  group_by(subject) %>% 
   mutate(sample_point = row_number())%>%
     rename(p_val = `Pr(>|t|)`) %>% 
   mutate(p_val_fdr = p.adjust(p_val, method = "fdr")) #applies the Benjamini–Hochberg correction
 
 write.csv(fmri3_regression_coefs_out_nobc_ind,  "~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/derivatives/fmri3_regression_coefs_out_nobc_ind.csv")
-fmri3_regression_coefs_out_nobc_ind <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3/derivatives/fmri3_regression_coefs_out_nobc_ind.csv")
+}
 ```
+# visualize individual peak
+```{r}
+vrmid_ant_peak_ind <- vrmid1_regression_coefs_ant_nobc_ind %>%
+  filter(sample_point < 14 * 120) %>%
+  group_by(subject) %>%
+  slice_max(order_by = Estimate, n = 1, with_ties = FALSE) %>%
+  ungroup() %>% 
+  select(subject, sample_point, Estimate, Time_sec, sample_in_sec)
 
+vrmid_out_peak_ind <- vrmid1_regression_coefs_out_nobc_ind %>%
+  filter(sample_point < 18 * 120) %>%
+  group_by(subject) %>%
+  slice_max(order_by = Estimate, n = 1, with_ties = FALSE) %>%
+  ungroup() %>%
+  select(subject, sample_point, Estimate, Time_sec, sample_in_sec)
+
+fmri_ant_peak_ind <- fmri3_regression_coefs_ant_nobc_ind %>%
+  filter(sample_point < 10 * 200) %>%
+  group_by(subject) %>%
+  slice_max(order_by = Estimate, n = 1, with_ties = FALSE) %>%
+  ungroup() %>%
+  select(subject, sample_point, Estimate, Time_sec, sample_in_sec)
+
+fmri_out_peak_ind <- fmri3_regression_coefs_out_nobc_ind %>%
+  filter(sample_point < 16 * 200) %>%
+  group_by(subject) %>%
+  slice_max(order_by = Estimate, n = 1, with_ties = FALSE) %>%
+  ungroup() %>%
+  select(subject, sample_point, Estimate, Time_sec, sample_in_sec)
+
+p_vrmid_ant_peak_ind <- ggplot(vrmid_ant_peak_ind, aes(x = sample_point, y = reorder(subject, sample_point))) +
+  geom_vline(xintercept = c(0,4,6,14,16,18)*120, size = 0.6, color = "grey") +
+  geom_vline(xintercept = vrmid_ant_peak$sample_point, linetype = "dashed", color = "orange", linewidth = 1) +
+  annotate("text", x = 2*120, y = Inf, label = "C", vjust = 1.5, size = 3) +
+  annotate("text", x = 5*120, y = Inf, label = "F", vjust = 1.5, size = 3) +
+  annotate("text", x = 10*120, y = Inf, label = "R", vjust = 1.5, size = 3) +
+  annotate("text", x = 15*120, y = Inf, label = "T", vjust = 1.5, size = 3) +
+  annotate("text", x = 17*120, y = Inf, label = "O", vjust = 1.5, size = 3) +
+  geom_point(alpha = 0.8, size = 1.8) +
+  scale_x_continuous(breaks = seq(0, 20 * 120, by = 5 * 120), labels = seq(0, 20, by = 5)) +
+  labs(title = "VR anticipation: individual peak timing", subtitle = "Orange dashed line = overall peak", x = "time (sec)", y = "subject") +
+  theme_blank()
+
+p_vrmid_out_peak_ind <- ggplot(vrmid_out_peak_ind, aes(x = sample_point, y = reorder(subject, sample_point))) +
+  geom_vline(xintercept = c(0,4,6,8,10,18)*120, size = 0.6, color = "grey") +
+  geom_vline(xintercept = vrmid_out_peak$sample_point, linetype = "dashed", color = "orange", linewidth = 1) +
+  annotate("text", x = 2*120, y = Inf, label = "C", vjust = 1.5, size = 3) +
+  annotate("text", x = 5*120, y = Inf, label = "F", vjust = 1.5, size = 3) +
+  annotate("text", x = 7*120, y = Inf, label = "T", vjust = 1.5, size = 3) +
+  annotate("text", x = 9*120, y = Inf, label = "O", vjust = 1.5, size = 3) +
+  annotate("text", x = 14*120, y = Inf, label = "R", vjust = 1.5, size = 3) +
+  geom_point(alpha = 0.8, size = 1.8) +
+  scale_x_continuous(breaks = seq(0, 20 * 120, by = 5 * 120), labels = seq(0, 20, by = 5)) +
+  labs(title = "VR outcome: individual peak timing", subtitle = "Orange dashed line = overall peak", x = "time (sec)", y = "subject") +
+  theme_blank()
+
+p_fmri_ant_peak_ind <- ggplot(fmri_ant_peak_ind, aes(x = sample_point, y = reorder(subject, sample_point))) +
+  geom_vline(xintercept = c(0,2,4,12,14,16,18)*200, size = 0.6, color = "grey") +
+  geom_vline(xintercept = fmri_ant_peak$sample_point, linetype = "dashed", color = "orange", linewidth = 1) +
+  annotate("text", x = 1*200, y = Inf, label = "C", vjust = 1.5, size = 3) +
+  annotate("text", x = 3*200, y = Inf, label = "F", vjust = 1.5, size = 3) +
+  annotate("text", x = 8*200, y = Inf, label = "R", vjust = 1.5, size = 3) +
+  annotate("text", x = 13*200, y = Inf, label = "F", vjust = 1.5, size = 3) +
+  annotate("text", x = 15*200, y = Inf, label = "T", vjust = 1.5, size = 3) +
+  annotate("text", x = 17*200, y = Inf, label = "O", vjust = 1.5, size = 3) +
+  geom_point(alpha = 0.8, size = 1.8) +
+  scale_x_continuous(breaks = seq(0, 20 * 200, by = 5 * 200), labels = seq(0, 20, by = 5)) +
+  labs(title = "fMRI anticipation: individual peak timing", subtitle = "Orange dashed line = overall peak", x = "time (sec)", y = "subject") +
+  theme_blank()
+
+p_fmri_out_peak_ind <- ggplot(fmri_out_peak_ind, aes(x = sample_point, y = reorder(subject, sample_point))) +
+  geom_vline(xintercept = c(0,2,4,6,8,16)*200, size = 0.6, color = "grey") +
+  geom_vline(xintercept = fmri_out_peak$sample_point, linetype = "dashed", color = "orange", linewidth = 1) +
+  annotate("text", x = 1*200, y = Inf, label = "C", vjust = 1.5, size = 3) +
+  annotate("text", x = 3*200, y = Inf, label = "F", vjust = 1.5, size = 3) +
+  annotate("text", x = 5*200, y = Inf, label = "T", vjust = 1.5, size = 3) +
+  annotate("text", x = 7*200, y = Inf, label = "O", vjust = 1.5, size = 3) +
+  annotate("text", x = 12*200, y = Inf, label = "R", vjust = 1.5, size = 3) +
+  geom_point(alpha = 0.8, size = 1.8) +
+  scale_x_continuous(breaks = seq(0, 20 * 200, by = 5 * 200), labels = seq(0, 20, by = 5)) +
+  labs(title = "fMRI outcome: individual peak timing", subtitle = "Orange dashed line = overall peak", x = "time (sec)", y = "subject") +
+  theme_blank()
+
+(p_vrmid_ant_peak_ind + p_vrmid_out_peak_ind) / (p_fmri_ant_peak_ind + p_fmri_out_peak_ind)
+```
 
