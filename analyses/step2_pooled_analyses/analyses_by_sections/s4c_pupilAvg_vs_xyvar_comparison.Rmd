@@ -4,7 +4,473 @@ output: html_document
 date: "2026-04-27"
 ---
 
-Compare original vs gaze-regressed pupil signals and their associations with arousal (VR study 1 and fMRI study 3 only).
+# Gaze location over time: individual trials (all cue values pooled)
+```{r}
+# 25° left/right/down and 20° up — one faint line per trial; data piped straight into ggplot (no summary tibble)
+
+vr1_x_rng <- c(0, 20)
+
+p_vr1_sum_x <- ggplot(
+  vrmid1_pupil_data %>% dplyr::filter(probe == "anti", dplyr::between(sample_in_trial_t, vr1_x_rng[1], vr1_x_rng[2])),
+  aes(x = sample_in_trial_t, y = AvgPPos_x_preproc, group = interaction(Subject, trial))
+) +
+  geom_line(linewidth = 0.1, alpha = 0.1, color = "grey25") +
+  geom_vline(xintercept = c(0, 4, 6, 14, 16, 18), linewidth = 1, color = "grey") +
+  geom_vline(xintercept = c(0, 4, 6), linewidth = 1, color = "grey") +
+  annotate("text", x = 2, y = 0.5, label = "C", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 5, y = 0.5, label = "F", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 15, y = 0.5, label = "T", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 17, y = 0.5, label = "O", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 10, y = 0.5, label = "R", color = "black", size = unit(4, "pt")) +
+  labs(
+    title = "VR study",
+    subtitle = "anticipation probe (individual trials)",
+    x = "time (s)",
+    y = "normalized gaze location (x)"
+  ) +
+  theme(legend.position = "none") +
+  ggplot(
+    vrmid1_pupil_data %>% dplyr::filter(probe == "out", dplyr::between(sample_in_trial_t, vr1_x_rng[1], vr1_x_rng[2])),
+    aes(x = sample_in_trial_t, y = AvgPPos_x_preproc, group = interaction(Subject, trial))
+  ) +
+  geom_line(linewidth = 0.1, alpha = 0.1, color = "grey25") +
+  geom_vline(xintercept = c(0, 4, 6, 8, 10, 18), linewidth = 1, color = "grey") +
+  geom_vline(xintercept = c(0, 4, 6), linewidth = 1, color = "grey") +
+  annotate("text", x = 2, y = 0.5, label = "C", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 5, y = 0.5, label = "F", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 7, y = 0.5, label = "T", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 9, y = 0.5, label = "O", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 14, y = 0.5, label = "R", color = "black", size = unit(4, "pt")) +
+  labs(
+    title = "VR study",
+    subtitle = "outcome probe (individual trials)",
+    x = "time (s)",
+    y = "normalized gaze location (x)"
+  ) 
+
+p_vr1_sum_y <- ggplot(
+  vrmid1_pupil_data %>% dplyr::filter(probe == "anti", dplyr::between(sample_in_trial_t, vr1_x_rng[1], vr1_x_rng[2])),
+  aes(x = sample_in_trial_t, y = AvgPPos_y_preproc, group = interaction(Subject, trial))
+) +
+  geom_line(linewidth = 0.1, alpha = 0.1, color = "grey25") +
+  geom_vline(xintercept = c(0, 4, 6, 14, 16, 18), linewidth = 1, color = "grey") +
+  geom_vline(xintercept = c(0, 4, 6), linewidth = 1, color = "grey") +
+  annotate("text", x = 2, y = 0.5, label = "C", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 5, y = 0.5, label = "F", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 15, y = 0.5, label = "T", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 17, y = 0.5, label = "O", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 10, y = 0.5, label = "R", color = "black", size = unit(4, "pt")) +
+  labs(
+    title = "VR study",
+    subtitle = "anticipation probe (individual trials)",
+    x = "time (s)",
+    y = "normalized gaze location (y)"
+  ) +
+  theme(legend.position = "none") +
+  ggplot(
+    vrmid1_pupil_data %>% dplyr::filter(probe == "out", dplyr::between(sample_in_trial_t, vr1_x_rng[1], vr1_x_rng[2])),
+    aes(x = sample_in_trial_t, y = AvgPPos_y_preproc, group = interaction(Subject, trial))
+  ) +
+  geom_line(linewidth = 0.1, alpha = 0.1, color = "grey25") +
+  geom_vline(xintercept = c(0, 4, 6, 8, 10, 18), linewidth = 1, color = "grey") +
+  geom_vline(xintercept = c(0, 4, 6), linewidth = 1, color = "grey") +
+  annotate("text", x = 2, y = 0.5, label = "C", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 5, y = 0.5, label = "F", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 7, y = 0.5, label = "T", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 9, y = 0.5, label = "O", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 14, y = 0.5, label = "R", color = "black", size = unit(4, "pt")) +
+  labs(
+    title = "VR study",
+    subtitle = "outcome probe (individual trials)",
+    x = "time (s)",
+    y = "normalized gaze location (y)"
+  )
+
+p_vr1_sum_x / p_vr1_sum_y
+```
+
+```{r}
+# Same pattern as chunk 1: pipe fmri3_pupil_data into ggplot (gaze in [0,1]; no summary tibble)
+
+fmri3_x_rng <- c(0, 20)
+
+p_fmri3_sum_x <- ggplot(
+  fmri3_pupil_data %>%
+    dplyr::filter(
+      probe == 1,
+      dplyr::between(sample_in_trial_t, fmri3_x_rng[1], fmri3_x_rng[2])
+    ),
+  aes(x = sample_in_trial_t, y = pupil_x_preproc_norm, group = interaction(subject, trial))
+) +
+  geom_line(linewidth = 0.1, alpha = 0.1, color = "grey25") +
+  geom_vline(xintercept = c(0, 2, 4, 12, 14, 16, 18), linewidth = 1, color = "grey") +
+  annotate("text", x = 1, y = 0.5, label = "C", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 3, y = 0.5, label = "F", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 13, y = 0.5, label = "F", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 15, y = 0.5, label = "T", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 17, y = 0.5, label = "O", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 8, y = 0.5, label = "R", color = "black", size = unit(4, "pt")) +
+  labs(
+    title = "FMRI study",
+    subtitle = "anticipation probe (individual trials)",
+    x = "time (s)",
+    y = "normalized gaze location (x)"
+  ) +
+  theme(legend.position = "none") +
+  ggplot(
+    fmri3_pupil_data %>%
+      dplyr::filter(
+        probe == 2,
+        dplyr::between(sample_in_trial_t, fmri3_x_rng[1], fmri3_x_rng[2])
+      ),
+    aes(x = sample_in_trial_t, y = pupil_x_preproc_norm, group = interaction(subject, trial))
+  ) +
+  geom_line(linewidth = 0.1, alpha = 0.1, color = "grey25") +
+  geom_vline(xintercept = c(0, 2, 4, 6, 8, 16), linewidth = 1, color = "grey") +
+  annotate("text", x = 1, y = 0.5, label = "C", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 3, y = 0.5, label = "F", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 5, y = 0.5, label = "T", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 7, y = 0.5, label = "O", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 12, y = 0.5, label = "R", color = "black", size = unit(4, "pt")) +
+  labs(
+    title = "FMRI study",
+    subtitle = "outcome probe (individual trials)",
+    x = "time (s)",
+    y = "normalized gaze location (x)"
+  )
+
+p_fmri3_sum_y <- ggplot(
+  fmri3_pupil_data %>%
+    dplyr::filter(
+      probe == 1,
+      dplyr::between(sample_in_trial_t, fmri3_x_rng[1], fmri3_x_rng[2])
+    ),
+  aes(x = sample_in_trial_t, y = pupil_y_preproc_norm, group = interaction(subject, trial))
+) +
+  geom_line(linewidth = 0.1, alpha = 0.1, color = "grey25") +
+  geom_vline(xintercept = c(0, 2, 4, 12, 14, 16, 18), linewidth = 1, color = "grey") +
+  annotate("text", x = 1, y = 0.5, label = "C", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 3, y = 0.5, label = "F", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 13, y = 0.5, label = "F", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 15, y = 0.5, label = "T", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 17, y = 0.5, label = "O", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 8, y = 0.5, label = "R", color = "black", size = unit(4, "pt")) +
+  labs(
+    title = "FMRI study",
+    subtitle = "anticipation probe (individual trials)",
+    x = "time (s)",
+    y = "normalized gaze location (y)"
+  ) +
+  theme(legend.position = "none") +
+  ggplot(
+    fmri3_pupil_data %>%
+      dplyr::filter(
+        probe == 2,
+        dplyr::between(sample_in_trial_t, fmri3_x_rng[1], fmri3_x_rng[2])
+      ),
+    aes(x = sample_in_trial_t, y = pupil_y_preproc_norm, group = interaction(subject, trial))
+  ) +
+  geom_line(linewidth = 0.1, alpha = 0.1, color = "grey25") +
+  geom_vline(xintercept = c(0, 2, 4, 6, 8, 16), linewidth = 1, color = "grey") +
+  annotate("text", x = 1, y = 0.5, label = "C", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 3, y = 0.5, label = "F", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 5, y = 0.5, label = "T", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 7, y = 0.5, label = "O", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 12, y = 0.5, label = "R", color = "black", size = unit(4, "pt")) +
+  labs(
+    title = "FMRI study",
+    subtitle = "outcome probe (individual trials)",
+    x = "time (s)",
+    y = "normalized gaze location (y)"
+  ) 
+
+p_fmri3_sum_x / p_fmri3_sum_y
+```
+
+```{r}
+(p_vr1_sum_x | p_vr1_sum_y) /
+(p_fmri3_sum_x | p_fmri3_sum_y)
+
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/xyloc.png"),dpi = 300, height = 6, width = 13)
+
+```
+
+# plot avg gaze location (x&y) during the time windows of interest
+```{r}
+make_xyloc_with_marginals <- function(d, x_col, y_col, xlim = NULL, ylim = NULL,
+                                      title = NULL, subtitle = NULL, show_rect = FALSE,
+                                      subplot_expansion = FALSE) {
+  d <- dplyr::filter(d, !is.na(.data[[x_col]]), !is.na(.data[[y_col]]))
+  if (!is.null(xlim)) {
+    d <- dplyr::filter(d, .data[[x_col]] >= xlim[1], .data[[x_col]] <= xlim[2])
+  }
+  if (!is.null(ylim)) {
+    d <- dplyr::filter(d, .data[[y_col]] >= ylim[1], .data[[y_col]] <= ylim[2])
+  }
+  if (!nrow(d)) {
+    return(patchwork::plot_spacer())
+  }
+
+  xr <- if (is.null(xlim)) range(d[[x_col]], na.rm = TRUE) else xlim
+  yr <- if (is.null(ylim)) range(d[[y_col]], na.rm = TRUE) else ylim
+  bins <- 50L
+
+  ax_exp <- if (subplot_expansion) ggplot2::expansion(mult = 0.02) else ggplot2::expansion(mult = 0)
+
+  p <- ggplot2::ggplot(d, ggplot2::aes(.data[[x_col]], .data[[y_col]])) +
+    ggplot2::geom_point(alpha = 0.01, size = 0.1) +
+    ggside::geom_xsidehistogram(
+      bins = bins, fill = "gray55", color = "gray92",
+      linewidth = 0.08, na.rm = TRUE
+    ) +
+    ggside::geom_ysidehistogram(
+      bins = bins, fill = "gray55", color = "gray92",
+      linewidth = 0.08, na.rm = TRUE
+    ) +
+    ggplot2::scale_x_continuous(limits = xr, expand = ax_exp) +
+    ggplot2::scale_y_continuous(limits = yr, expand = ax_exp) +
+    ggside::scale_xsidey_continuous(guide = "none") +
+    ggside::scale_ysidex_continuous(guide = "none") +
+    ggplot2::theme_classic() +
+    ggplot2::theme(
+      ggside.panel.scale.x = 0.22,
+      ggside.panel.scale.y = 0.22
+    ) +
+    ggplot2::labs(
+      title = title,
+      subtitle = subtitle,
+      x = "normalized gaze location (x)",
+      y = "normalized gaze location (y)"
+    )
+  if (show_rect) {
+    p <- p 
+      # ggplot2::annotate("rect", xmin = 0, xmax = 1, ymin = 0, ymax = 1,
+      #                  fill = NA, color = "grey")
+  }
+  p
+}
+
+vr_xy_ant <- vrmid1_pupil_data %>%
+  dplyr::filter(
+    probe == "anti",
+    sample_in_trial_t >= vrmid1_ant_window[1],
+    sample_in_trial_t <= vrmid1_ant_window[2]
+  )
+vr_xy_out <- vrmid1_pupil_data %>%
+  dplyr::mutate(probe = factor(probe)) %>%
+  dplyr::filter(dplyr::if_else(
+    probe == "out",
+    sample_in_trial_t >= vrmid1_outprobe_out_window[1] &
+      sample_in_trial_t <= vrmid1_outprobe_out_window[2],
+    dplyr::if_else(
+      probe == "anti",
+      sample_in_trial_t >= vrmid1_antprobe_out_window[1] &
+        sample_in_trial_t <= vrmid1_antprobe_out_window[2],
+      FALSE
+    )
+  ))
+
+fmri_xy_ant <- fmri3_pupil_data %>%
+  dplyr::filter(
+    probe == 1,
+    sample_in_trial_t >= fmri3_ant_window[1],
+    sample_in_trial_t <= fmri3_ant_window[2]
+  )
+fmri_xy_out <- fmri3_pupil_data %>%
+  dplyr::filter(dplyr::if_else(
+    probe == 2,
+    sample_in_trial_t >= fmri3_outprobe_out_window[1] &
+      sample_in_trial_t <= fmri3_outprobe_out_window[2],
+    dplyr::if_else(
+      probe == 1,
+      sample_in_trial_t >= fmri3_antprobe_out_window[1] &
+        sample_in_trial_t <= fmri3_antprobe_out_window[2],
+      FALSE
+    )
+  )) %>%
+  dplyr::mutate(probe = factor(probe, levels = c(1, 2), labels = c("anticipation", "outcome")))
+
+p_xy_vrmid1 <- make_xyloc_with_marginals(
+  vr_xy_ant, "AvgPPos_x_preproc", "AvgPPos_y_preproc",
+  xlim = c(0, 1), ylim = c(0, 1), subplot_expansion = FALSE,
+  title = "VR Study", subtitle = "anticipation time window"
+) /
+  make_xyloc_with_marginals(
+    vr_xy_out, "AvgPPos_x_preproc", "AvgPPos_y_preproc",
+    xlim = c(0, 1), ylim = c(0, 1), subplot_expansion = FALSE,
+    subtitle = "outcome time window"
+  )
+
+p_xy_fmri3 <- make_xyloc_with_marginals(
+  fmri_xy_ant, "pupil_x_preproc_norm", "pupil_y_preproc_norm",
+  show_rect = TRUE, subplot_expansion = TRUE,
+  title = "FMRI study", subtitle = "anticipation time window"
+) /
+  make_xyloc_with_marginals(
+    fmri_xy_out, "pupil_x_preproc_norm", "pupil_y_preproc_norm",
+    show_rect = TRUE, subplot_expansion = TRUE,
+    subtitle = "outcome time window"
+  )
+
+p_xy_xyloc_combined <- (p_xy_vrmid1 | p_xy_fmri3) +
+  patchwork::plot_layout(ncol = 2, nrow = 1)
+
+p_xy_xyloc_combined
+
+ggsave(
+  paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/xyloc_combined.png"),
+  plot = p_xy_xyloc_combined,
+  dpi = 300, height = 8, width = 8
+)
+```
+
+# visualize pupil data quality for out of bound gaze
+```{r}
+mean(
+  fmri3_pupil_data$pupil_x_preproc_norm < 0 |
+    fmri3_pupil_data$pupil_x_preproc_norm > 1 |
+    fmri3_pupil_data$pupil_y_preproc_norm < 0 |
+    fmri3_pupil_data$pupil_y_preproc_norm > 1,
+  na.rm = TRUE
+)
+
+fmri3_gaze_pupil <- fmri3_pupil_data %>%
+  mutate(
+    gaze_region = dplyr::if_else(
+      is.na(pupil_x_preproc_norm) | is.na(pupil_y_preproc_norm),
+      NA_character_,
+      dplyr::if_else(
+        pupil_x_preproc_norm < 0 | pupil_x_preproc_norm > 1 |
+          pupil_y_preproc_norm < 0 | pupil_y_preproc_norm > 1,
+        "gaze outside [0, 1] (x or y)",
+        "gaze inside [0, 1]"
+      )
+    )
+  ) %>%
+  filter(!is.na(pupilDiameter_scaled), !is.na(gaze_region))
+
+ggplot(fmri3_gaze_pupil, aes(x = pupilDiameter_scaled, fill = gaze_region)) +
+  geom_density(alpha = 0.4, linewidth = 0.35, color = "gray20", na.rm = TRUE) +
+  facet_wrap(vars(subject), scales = "free", ncol = 6) +
+  theme_classic() +
+  theme(legend.position = "bottom") +
+  scale_fill_manual(
+    values = c("gaze inside [0, 1]" = "gray65", "gaze outside [0, 1] (x or y)" = "firebrick2")
+  ) +
+  labs(
+    title = "fMRI study 3 — pupil size vs gaze position",
+    subtitle = "Scaled pupil diameter when normalized gaze (x or y) is outside vs inside [0, 1]",
+    x = "z-scored pupil diameter",
+    y = "density",
+    fill = NULL
+  )
+
+ggplot(fmri3_gaze_pupil, aes(x = pupilDiameter_scaled, fill = gaze_region)) +
+  geom_density(alpha = 0.4, linewidth = 0.35, color = "gray20", na.rm = TRUE) +
+  theme_classic() +
+  theme(legend.position = "bottom") +
+  scale_fill_manual(
+    values = c("gaze inside [0, 1]" = "gray65", "gaze outside [0, 1] (x or y)" = "firebrick2")
+  ) +
+  labs(
+    title = "fMRI study 3 — pupil size vs gaze position",
+    subtitle = "Scaled pupil diameter when normalized gaze (x or y) is outside vs inside [0, 1]",
+    x = "z-scored pupil diameter",
+    y = "density",
+    fill = NULL
+  )
+```
+
+# visualize pupil data quality for outliers
+```{r}
+# Per subject: 95% CI for mean normalized gaze x and mean gaze y (lm intercept + confint each axis).
+# Axis-aligned box [x_CI] x [y_CI] is the product of those marginal CIs for the mean (not a bivariate ellipse).
+# Samples whose gaze (x,y) lies outside that box get "outside"; pupil densities are split by that gaze rule.
+fmri3_gaze_ci_bounds <- fmri3_pupil_data %>%
+  dplyr::filter(!is.na(pupil_x_preproc_norm), !is.na(pupil_y_preproc_norm)) %>%
+  dplyr::group_by(subject) %>%
+  dplyr::group_modify(function(.x, .y) {
+    if (nrow(.x) < 10L) {
+      return(tibble::tibble(
+        xlo = NA_real_, xhi = NA_real_,
+        ylo = NA_real_, yhi = NA_real_
+      ))
+    }
+    fx <- stats::lm(pupil_x_preproc_norm ~ 1, data = .x)
+    fy <- stats::lm(pupil_y_preproc_norm ~ 1, data = .x)
+    cx <- stats::confint(fx, level = 0.95)
+    cy <- stats::confint(fy, level = 0.95)
+    tibble::tibble(
+      xlo = as.numeric(cx[1L, 1L]), xhi = as.numeric(cx[1L, 2L]),
+      ylo = as.numeric(cy[1L, 1L]), yhi = as.numeric(cy[1L, 2L])
+    )
+  }) %>%
+  dplyr::ungroup()
+
+fmri3_pupil_qc_base <- fmri3_pupil_data %>%
+  dplyr::left_join(fmri3_gaze_ci_bounds, by = "subject") %>%
+  dplyr::mutate(
+    gaze_region_01 = dplyr::if_else(
+      is.na(pupil_x_preproc_norm) | is.na(pupil_y_preproc_norm),
+      NA_character_,
+      dplyr::if_else(
+        pupil_x_preproc_norm < 0 | pupil_x_preproc_norm > 1 |
+          pupil_y_preproc_norm < 0 | pupil_y_preproc_norm > 1,
+        "gaze outside [0, 1] (x or y)",
+        "gaze inside [0, 1]"
+      )
+    ),
+    gaze_vs_mean_ci = dplyr::case_when(
+      is.na(xlo) | is.na(xhi) | is.na(ylo) | is.na(yhi) ~ NA_character_,
+      is.na(pupil_x_preproc_norm) | is.na(pupil_y_preproc_norm) ~ NA_character_,
+      pupil_x_preproc_norm < xlo | pupil_x_preproc_norm > xhi |
+        pupil_y_preproc_norm < ylo | pupil_y_preproc_norm > yhi ~
+        "gaze outside 95% CI box (mean x & y)",
+      TRUE ~ "gaze inside 95% CI box (mean x & y)"
+    )
+  )
+
+fmri3_pupil_qc_ci <- fmri3_pupil_qc_base %>%
+  dplyr::filter(!is.na(pupilDiameter_scaled), !is.na(gaze_vs_mean_ci))
+
+ggplot(fmri3_pupil_qc_ci, aes(x = pupilDiameter_scaled, fill = gaze_vs_mean_ci)) +
+  geom_density(alpha = 0.4, linewidth = 0.35, color = "gray20", na.rm = TRUE) +
+  facet_wrap(vars(subject), scales = "free", ncol = 6) +
+  theme_classic() +
+  theme(legend.position = "bottom") +
+  scale_fill_manual(
+    values = c(
+      "gaze inside 95% CI box (mean x & y)" = "gray65",
+      "gaze outside 95% CI box (mean x & y)" = "darkorange2"
+    )
+  ) +
+  labs(
+    title = "fMRI study 3 — pupil by gaze vs per-subject 95% CI rectangle (mean x, mean y)",
+    subtitle = "Split rule uses gaze only (confint on lm intercept for each axis); curves are pupilDiameter_scaled",
+    x = "z-scored pupil diameter",
+    y = "density",
+    fill = NULL
+  )
+
+ggplot(fmri3_pupil_qc_ci, aes(x = pupilDiameter_scaled, fill = gaze_vs_mean_ci)) +
+  geom_density(alpha = 0.4, linewidth = 0.35, color = "gray20", na.rm = TRUE) +
+  theme_classic() +
+  theme(legend.position = "bottom") +
+  scale_fill_manual(
+    values = c(
+      "gaze inside 95% CI box (mean x & y)" = "gray65",
+      "gaze outside 95% CI box (mean x & y)" = "darkorange2"
+    )
+  ) +
+  labs(
+    title = "fMRI study 3 — same gaze–CI split, all subjects pooled",
+    x = "z-scored pupil diameter",
+    y = "density",
+    fill = NULL
+  )
+```
+
+# Compare original vs gaze-regressed pupil signals and their associations with arousal 
 
 ### VR study 1 (vrmid1) — example participant timecourse overlay
 
@@ -16,7 +482,7 @@ example_sub <- vrmid1_pupil_data %>%
             .groups = "drop") %>%
   filter(n_arousal > 20, n_both_signal > 500) %>%
   arrange(desc(n_arousal), desc(n_both_signal)) %>%
-  slice(1) %>%
+  slice(2) %>%
   pull(Subject)
 
 example_df <- vrmid1_pupil_data %>%
@@ -78,10 +544,31 @@ ggplot(example_df_fmri,
   facet_wrap(~trial)
 ```
 
+## variance explained by the regression model
+```{r}
+vrmid1_xyvar_fit_summary<-read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivatives/pupil_xyvar_fit_summary.csv")
+fmri3_xyvar_fit_summary<-read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/fmri3//derivatives/pupil_xyvar_fit_summary.csv")
+
+summary(vrmid1_xyvar_fit_summary$adj_r2)*100
+confint(vrmid1_xyvar_fit_summary$adj_r2)*100
+
+summary(fmri3_xyvar_fit_summary$adj_r2)*100
+confint(fmri3_xyvar_fit_summary$adj_r2)*100
+```
+
 ## LMER comparison by study (parallel to s4a style)
 
 ### anticipation
 ```{r}
+# lmerTest::anova() Pr(>F) for fixed effects, concatenated in same model order as r.squaredGLMM rows
+collect_anova_p <- function(...) {
+  vals <- numeric(0)
+  for (m in list(...)) {
+    vals <- c(vals, as.numeric(stats::na.omit(anova(m)[["Pr(>F)"]])))
+  }
+  vals
+}
+
 # vrmid1
 vrmid1_xy_ant <- vrmid1_pupil_data %>%
   filter(
@@ -90,19 +577,43 @@ vrmid1_xy_ant <- vrmid1_pupil_data %>%
     sample_in_trial_t > vrmid1_ant_window[1]
   ) %>%
   group_by(Subject, trial) %>%
-  summarise(mean_pupil_xyvar = mean(pupil_Avg_xyvar_scaled, na.rm = TRUE), .groups = "drop")
+  summarise(mean_pupil_xyvar = mean(pupil_Avg_xyvar_scaled, na.rm = TRUE), 
+            mean_pupil_xyvar_baseline = mean(pupil_Avg_xyvar_baseline, na.rm = TRUE),
+            mean_pupil_xyvar_bc = mean(pupil_Avg_xyvar_bc_scaled, na.rm = TRUE), .groups = "drop")
 
-da <- vrmid1_data_antprobe %>%
+da <- vrmid1_data_antprobe  %>%
+  filter(
+    !is.na(arousal_scaled),
+    !is.na(mean_pupil_nobc_ant),
+    !is.na(mean_pupil_baseline_ant),
+    !is.na(mean_pupil_bc_ant)
+  )%>%
   select(Subject, trial, condition, arousal_scaled, mean_pupil_nobc_ant) %>%
   rename(mean_pupil_avg = mean_pupil_nobc_ant) %>%
   left_join(vrmid1_xy_ant, by = c("Subject", "trial")) %>%
   filter(!is.na(arousal_scaled), !is.na(mean_pupil_avg), !is.na(mean_pupil_xyvar))
 
 summary(avg <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_avg) + (1 | Subject) + (1 | condition), da))
-summary(xy <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar) + (1 | Subject) + (1 | condition), da))
 
-r.squaredGLMM(avg)
-r.squaredGLMM(xy)
+summary(xy_tp <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar) + (1 | Subject) + (1 | condition), da))
+
+summary(xy_t_p <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar_baseline) + scale(mean_pupil_xyvar_bc) + (1 | Subject) + (1 | condition), da))
+
+summary(xy_t <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar_baseline) + (1 | Subject) + (1 | condition), da))
+summary(xy_p <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar_bc) + (1 | Subject) + (1 | condition), da))
+
+rbind(r.squaredGLMM(avg), #should be 14.11
+r.squaredGLMM(xy_t),
+r.squaredGLMM(xy_p),
+r.squaredGLMM(xy_tp),
+r.squaredGLMM(xy_t_p))*100
+
+data.frame(
+  model = c("avg", "xy_t", "xy_p", "xy_tp", "xy_t_p_baseline", "xy_t_p_bc"),
+  `Pr(>F)` = collect_anova_p(avg, xy_t, xy_p, xy_tp, xy_t_p),
+  row.names = NULL,
+  check.names = FALSE
+)
 ```
 
 ```{r}
@@ -114,19 +625,46 @@ fmri3_xy_ant <- fmri3_pupil_data %>%
     sample_in_trial_t > fmri3_ant_window[1]
   ) %>%
   group_by(subject, trial) %>%
-  summarise(mean_pupil_xyvar = mean(pupilDiameter_xyvar_scaled, na.rm = TRUE), .groups = "drop")
+  summarise(
+    mean_pupil_xyvar = mean(pupilDiameter_xyvar_scaled, na.rm = TRUE),
+    mean_pupil_xyvar_baseline = mean(pupilDiameter_xyvar_baseline, na.rm = TRUE),
+    mean_pupil_xyvar_bc = mean(pupilDiameter_xyvar_bc_scaled, na.rm = TRUE),
+    .groups = "drop"
+  )
 
 da <- fmri3_data_antprobe %>%
+  filter(
+    !is.na(arousal_scaled),
+    !is.na(mean_pupil_nobc_scaled_ant),
+    !is.na(mean_pupil_baseline_scaled),
+    !is.na(mean_pupil_bc_scaled_ant)
+  ) %>%
   select(subject, trial, cue_size, arousal_scaled, mean_pupil_nobc_scaled_ant) %>%
   rename(mean_pupil_avg = mean_pupil_nobc_scaled_ant) %>%
   left_join(fmri3_xy_ant, by = c("subject", "trial")) %>%
   filter(!is.na(arousal_scaled), !is.na(mean_pupil_avg), !is.na(mean_pupil_xyvar))
 
 summary(avg <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_avg) + (1 | subject) + (1 | cue_size), da))
-summary(xy <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar) + (1 | subject) + (1 | cue_size), da))
 
-r.squaredGLMM(avg)
-r.squaredGLMM(xy)
+summary(xy_tp <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar) + (1 | subject) + (1 | cue_size), da))
+
+summary(xy_t_p <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar_baseline) + scale(mean_pupil_xyvar_bc) + (1 | subject) + (1 | cue_size), da))
+
+summary(xy_t <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar_baseline) + (1 | subject) + (1 | cue_size), da))
+summary(xy_p <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar_bc) + (1 | subject) + (1 | cue_size), da))
+
+rbind(r.squaredGLMM(avg),
+      r.squaredGLMM(xy_t),
+      r.squaredGLMM(xy_p),
+      r.squaredGLMM(xy_tp),
+      r.squaredGLMM(xy_t_p)) * 100
+
+data.frame(
+  model = c("avg", "xy_t", "xy_p", "xy_tp", "xy_t_p_baseline", "xy_t_p_bc"),
+  `Pr(>F)` = collect_anova_p(avg, xy_t, xy_p, xy_tp, xy_t_p),
+  row.names = NULL,
+  check.names = FALSE
+)
 ```
 
 ### outcome
@@ -139,19 +677,46 @@ vrmid1_xy_out <- vrmid1_pupil_data %>%
     sample_in_trial_t > vrmid1_outprobe_out_window[1]
   ) %>%
   group_by(Subject, trial) %>%
-  summarise(mean_pupil_xyvar = mean(pupil_Avg_xyvar_scaled, na.rm = TRUE), .groups = "drop")
+  summarise(
+    mean_pupil_xyvar = mean(pupil_Avg_xyvar_scaled, na.rm = TRUE),
+    mean_pupil_xyvar_baseline = mean(pupil_Avg_xyvar_baseline, na.rm = TRUE),
+    mean_pupil_xyvar_bc = mean(pupil_Avg_xyvar_bc_scaled, na.rm = TRUE),
+    .groups = "drop"
+  )
 
 do <- vrmid1_data_outprobe %>%
+  filter(
+    !is.na(arousal_scaled),
+    !is.na(mean_pupil_nobc_out),
+    !is.na(mean_pupil_baseline_out),
+    !is.na(mean_pupil_bc_out)
+  ) %>%
   select(Subject, trial, condition, arousal_scaled, mean_pupil_nobc_out) %>%
   rename(mean_pupil_avg = mean_pupil_nobc_out) %>%
   left_join(vrmid1_xy_out, by = c("Subject", "trial")) %>%
   filter(!is.na(arousal_scaled), !is.na(mean_pupil_avg), !is.na(mean_pupil_xyvar))
 
 summary(avg <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_avg) + (1 | Subject) + (1 | condition), do))
-summary(xy <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar) + (1 | Subject) + (1 | condition), do))
 
-r.squaredGLMM(avg)
-r.squaredGLMM(xy)
+summary(xy_tp <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar) + (1 | Subject) + (1 | condition), do))
+
+summary(xy_t_p <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar_baseline) + scale(mean_pupil_xyvar_bc) + (1 | Subject) + (1 | condition), do))
+
+summary(xy_t <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar_baseline) + (1 | Subject) + (1 | condition), do))
+summary(xy_p <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar_bc) + (1 | Subject) + (1 | condition), do))
+
+rbind(r.squaredGLMM(avg),
+      r.squaredGLMM(xy_t),
+      r.squaredGLMM(xy_p),
+      r.squaredGLMM(xy_tp),
+      r.squaredGLMM(xy_t_p)) * 100
+
+data.frame(
+  model = c("avg", "xy_t", "xy_p", "xy_tp", "xy_t_p_baseline", "xy_t_p_bc"),
+  `Pr(>F)` = collect_anova_p(avg, xy_t, xy_p, xy_tp, xy_t_p),
+  row.names = NULL,
+  check.names = FALSE
+)
 ```
 
 ```{r}
@@ -163,19 +728,46 @@ fmri3_xy_out <- fmri3_pupil_data %>%
     sample_in_trial_t > fmri3_outprobe_out_window[1]
   ) %>%
   group_by(subject, trial) %>%
-  summarise(mean_pupil_xyvar = mean(pupilDiameter_xyvar_scaled, na.rm = TRUE), .groups = "drop")
+  summarise(
+    mean_pupil_xyvar = mean(pupilDiameter_xyvar_scaled, na.rm = TRUE),
+    mean_pupil_xyvar_baseline = mean(pupilDiameter_xyvar_baseline, na.rm = TRUE),
+    mean_pupil_xyvar_bc = mean(pupilDiameter_xyvar_bc_scaled, na.rm = TRUE),
+    .groups = "drop"
+  )
 
 do <- fmri3_data_outprobe %>%
+  filter(
+    !is.na(arousal_scaled),
+    !is.na(mean_pupil_nobc_scaled_out),
+    !is.na(mean_pupil_baseline_scaled),
+    !is.na(mean_pupil_bc_scaled_out)
+  ) %>%
   select(subject, trial, cue_size, arousal_scaled, mean_pupil_nobc_scaled_out) %>%
   rename(mean_pupil_avg = mean_pupil_nobc_scaled_out) %>%
   left_join(fmri3_xy_out, by = c("subject", "trial")) %>%
   filter(!is.na(arousal_scaled), !is.na(mean_pupil_avg), !is.na(mean_pupil_xyvar))
 
 summary(avg <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_avg) + (1 | subject) + (1 | cue_size), do))
-summary(xy <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar) + (1 | subject) + (1 | cue_size), do))
 
-r.squaredGLMM(avg)
-r.squaredGLMM(xy)
+summary(xy_tp <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar) + (1 | subject) + (1 | cue_size), do))
+
+summary(xy_t_p <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar_baseline) + scale(mean_pupil_xyvar_bc) + (1 | subject) + (1 | cue_size), do))
+
+summary(xy_t <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar_baseline) + (1 | subject) + (1 | cue_size), do))
+summary(xy_p <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar_bc) + (1 | subject) + (1 | cue_size), do))
+
+rbind(r.squaredGLMM(avg),
+      r.squaredGLMM(xy_t),
+      r.squaredGLMM(xy_p),
+      r.squaredGLMM(xy_tp),
+      r.squaredGLMM(xy_t_p)) * 100
+
+data.frame(
+  model = c("avg", "xy_t", "xy_p", "xy_tp", "xy_t_p_baseline", "xy_t_p_bc"),
+  `Pr(>F)` = collect_anova_p(avg, xy_t, xy_p, xy_tp, xy_t_p),
+  row.names = NULL,
+  check.names = FALSE
+)
 ```
 
 ### both probes
@@ -187,17 +779,40 @@ vrmid1_xy_both <- bind_rows(
 ) %>% mutate(probe_model = factor(probe_model, levels = c("anti", "out")))
 
 db <- vrmid1_data_2probes %>%
+  filter(
+    !is.na(arousal_scaled),
+    !is.na(mean_pupil_nobc),
+    !is.na(mean_pupil_baseline),
+    !is.na(mean_pupil_bc)
+  ) %>%
   select(Subject, trial, probe, condition, arousal_scaled, mean_pupil_nobc) %>%
   mutate(probe_model = factor(probe, levels = c("anti", "out"))) %>%
   rename(mean_pupil_avg = mean_pupil_nobc) %>%
   left_join(vrmid1_xy_both, by = c("Subject", "trial", "probe_model")) %>%
   filter(!is.na(arousal_scaled), !is.na(mean_pupil_avg), !is.na(mean_pupil_xyvar))
 
-summary(avg <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_avg) + (1 | Subject) + (1 | condition) + (1 | probe_model), db))
-summary(xy <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar) + (1 | Subject) + (1 | condition) + (1 | probe_model), db))
+summary(avg <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_avg) + (1 | Subject) + (1 | condition) + (1+scale(mean_pupil_avg)| probe_model), db))
 
-r.squaredGLMM(avg)
-r.squaredGLMM(xy)
+summary(xy_tp <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar) + (1 | Subject) + (1 | condition) + (1+scale(mean_pupil_xyvar)  | probe_model), db))
+
+summary(xy_t_p <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar_baseline) + scale(mean_pupil_xyvar_bc) + (1 | Subject) + (1 | condition) + (1+scale(mean_pupil_xyvar_baseline) + scale(mean_pupil_xyvar_bc) | probe_model), db))
+
+summary(xy_t <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar_baseline) + (1 | Subject) + (1 | condition) + (1+ scale(mean_pupil_xyvar_baseline) | probe_model), db))
+
+summary(xy_p <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar_bc) + (1 | Subject) + (1 | condition) + (1 +scale(mean_pupil_xyvar_bc) | probe_model), db))
+
+round(rbind(r.squaredGLMM(avg),
+      r.squaredGLMM(xy_t),
+      r.squaredGLMM(xy_p),
+      r.squaredGLMM(xy_tp),
+      r.squaredGLMM(xy_t_p)) * 100,2)
+
+data.frame(
+  model = c("avg", "xy_t", "xy_p", "xy_tp", "xy_t_p_baseline", "xy_t_p_bc"),
+  `Pr(>F)` = collect_anova_p(avg, xy_t, xy_p, xy_tp, xy_t_p),
+  row.names = NULL,
+  check.names = FALSE
+)
 ```
 
 ```{r}
@@ -208,6 +823,12 @@ fmri3_xy_both <- bind_rows(
 ) %>% mutate(probe_model = factor(probe_model, levels = c("anti", "out")))
 
 db <- fmri3_data_2probes %>%
+  filter(
+    !is.na(arousal_scaled),
+    !is.na(mean_pupil_nobc),
+    !is.na(mean_pupil_baseline),
+    !is.na(mean_pupil_bc)
+  ) %>%
   select(subject, trial, probe, cue_size, arousal_scaled, mean_pupil_nobc) %>%
   mutate(probe_model = factor(probe, levels = c(1, 2), labels = c("anti", "out"))) %>%
   rename(mean_pupil_avg = mean_pupil_nobc) %>%
@@ -215,10 +836,26 @@ db <- fmri3_data_2probes %>%
   filter(!is.na(arousal_scaled), !is.na(mean_pupil_avg), !is.na(mean_pupil_xyvar))
 
 summary(avg <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_avg) + (1 | subject) + (1 | cue_size) + (1 | probe_model), db))
-summary(xy <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar) + (1 | subject) + (1 | cue_size) + (1 | probe_model), db))
 
-r.squaredGLMM(avg)
-r.squaredGLMM(xy)
+summary(xy_tp <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar) + (1 | subject) + (1 | cue_size) + (1 | probe_model), db))
+
+summary(xy_t_p <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar_baseline) + scale(mean_pupil_xyvar_bc) + (1 | subject) + (1 | cue_size) + (1 | probe_model), db))
+
+summary(xy_t <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar_baseline) + (1 | subject) + (1 | cue_size) + (1 | probe_model), db))
+summary(xy_p <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_xyvar_bc) + (1 | subject) + (1 | cue_size) + (1 | probe_model), db))
+
+rbind(r.squaredGLMM(avg),
+      r.squaredGLMM(xy_t),
+      r.squaredGLMM(xy_p),
+      r.squaredGLMM(xy_tp),
+      r.squaredGLMM(xy_t_p)) * 100
+
+data.frame(
+  model = c("avg", "xy_t", "xy_p", "xy_tp", "xy_t_p_baseline", "xy_t_p_bc"),
+  `Pr(>F)` = collect_anova_p(avg, xy_t, xy_p, xy_tp, xy_t_p),
+  row.names = NULL,
+  check.names = FALSE
+)
 ```
 
 ## pool the effect sizes and make summary plots
@@ -290,7 +927,7 @@ ggplot(plot_dat, aes(x = pupil_value, y = arousal_scaled, color = signal)) +
     color = "Signal"
   )
 # ggsave("~/Desktop/VRMID-analysis/mid-pupil/figures/fig4c_pooled_effects_xyvar.tiff", dpi = 300, height = 6, width = 8)
-# ggsave("~/Desktop/VRMID-analysis/mid-pupil/figures/fig4c_pooled_effects_xyvar.png", dpi = 300, height = 6, width = 8)
+ggsave("~/Desktop/VRMID-analysis/mid-pupil/figures/fig4c_pooled_effects_xyvar.png", dpi = 300, height = 6, width = 8)
 ```
 
 ```{r}

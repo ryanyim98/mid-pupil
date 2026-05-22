@@ -544,12 +544,12 @@ for (l in 0:9){
   
 dftemp1 <- as.data.frame(dftemp1)
 dftemp1$lag <- rep(0:9,each=3)
-dftemp1$measure <- rep(c("tonic","corrected phasic","uncorrected phasic"),10)
+dftemp1$measure <- rep(c("tonic","corrected phasic","total evoked response"),10)
 dftemp1 <- dftemp1 %>% 
   mutate(p_corrected = `Pr(>|t|)`*10,
          shape = ifelse(`Pr(>|t|)` < .05/10, 19, 1))  # numeric alpha
 
-p1 <- ggplot(dftemp1 %>% filter(measure != "uncorrected phasic"), aes(x = lag, y = Estimate, color = measure,shape = shape)) +
+p1 <- ggplot(dftemp1 %>% filter(measure != "total evoked response"), aes(x = lag, y = Estimate, color = measure,shape = shape)) +
   annotate("rect", xmin = -0.5, ymin = -0.1, xmax = 0.5, ymax = 0.3, alpha = 0.1) +
   geom_hline(yintercept = 0, linetype = "dashed") +
   geom_line() +
@@ -598,12 +598,12 @@ for (l in 0:9){
   
 dftemp3 <- as.data.frame(dftemp3)
 dftemp3$lag <- rep(0:9,each=3)
-dftemp3$measure <- rep(c("tonic","corrected phasic","uncorrected phasic"),10)
+dftemp3$measure <- rep(c("tonic","corrected phasic","total evoked response"),10)
 dftemp3 <- dftemp3  %>% 
   mutate(p_corrected = `Pr(>|t|)`*10,
          shape = ifelse(`Pr(>|t|)` < .05/10, 19, 1))  # numeric alpha
 
-p3 <- ggplot(dftemp3%>% filter(measure != "uncorrected phasic"), aes(x = lag, y = Estimate, color = measure,shape=shape)) +
+p3 <- ggplot(dftemp3%>% filter(measure != "total evoked response"), aes(x = lag, y = Estimate, color = measure,shape=shape)) +
   annotate("rect", xmin = -0.5, ymin = -0.1, xmax = 0.5, ymax = 0.4, alpha = 0.1) +
   geom_hline(yintercept = 0, linetype = "dashed") +
   geom_line() +
@@ -689,12 +689,12 @@ for (l in 0:4){  # start at 1 because lag0 residual is undefined
 
 dftemp1 <- as.data.frame(dftemp1)
 dftemp1$lag <- rep(0:4,each=3)
-dftemp1$measure <- rep(c("tonic","corrected phasic","uncorrected phasic"),5)
+dftemp1$measure <- rep(c("tonic","corrected phasic","total evoked response"),5)
 dftemp1 <- dftemp1  %>% 
   mutate(p_corrected = `Pr(>|t|)`*5,
          shape = ifelse(`Pr(>|t|)` < .05/5, 19, 1))  # numeric alpha
 
-p1 <- ggplot(dftemp1 %>% filter(measure != "uncorrected phasic"), aes(x = lag, y = Estimate, color = measure,shape = shape)) +
+p1 <- ggplot(dftemp1 %>% filter(measure != "total evoked response"), aes(x = lag, y = Estimate, color = measure,shape = shape)) +
   annotate("rect", xmin = -0.5, ymin = -0.1, xmax = 0.5, ymax = 0.3, alpha = 0.1) +
   geom_hline(yintercept = 0, linetype = "dashed") +
   geom_line() +
@@ -772,12 +772,12 @@ for (l in 0:4){  # start at 1 because lag0 residual is undefined
 
 dftemp3 <- as.data.frame(dftemp3)
 dftemp3$lag <- rep(0:4,each=3)
-dftemp3$measure <- rep(c("tonic","corrected phasic","uncorrected phasic"),5)
+dftemp3$measure <- rep(c("tonic","corrected phasic","total evoked response"),5)
 dftemp3 <- dftemp3  %>% 
   mutate(p_corrected = `Pr(>|t|)`,
          shape = ifelse(`Pr(>|t|)` < .05, 19, 1))  # numeric alpha
 
-p3 <- ggplot(dftemp3 %>% filter(measure != "uncorrected phasic"), aes(x = lag, y = Estimate, color = measure,shape = shape)) +
+p3 <- ggplot(dftemp3 %>% filter(measure != "total evoked response"), aes(x = lag, y = Estimate, color = measure,shape = shape)) +
   annotate("rect", xmin = -0.5, ymin = -0.1, xmax = 0.5, ymax = 0.3, alpha = 0.1) +
   geom_hline(yintercept = 0, linetype = "dashed") +
   geom_line() +
@@ -838,12 +838,12 @@ for (l in 0:9){
   
 dftemp1 <- as.data.frame(dftemp1)
 dftemp1$lag <- rep(0:9,each=3)
-dftemp1$measure <- rep(c("tonic","corrected phasic","uncorrected phasic"),10)
+dftemp1$measure <- rep(c("tonic","corrected phasic","total evoked response"),10)
 dftemp1 <- dftemp1 %>% 
   mutate(p_corrected = `Pr(>|t|)`*10,
          shape = ifelse(`Pr(>|t|)` < .05/10, 19, 1))  # numeric alpha
 
-p1 <- ggplot(dftemp1 %>% filter(measure != "uncorrected phasic"), aes(x = lag, y = Estimate, color = measure,shape = shape)) +
+p1 <- ggplot(dftemp1 %>% filter(measure != "total evoked response"), aes(x = lag, y = Estimate, color = measure,shape = shape)) +
   annotate("rect", xmin = -0.5, ymin = -0.1, xmax = 0.5, ymax = 0.3, alpha = 0.1) +
   geom_hline(yintercept = 0, linetype = "dashed") +
   geom_line() +
@@ -902,12 +902,12 @@ for (l in 0:9){
   
 dftemp3 <- as.data.frame(dftemp3)
 dftemp3$lag <- rep(0:9,each=3)
-dftemp3$measure <- rep(c("tonic","corrected phasic","uncorrected phasic"),10)
+dftemp3$measure <- rep(c("tonic","corrected phasic","total evoked response"),10)
 dftemp3 <- dftemp3  %>% 
   mutate(p_corrected = `Pr(>|t|)`*10,
          shape = ifelse(`Pr(>|t|)` < .05/10, 19, 1))  # numeric alpha
 
-p3 <- ggplot(dftemp3%>% filter(measure != "uncorrected phasic"), aes(x = lag, y = Estimate, color = measure,shape=shape)) +
+p3 <- ggplot(dftemp3%>% filter(measure != "total evoked response"), aes(x = lag, y = Estimate, color = measure,shape=shape)) +
   annotate("rect", xmin = -0.5, ymin = -0.1, xmax = 0.5, ymax = 0.4, alpha = 0.1) +
   geom_hline(yintercept = 0, linetype = "dashed") +
   geom_line() +
@@ -974,13 +974,13 @@ for (l in 0:9){
 
 dftemp4 <- as.data.frame(dftemp4)
 dftemp4$lag <- rep(0:9,each=3)
-dftemp4$measure <- rep(c("tonic","corrected phasic","uncorrected phasic"),10)
+dftemp4$measure <- rep(c("tonic","corrected phasic","total evoked response"),10)
 dftemp4 <- dftemp4 %>%
   group_by(measure) %>% 
   mutate(p_corrected = p.adjust(`Pr(>|t|)`, method = "fdr")) %>%
   mutate(shape = ifelse(p_corrected < .05, 19, 1))
 
-p4 <- ggplot(dftemp4%>% filter(measure != "uncorrected phasic"), aes(x = lag, y = Estimate, color = measure,shape=shape)) +
+p4 <- ggplot(dftemp4%>% filter(measure != "total evoked response"), aes(x = lag, y = Estimate, color = measure,shape=shape)) +
   annotate("rect", xmin = -0.5, ymin = -0.1, xmax = 0.5, ymax = 0.4, alpha = 0.1) +
   geom_hline(yintercept = 0, linetype = "dashed") +
   geom_line() +
@@ -1040,13 +1040,13 @@ for (l in 0:9){
 
 dftemp6 <- as.data.frame(dftemp6)
 dftemp6$lag <- rep(0:9,each=3)
-dftemp6$measure <- rep(c("tonic","corrected phasic","uncorrected phasic"),10)
+dftemp6$measure <- rep(c("tonic","corrected phasic","total evoked response"),10)
 dftemp6 <- dftemp6  %>%
   group_by(measure) %>% 
   mutate(p_corrected = p.adjust(`Pr(>|t|)`, method = "fdr")) %>%
   mutate(shape = ifelse(p_corrected < .05, 19, 1))
 
-p6 <- ggplot(dftemp6%>% filter(measure != "uncorrected phasic"), aes(x = lag, y = Estimate, color = measure,shape=shape)) +
+p6 <- ggplot(dftemp6%>% filter(measure != "total evoked response"), aes(x = lag, y = Estimate, color = measure,shape=shape)) +
   annotate("rect", xmin = -0.5, ymin = -0.1, xmax = 0.5, ymax = 0.4, alpha = 0.1) +
   geom_hline(yintercept = 0, linetype = "dashed") +
   geom_line() +
@@ -1139,13 +1139,13 @@ for (l in 0:9){
 
 dftemp4 <- as.data.frame(dftemp4)
 dftemp4$lag <- rep(0:9,each=3)
-dftemp4$measure <- rep(c("tonic","corrected phasic","uncorrected phasic"),10)
+dftemp4$measure <- rep(c("tonic","corrected phasic","total evoked response"),10)
 dftemp4 <- dftemp4 %>%
   group_by(measure) %>% 
   mutate(p_corrected = p.adjust(`Pr(>|t|)`, method = "fdr")) %>%
   mutate(shape = ifelse(p_corrected < .05, 19, 1))
 
-p4 <- ggplot(dftemp4%>% filter(measure != "uncorrected phasic"), aes(x = lag, y = Estimate, color = measure,shape=shape)) +
+p4 <- ggplot(dftemp4%>% filter(measure != "total evoked response"), aes(x = lag, y = Estimate, color = measure,shape=shape)) +
   annotate("rect", xmin = -0.5, ymin = -0.1, xmax = 0.5, ymax = 0.4, alpha = 0.1) +
   geom_hline(yintercept = 0, linetype = "dashed") +
   geom_line() +
@@ -1232,13 +1232,13 @@ for (l in 0:9){
 
 dftemp6 <- as.data.frame(dftemp6)
 dftemp6$lag <- rep(0:9,each=3)
-dftemp6$measure <- rep(c("tonic","corrected phasic","uncorrected phasic"),10)
+dftemp6$measure <- rep(c("tonic","corrected phasic","total evoked response"),10)
 dftemp6 <- dftemp6  %>%
   group_by(measure) %>% 
   mutate(p_corrected = p.adjust(`Pr(>|t|)`, method = "fdr")) %>%
   mutate(shape = ifelse(p_corrected < .05, 19, 1))
 
-p6 <- ggplot(dftemp6%>% filter(measure != "uncorrected phasic"), aes(x = lag, y = Estimate, color = measure,shape=shape)) +
+p6 <- ggplot(dftemp6%>% filter(measure != "total evoked response"), aes(x = lag, y = Estimate, color = measure,shape=shape)) +
   annotate("rect", xmin = -0.5, ymin = -0.1, xmax = 0.5, ymax = 0.4, alpha = 0.1) +
   geom_hline(yintercept = 0, linetype = "dashed") +
   geom_line() +
@@ -1315,13 +1315,13 @@ for (l in 0:9){
 
 dftemp4 <- as.data.frame(dftemp4)
 dftemp4$lag <- rep(0:9,each=3)
-dftemp4$measure <- rep(c("tonic","corrected phasic","uncorrected phasic"),10)
+dftemp4$measure <- rep(c("tonic","corrected phasic","total evoked response"),10)
 dftemp4 <- dftemp4 %>%
   group_by(measure) %>% 
   mutate(p_corrected = p.adjust(`Pr(>|t|)`, method = "fdr")) %>%
   mutate(shape = ifelse(p_corrected < .05, 19, 1))
 
-p4 <- ggplot(dftemp4%>% filter(measure != "uncorrected phasic"), aes(x = lag, y = Estimate, color = measure,shape=shape)) +
+p4 <- ggplot(dftemp4%>% filter(measure != "total evoked response"), aes(x = lag, y = Estimate, color = measure,shape=shape)) +
   annotate("rect", xmin = -0.5, ymin = -0.1, xmax = 0.5, ymax = 0.4, alpha = 0.1) +
   geom_hline(yintercept = 0, linetype = "dashed") +
   geom_line() +
@@ -1394,13 +1394,13 @@ for (l in 0:9){
 
 dftemp6 <- as.data.frame(dftemp6)
 dftemp6$lag <- rep(0:9,each=3)
-dftemp6$measure <- rep(c("tonic","corrected phasic","uncorrected phasic"),10)
+dftemp6$measure <- rep(c("tonic","corrected phasic","total evoked response"),10)
 dftemp6 <- dftemp6  %>%
   group_by(measure) %>% 
   mutate(p_corrected = p.adjust(`Pr(>|t|)`, method = "fdr")) %>%
   mutate(shape = ifelse(p_corrected < .05, 19, 1))
 
-p6 <- ggplot(dftemp6%>% filter(measure != "uncorrected phasic"), aes(x = lag, y = Estimate, color = measure,shape=shape)) +
+p6 <- ggplot(dftemp6%>% filter(measure != "total evoked response"), aes(x = lag, y = Estimate, color = measure,shape=shape)) +
   annotate("rect", xmin = -0.5, ymin = -0.1, xmax = 0.5, ymax = 0.4, alpha = 0.1) +
   geom_hline(yintercept = 0, linetype = "dashed") +
   geom_line() +
@@ -1420,7 +1420,7 @@ p4+p6
 ```
 
 
-## rt: should be predicted by arousal and pupil dilation
+## rt / hit rate should be predicted by arousal and pupil dilation
 ```{r}
 vrmid1_data_rt <- vrmid1_pupil_data%>%
   filter(sample_in_trial_t <= vrmid1_ant_window[2] & sample_in_trial_t > vrmid1_ant_window[1]) %>% 
@@ -1453,12 +1453,64 @@ fmri3_data_rt <- fmri3_pupil_data%>%
          abs(mean_pupil_baseline) < 4)  %>% 
   group_by(subject)%>%
   mutate(log_rt = log(rt),
-         log_rt = as.numeric(scale(log_rt)))
+         log_rt = as.numeric(scale(log_rt)),
+         hit_bin = ifelse(hit == "Hit",1,0)) 
+```
 
-# summary(lmer(scale(log_rt) ~ scale(mean_pupil_baseline) +scale(mean_pupil_bc)+scale(arousal_scaled)+ (1|Subject) + (1|probe),vrmid1_data_rt %>% filter(hit == 1)))
-# summary(lmer(scale(log_rt) ~ scale(mean_pupil_baseline) +scale(mean_pupil_bc)+scale(arousal_scaled)+ (1|Subject) + (1|probe),vrmid2_data_rt %>% filter(hit == 1)))
-# summary(lmer(scale(log_rt) ~ scale(mean_pupil_baseline) + scale(mean_pupil_bc) + scale(arousal_scaled) + (1|subject),fmri3_data_rt %>% filter(hit == 1)))
+### hit
+```{r}
+hit_reg_coef <- as.data.frame(
+  Reduce(rbind,list(
+  summary(glmer(hit ~ scale(mean_pupil_bc) + scale(mean_pupil_baseline)+ (1|probe)+ (1|Subject),
+                family = "binomial",
+                vrmid1_data_rt))$coefficients,
+summary(glmer(hit ~  scale(arousal_scaled) + (1|Subject),
+               family = "binomial",
+              vrmid1_data_rt %>% filter(probe == "anti")))$coefficients,
 
+summary(glmer(hit_bin ~ scale(mean_pupil_bc) + scale(mean_pupil_baseline)  + (1|probe) + (1|subject),
+               family = "binomial",
+              fmri3_data_rt))$coefficients,
+summary(glmer(hit_bin ~ scale(arousal_scaled) + (1|subject),
+              family = "binomial",
+              fmri3_data_rt %>% filter(probe == 1)))$coefficients))
+) %>% 
+  rownames_to_column() %>% 
+  filter(!grepl("Intercept",rowname))
+
+hit_reg_coef$study <- c("VRstudy","VRstudy","VRstudy","FMRIstudy","FMRIstudy","FMRIstudy")
+hit_reg_coef$predictor <- rep(c("phasic_pupil","tonic_pupil","arousal"),2)
+
+hit_reg_coef<-hit_reg_coef %>% 
+  mutate(sig = ifelse(`Pr(>|z|)` >= .05, "n.s.",
+                      ifelse(`Pr(>|z|)` >= .01, "*",
+                             ifelse(`Pr(>|z|)` >= .005,"**","***"))))
+
+hit_reg_coef$predictor <- factor(hit_reg_coef$predictor, levels = c("phasic_pupil","tonic_pupil","arousal"),
+                                labels = c("corrected phasic pupil","tonic pupil","subjective arousal"))
+hit_reg_coef$study <- factor(hit_reg_coef$study, levels = c("VRstudy","FMRIstudy"),
+                                labels = c("VR study","FMRI study"))
+pp1<-ggplot(hit_reg_coef %>% filter(predictor != "subjective arousal"), aes(x = study, y = Estimate,
+                        color = study))+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  geom_text(aes(x = study, y = Estimate+0.1,
+                        color = study, label = sig))+
+  geom_errorbar(aes(x = study, y = Estimate,ymin = Estimate-`Std. Error`,
+                    ymax = Estimate+`Std. Error`,
+                        color = study), width = 0.1)+
+  geom_point(size = 3, shape = 5)+
+  theme_bw()+
+  facet_wrap(~predictor)+
+  scale_color_brewer(palette = "Dark2")+
+  theme(legend.position = "none",
+        panel.grid = element_blank())+
+  labs(y = "std. beta",
+       x = "",
+       title = "hit rate ~ tonic + phasic")
+```
+
+### rt
+```{r}
 rt_reg_coef <- as.data.frame(
   Reduce(rbind,list(
   summary(lmer(scale(log_rt) ~ scale(mean_pupil_bc) + scale(mean_pupil_baseline)+ (1|probe)+ (1|Subject),vrmid1_data_rt %>% filter(hit == 1)))$coefficients,
@@ -1482,7 +1534,7 @@ rt_reg_coef$predictor <- factor(rt_reg_coef$predictor, levels = c("phasic_pupil"
                                 labels = c("corrected phasic pupil","tonic pupil","subjective arousal"))
 rt_reg_coef$study <- factor(rt_reg_coef$study, levels = c("VRstudy","FMRIstudy"),
                                 labels = c("VR study","FMRI study"))
-pp<-ggplot(rt_reg_coef %>% filter(predictor != "subjective arousal"), aes(x = study, y = Estimate,
+pp2<-ggplot(rt_reg_coef %>% filter(predictor != "subjective arousal"), aes(x = study, y = Estimate,
                         color = study))+
   geom_hline(yintercept = 0, linetype = "dashed")+
   geom_text(aes(x = study, y = Estimate+0.05,
@@ -1499,6 +1551,8 @@ pp<-ggplot(rt_reg_coef %>% filter(predictor != "subjective arousal"), aes(x = st
   labs(y = "std. beta",
        x = "",
        title = "rt ~ tonic + phasic")
+pp1+pp2
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/pupil_rt.png"),dpi = 300, height = 3, width = 8)
 ```
 
 
@@ -1519,7 +1573,7 @@ acf_results_vrmid1$variable <- factor(acf_results_vrmid1$variable,
                                                 "pupil_Avg_baseline_scaled",
                                                 "pupil_Avg_bc_scaled","pupil_Avg_scaled"),
                                      labels = c("arousal","valence","tonic","corrected phasic",
-                                                "uncorrected phasic"))
+                                                "total evoked response"))
 
 t.test(acf_results_vrmid1$AR[acf_results_vrmid1$variable == "corrected phasic"])
 t.test(acf_results_vrmid1$AR[acf_results_vrmid1$variable == "tonic"],
@@ -1546,13 +1600,13 @@ par1<-ggplot() +
     subtitle = "VR Study")+
   ylim(-0.5,1)+
   coord_flip()+
-  # add semi-transparent white squares behind "valence" and "uncorrected phasic"
+  # add semi-transparent white squares behind "valence" and "total evoked response"
   annotate("rect",
            xmin = 1.5, xmax = 2.5,  # for "valence"
            ymin = -Inf, ymax = Inf,
            fill = "white", alpha = 0.6) +
   annotate("rect",
-           xmin = 4.5, xmax = 5.5,  # for "uncorrected phasic"
+           xmin = 4.5, xmax = 5.5,  # for "total evoked response"
            ymin = -Inf, ymax = Inf,
            fill = "white", alpha = 0.6)+
   annotate("rect",
@@ -1578,7 +1632,7 @@ acf_results_fmri3$variable <- factor(acf_results_fmri3$variable,
                                                 "pupilDiameter_baseline_scaled",
                                                 "pupilDiameter_bc_scaled","pupilDiameter_scaled"),
                                      labels = c("arousal","valence","tonic","corrected phasic",
-                                                "uncorrected phasic"))
+                                                "total evoked response"))
 
 t.test(acf_results_fmri3$AR[acf_results_fmri3$variable == "corrected phasic"])
 t.test(acf_results_fmri3$AR[acf_results_fmri3$variable == "tonic"],
@@ -1605,13 +1659,13 @@ par3<-ggplot() +
     subtitle = "FMRI Study")+
   ylim(-0.5,1)+
   coord_flip()+
-  # add semi-transparent white squares behind "valence" and "uncorrected phasic"
+  # add semi-transparent white squares behind "valence" and "total evoked response"
   annotate("rect",
            xmin = 1.5, xmax = 2.5,  # for "valence"
            ymin = -Inf, ymax = Inf,
            fill = "white", alpha = 0.6) +
   annotate("rect",
-           xmin = 4.5, xmax = 5.5,  # for "uncorrected phasic"
+           xmin = 4.5, xmax = 5.5,  # for "total evoked response"
            ymin = -Inf, ymax = Inf,
            fill = "white", alpha = 0.6)+
   annotate("rect",
@@ -1631,7 +1685,7 @@ ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/ar.png"),dpi = 300, he
 (par1+par3)
   # plot_annotation(tag_levels = "a")
 
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig5_beh.png"),dpi = 300, height = 6, width = 10)
+ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig5_beh.png"),dpi = 300, height = 6, width = 12)
 
 fig5 <- image_read("~/Desktop/VRMID-analysis/mid-pupil/figures/fig5_beh.png")
 fig5 <- image_annotate(fig5, "A", size = 55, location = "+250+00", color = "black", gravity = "northwest")
@@ -1643,7 +1697,24 @@ image_write(fig5, "~/Desktop/VRMID-analysis/mid-pupil/figures/fig5_beh.jpeg")
 ```
 
 ```{r}
-pp<-ggplot(rt_reg_coef %>% filter(predictor == "subjective arousal"), aes(x = study, y = Estimate,
+pp<-ggplot(hit_reg_coef %>% filter(predictor == "subjective arousal"), aes(x = study, y = Estimate,
+                        color = study))+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  geom_text(aes(x = study, y = Estimate+`Std. Error`+0.01,
+                        color = study, label = sig))+
+  geom_errorbar(aes(x = study, y = Estimate,ymin = Estimate-`Std. Error`,
+                    ymax = Estimate+`Std. Error`,
+                        color = study), width = 0.1)+
+  geom_point(size = 3, shape = 5)+
+  theme_bw()+
+  facet_wrap(~predictor)+
+  scale_color_brewer(palette = "Dark2")+
+  theme(legend.position = "none",
+        panel.grid = element_blank())+
+  labs(y = "std. beta",
+       x = "",
+       title = "hit ~ arousal")+
+ggplot(rt_reg_coef %>% filter(predictor == "subjective arousal"), aes(x = study, y = Estimate,
                         color = study))+
   geom_hline(yintercept = 0, linetype = "dashed")+
   geom_text(aes(x = study, y = Estimate+`Std. Error`+0.01,
@@ -1661,7 +1732,7 @@ pp<-ggplot(rt_reg_coef %>% filter(predictor == "subjective arousal"), aes(x = st
        x = "",
        title = "rt ~ arousal")
 
-pt13+pt33+pt15+pt35+pp+
+(pt13+pt33)/(pt15+pt35)/pp+
   plot_layout(nrow = 3)+
   plot_annotation(title = "Self-reported arousal",
                   tag_levels = "A")

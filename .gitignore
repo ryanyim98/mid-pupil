@@ -8,11 +8,10 @@
 *.png
 *.tiff
 .Rproj.user
-data/r2.html
 
 *.pptx
 *.jpg
-*.html
+*.jpeg
 *.png
 *.xlsx
 *.svg

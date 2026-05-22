@@ -38,6 +38,26 @@ summary(lmer(scale(mean_pupil_baseline_scaled) ~  scale(mean_pupil_bc_scaled_out
 
 ### anticipation
 ```{r}
+# P-values from lmerTest::anova() for each pupil predictor (t, p, tp; then both rows for t+p)
+collect_anova_p <- function(...) {
+  vals <- numeric(0)
+  for (m in list(...)) {
+    vals <- c(vals, as.numeric(stats::na.omit(anova(m)[["Pr(>F)"]])))
+  }
+  vals
+}
+
+# AIC/BIC table row (five models incl. interaction): t, p, tp, t+p, t+p:int
+mk_aicbic_row <- function(study, probe, t, p, tp, t_p, t_p_int) {
+  model_lab <- c("tonic", "phasic-baseline", "phasic", "t+p", "t_pxint")
+  vals <- c(
+    round(c(AIC(t), AIC(p), AIC(tp), AIC(t_p), AIC(t_p_int)), 1),
+    round(c(BIC(t), BIC(p), BIC(tp), BIC(t_p), BIC(t_p_int)), 1)
+  )
+  nm <- c(paste0("AIC_", model_lab), paste0("BIC_", model_lab))
+  dplyr::bind_cols(tibble(study = study, probe = probe), rlang::set_names(as.list(vals), nm))
+}
+
 #vrmid1
 da <- vrmid1_data_antprobe %>%
   filter(
@@ -60,6 +80,8 @@ summary(t_p_int <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_baseline_ant) *
 round(c(BIC(t),BIC(p),BIC(tp),BIC(t_p),BIC(t_p_int),
 AIC(t),AIC(p),AIC(tp),AIC(t_p),AIC(t_p_int)),1)
 
+aicbic_row_vr1_ant <- mk_aicbic_row("VR1", "anticipation", t, p, tp, t_p, t_p_int)
+
 v1a<- c(round(r.squaredGLMM(t)*100,2),
 round(r.squaredGLMM(p)*100,2),
 round(r.squaredGLMM(tp)*100,2),
@@ -67,7 +89,8 @@ round(r.squaredGLMM(t_p)*100,2),
 t(EMAtools::lme.dscore(t,da,"lme4")),
 t(EMAtools::lme.dscore(p,da,"lme4")),
 t(EMAtools::lme.dscore(tp,da,"lme4")),
-t(EMAtools::lme.dscore(t_p,da,"lme4")))
+t(EMAtools::lme.dscore(t_p,da,"lme4")),
+collect_anova_p(t, p, tp, t_p))
 
 
 # fit random slope as comparison
@@ -119,6 +142,8 @@ anova(tp,tp_res_conv)
 round(c(BIC(t),BIC(p),BIC(tp),BIC(t_p),BIC(t_p_int),
 AIC(t),AIC(p),AIC(tp),AIC(t_p),AIC(t_p_int)),1)
 
+aicbic_row_fmri3_ant <- mk_aicbic_row("FMRI3", "anticipation", t, p, tp, t_p, t_p_int)
+
 v3a<- c(round(r.squaredGLMM(t)*100,2),
 round(r.squaredGLMM(p)*100,2),
 round(r.squaredGLMM(tp)*100,2),
@@ -126,7 +151,8 @@ round(r.squaredGLMM(t_p)*100,2),
 t(EMAtools::lme.dscore(t,da,"lme4")),
 t(EMAtools::lme.dscore(p,da,"lme4")),
 t(EMAtools::lme.dscore(tp,da,"lme4")),
-t(EMAtools::lme.dscore(t_p,da,"lme4")))
+t(EMAtools::lme.dscore(t_p,da,"lme4")),
+collect_anova_p(t, p, tp, t_p))
 # fit random slope as comparison
 summary(lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_ant) +(1+scale(mean_pupil_nobc_scaled_ant)|subject) + (1|cue_size),da))
 
@@ -174,6 +200,8 @@ summary(t_p_int <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_baseline_out) *
 round(c(BIC(t),BIC(p),BIC(tp),BIC(t_p),BIC(t_p_int),
 AIC(t),AIC(p),AIC(tp),AIC(t_p),AIC(t_p_int)),1)
 
+aicbic_row_vr1_out <- mk_aicbic_row("VR1", "outcome", t, p, tp, t_p, t_p_int)
+
 
 v1o<- c(round(r.squaredGLMM(t)*100,2),
 round(r.squaredGLMM(p)*100,2),
@@ -182,7 +210,8 @@ round(r.squaredGLMM(t_p)*100,2),
 t(EMAtools::lme.dscore(t,do,"lme4")),
 t(EMAtools::lme.dscore(p,do,"lme4")),
 t(EMAtools::lme.dscore(tp,do,"lme4")),
-t(EMAtools::lme.dscore(t_p,do,"lme4")))
+t(EMAtools::lme.dscore(t_p,do,"lme4")),
+collect_anova_p(t, p, tp, t_p))
 
 summary(lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_out) +(1+scale(mean_pupil_nobc_out)|Subject) + (1|condition),
               do))
@@ -216,11 +245,14 @@ t_p <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_scaled) +scale(me
 tp_res_conv <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_residual_conv_out) +(1|subject) + (1|cue_size),
               do)
 summary(tp_res_conv)
+anova(tp,tp_res_conv)
 summary(t_p_int <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline_scaled) *scale(mean_pupil_bc_scaled_out) +(1|subject) + (1|cue_size),
               do))
 
 round(c(BIC(t),BIC(p),BIC(tp),BIC(t_p),BIC(t_p_int),
 AIC(t),AIC(p),AIC(tp),AIC(t_p),AIC(t_p_int)),1)
+
+aicbic_row_fmri3_out <- mk_aicbic_row("FMRI3", "outcome", t, p, tp, t_p, t_p_int)
 
 # anova(t,p,tp)
 
@@ -231,7 +263,8 @@ round(r.squaredGLMM(t_p)*100,2),
 t(EMAtools::lme.dscore(t,do,"lme4")),
 t(EMAtools::lme.dscore(p,do,"lme4")),
 t(EMAtools::lme.dscore(tp,do,"lme4")),
-t(EMAtools::lme.dscore(t_p,do,"lme4")))
+t(EMAtools::lme.dscore(t_p,do,"lme4")),
+collect_anova_p(t, p, tp, t_p))
 
 
 summary(lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_out)+(1+scale(mean_pupil_nobc_scaled_out)|subject) + (1|cue_size),
@@ -242,50 +275,20 @@ summary(lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc_scaled_out)+(1|subje
 
 ```
 
-
-
-```{r}
-r2list <- as.data.frame(Reduce(rbind,list(v1a,v3a,v1o,v3o)))
-names(r2list) <- c(paste0(c("R2m","R2c"),"_",c("tonic","tonic","phasic-baseline","phasic-baseline","phasic","phasic","t+p","t+p")),
-                   paste0(c("t","df","d"),"_",c("tonic","tonic","tonic","phasic-baseline","phasic-baseline","phasic-baseline","phasic","phasic","phasic","t+p(t)","t+p(t)","t+p(t)","t+p(p)","t+p(p)","t+p(p)"))) 
-
-r2list$study <- c("VR1",'FMRI3',"VR1",'FMRI3')
-
-r2list$probe <- c("anticipation","anticipation","outcome","outcome")
-
-r2list<-remove_rownames(r2list) %>% 
-  relocate(study, probe)
-
-r2list_long <- r2list %>% 
-  pivot_longer(R2m_tonic:`d_t+p(p)`,names_to = c("measure","dataType"),values_to = "value", names_sep = "_") %>% 
-  pivot_wider(names_from = dataType, values_from = "value") %>% 
-  filter(measure %in% c("R2m","t","d"))
-
-r2list_long %>% 
-  arrange(probe,measure) %>% 
-  kable(digits = 2) %>% 
-  kable_styling()%>%
-  save_kable(file = "../../../data/r2.html", self_contained = T)
-```
-
 ### both probes
 ```{r}
 #vrmid1
+db_2p_v1 <- vrmid1_data_2probes %>% drop_na(mean_pupil_baseline)
 summary(t <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline) +(1|Subject) + (1|condition) + (1+scale(mean_pupil_baseline)|probe),
-              vrmid1_data_2probes%>% 
-                drop_na(mean_pupil_baseline)))
+              db_2p_v1))
 summary(p <-lmer(scale(arousal_scaled) ~  scale(mean_pupil_bc) +(1|Subject) + (1|condition)+ (1+scale(mean_pupil_bc)|probe),
-              vrmid1_data_2probes %>% 
-                drop_na(mean_pupil_baseline)))
+              db_2p_v1))
 summary(tp <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_nobc) +(1|Subject) + (1|condition)+ (1+scale(mean_pupil_nobc)|probe),
-              vrmid1_data_2probes%>% 
-                drop_na(mean_pupil_baseline)))
+              db_2p_v1))
 summary(t_p <- lmer(scale(arousal_scaled) ~  scale(mean_pupil_baseline) + scale(mean_pupil_bc) +(1|Subject) + (1|condition)+ (1+scale(mean_pupil_baseline) + scale(mean_pupil_bc)|probe),
-              vrmid1_data_2probes%>% 
-                drop_na(mean_pupil_baseline)))
+              db_2p_v1))
 summary(t_p_int <- lmer(scale(arousal_scaled) ~ scale(mean_pupil_baseline) * scale(mean_pupil_bc) +(1|Subject) + (1|condition) + (1+scale(mean_pupil_baseline) * scale(mean_pupil_bc)|probe),
-              vrmid1_data_2probes%>% 
-                drop_na(mean_pupil_baseline)))
+              db_2p_v1))
 
 round(c(BIC(t),BIC(p),BIC(tp),BIC(t_p),BIC(t_p_int),
 AIC(t),AIC(p),AIC(tp),AIC(t_p),AIC(t_p_int)),1)
@@ -296,6 +299,18 @@ round(r.squaredGLMM(p)*100,2),
 round(r.squaredGLMM(tp)*100,2),
 round(r.squaredGLMM(t_p)*100,2),
 round(r.squaredGLMM(t_p_int)*100,2))
+
+aicbic_row_vr1_both <- mk_aicbic_row("VR1", "both probes combined", t, p, tp, t_p, t_p_int)
+
+v1both<- c(round(r.squaredGLMM(t)*100,2),
+round(r.squaredGLMM(p)*100,2),
+round(r.squaredGLMM(tp)*100,2),
+round(r.squaredGLMM(t_p)*100,2),
+t(EMAtools::lme.dscore(t,db_2p_v1,"lme4")),
+t(EMAtools::lme.dscore(p,db_2p_v1,"lme4")),
+t(EMAtools::lme.dscore(tp,db_2p_v1,"lme4")),
+t(EMAtools::lme.dscore(t_p,db_2p_v1,"lme4")),
+collect_anova_p(t, p, tp, t_p))
 
 ```
 
@@ -322,8 +337,71 @@ round(r.squaredGLMM(tp)*100,2),
 round(r.squaredGLMM(t_p)*100,2),
 round(r.squaredGLMM(t_p_int)*100,2))
 
+aicbic_row_fmri3_both <- mk_aicbic_row("FMRI3", "both probes combined", t, p, tp, t_p, t_p_int)
+
+v3both<- c(round(r.squaredGLMM(t)*100,2),
+round(r.squaredGLMM(p)*100,2),
+round(r.squaredGLMM(tp)*100,2),
+round(r.squaredGLMM(t_p)*100,2),
+t(EMAtools::lme.dscore(t,fmri3_data_2probes,"lme4")),
+t(EMAtools::lme.dscore(p,fmri3_data_2probes,"lme4")),
+t(EMAtools::lme.dscore(tp,fmri3_data_2probes,"lme4")),
+t(EMAtools::lme.dscore(t_p,fmri3_data_2probes,"lme4")),
+collect_anova_p(t, p, tp, t_p))
+
 ```
 
+```{r}
+r2list <- as.data.frame(Reduce(rbind,list(v1a,v3a,v1o,v3o,v1both,v3both)))
+names(r2list) <- c(paste0(c("R2m","R2c"),"_",c("tonic","tonic","phasic-baseline","phasic-baseline","phasic","phasic","t+p","t+p")),
+                   paste0(c("t","df","d"),"_",c("tonic","tonic","tonic","phasic-baseline","phasic-baseline","phasic-baseline","phasic","phasic","phasic","t+p(t)","t+p(t)","t+p(t)","t+p(p)","t+p(p)","t+p(p)")),
+                   paste0("pF_", c("tonic","phasic-baseline","phasic","t+p(t)","t+p(p)"))) 
+
+r2list$study <- c("VR1",'FMRI3',"VR1",'FMRI3',"VR1",'FMRI3')
+
+r2list$probe <- c("anticipation","anticipation","outcome","outcome","both probes combined","both probes combined")
+
+r2list<-remove_rownames(r2list) %>% 
+  relocate(study, probe)
+
+r2list_long <- r2list %>% 
+  pivot_longer(-c(study, probe), names_to = c("measure", "dataType"), names_sep = "_", values_to = "value") %>% 
+  pivot_wider(names_from = dataType, values_from = "value") %>% 
+  filter(measure %in% c("R2m","t","d","pF"))
+
+r2list_long %>% 
+  arrange(probe, measure) %>% 
+  kable(digits = 4) %>% 
+  kable_styling()%>%
+  save_kable(file = "../../../data/r2.html", self_contained = T)
+```
+
+```{r}
+aicbic_wide <- dplyr::bind_rows(
+  aicbic_row_vr1_ant,
+  aicbic_row_fmri3_ant,
+  aicbic_row_vr1_out,
+  aicbic_row_fmri3_out,
+  aicbic_row_vr1_both,
+  aicbic_row_fmri3_both
+)
+
+aicbic_long <- aicbic_wide %>%
+  tidyr::pivot_longer(
+    cols = -c(study, probe),
+    names_to = c("measure", "model"),
+    names_sep = "_",
+    values_to = "value"
+  ) %>%
+  dplyr::filter(measure %in% c("AIC", "BIC")) %>%
+  tidyr::pivot_wider(names_from = model, values_from = value)
+
+aicbic_long %>%
+  dplyr::arrange(probe, measure) %>%
+  kable(digits = 4) %>%
+  kable_styling() %>%
+  save_kable(file = "../../../data/aicbic.html", self_contained = TRUE)
+```
 
 ### make figures (all studies and probes)
 ```{r}

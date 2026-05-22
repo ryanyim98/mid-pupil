@@ -68,11 +68,11 @@ do
 				rm $OUT_DIR/${SUBJECT}_glm33b_z_b${KERNEL}+orig.*
 
 				# for some reason when we aply flirt to the non-indexed data, it only transforms the 1st volume, but indexing solves the issue (!)
-				3dTcat -overwrite -prefix $OUT_DIR/${SUBJECT}_glm33b_z_b${KERNEL}_IND_orig.nii.gz $OUT_DIR/${SUBJECT}_glm33b_z_b${KERNEL}_orig.nii.gz[0..$]
+				3dTcat -overwrite -prefix $OUT_DIR/${SUBJECT}_glm33b_b${KERNEL}_IND_orig.nii.gz $OUT_DIR/${SUBJECT}_glm33b_b${KERNEL}_orig.nii.gz[0..$]
 
 				### apply the part2mni transformation
-        flirt -in $OUT_DIR/${SUBJECT}_glm33b_z_b${KERNEL}_IND_orig.nii.gz -init ../anat_proc/xfs/func2mni_ants.mat -applyxfm \
-            -out $OUT_DIR/${SUBJECT}_glm33b_z_b${KERNEL}_mni.nii.gz -paddingsize 0.0 -interp trilinear \
+        flirt -in $OUT_DIR/${SUBJECT}_glm33b_b${KERNEL}_IND_orig.nii.gz -init ../anat_proc/xfs/func2mni_ants.mat -applyxfm \
+            -out $OUT_DIR/${SUBJECT}_glm33b_b${KERNEL}_mni.nii.gz -paddingsize 0.0 -interp trilinear \
             -ref $ANAT_TEMPLATE_FUNC
 
 

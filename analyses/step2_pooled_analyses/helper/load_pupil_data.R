@@ -1,3 +1,19 @@
+# Resolve paths under data/ whether getwd() is repo root, step2_pooled_analyses, or this helper/.
+mid_pupil_resolve_data <- function(...) {
+  parts <- file.path(...)
+  tails <- c(
+    file.path("data", parts),
+    file.path("..", "data", parts),
+    file.path("..", "..", "data", parts),
+    file.path("..", "..", "..", "data", parts)
+  )
+  wd <- normalizePath(getwd(), winslash = "/", mustWork = TRUE)
+  for (rel in tails) {
+    cand <- normalizePath(file.path(wd, rel), winslash = "/", mustWork = FALSE)
+    if (!is.na(cand) && file.exists(cand)) return(cand)
+  }
+  stop("Cannot find data file ", parts, " (getwd = ", getwd(), ")", call. = FALSE)
+}
 
 ## vrmid1
 vrmid1_pupil_data <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivatives/pupillometry_lowpass_baselineCorrected.csv")%>%
@@ -9,7 +25,11 @@ vrmid1_pupil_data <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/de
 vrmid1_pupil_data <- vrmid1_pupil_data %>%
   rename_with(~ str_replace(., "_scale$", "_scaled"))
 
-vrmid1_bad_participants <- read_delim("../../data/vrmid1/subjects_list/subject_to_drop_pupil.txt", col_names = F, delim = " ")
+vrmid1_bad_participants <- read_delim(
+  mid_pupil_resolve_data("vrmid1", "subjects_list", "subject_to_drop_pupil.txt"),
+  col_names = F,
+  delim = " "
+)
 
 vrmid1_pupil_data <- vrmid1_pupil_data %>% 
   filter(!Subject %in% c("cn221206","vx220916"), #manual bad participants
@@ -144,27 +164,26 @@ fmri3_pupil_data$cue_size <- forcats::fct_recode(fmri3_pupil_data$cue_size,
 
 
 ## create time series of luminance-controlled pupil size
-
-summary(l3<-lmer(scale(pupilDiameter_scaled) ~ scale(convolved_s1) + (1|subject),fmri3_pupil_data))
-summary(l4<-lmer(scale(pupilDiameter_scaled) ~ scale(convolved_s2) + (1|subject),fmri3_pupil_data))
+# 
+# summary(l3<-lmer(scale(pupilDiameter_scaled) ~ scale(convolved_s1) + (1|subject),fmri3_pupil_data))
+# summary(l4<-lmer(scale(pupilDiameter_scaled) ~ scale(convolved_s2) + (1|subject),fmri3_pupil_data))
 summary(l5<-lmer(scale(pupilDiameter_scaled) ~ scale(convolved_s1)+scale(convolved_s2) + (1|subject),fmri3_pupil_data))
 
-summary(l3)$coefficient
-summary(l4)$coefficient
+# summary(l3)$coefficient
+# summary(l4)$coefficient
 summary(l5)$coefficient
-anova(l3,l4,l5)
+# anova(l3,l4,l5)
 r.squaredGLMM(l5)
 
-#l4 has the largest coefficient, meaning that it might be the best model (among the 4) of luminance response of pupil
-# Extract rows used in the model
-model_data3 <- model.frame(l3)
-used_rows3 <- as.numeric(rownames(model_data3))
-# Create a residuals column in processed_data, initializing with NA
-fmri3_pupil_data$residuals_conv_system1 <- NA
-
-residuals_l3 <- residuals(l3)
-# Assign residuals to the appropriate rows
-fmri3_pupil_data$residuals_conv_system1[used_rows3] <- residuals_l3
+# # Extract rows used in the model
+# model_data3 <- model.frame(l3)
+# used_rows3 <- as.numeric(rownames(model_data3))
+# # Create a residuals column in processed_data, initializing with NA
+# fmri3_pupil_data$residuals_conv_system1 <- NA
+# 
+# residuals_l3 <- residuals(l3)
+# # Assign residuals to the appropriate rows
+# fmri3_pupil_data$residuals_conv_system1[used_rows3] <- residuals_l3
 
 model_data5 <- model.frame(l5)
 used_rows5 <- as.numeric(rownames(model_data5))
@@ -174,3 +193,10 @@ fmri3_pupil_data$residuals_conv_system1 <- NA
 residuals_l5 <- residuals(l5)
 # Assign residuals to the appropriate rows
 fmri3_pupil_data$residuals_conv[used_rows5] <- residuals_l5
+
+
+## calculate normalized gaze position
+fmri3_pupil_data <- fmri3_pupil_data %>%
+  mutate(
+  pupil_x_preproc_norm = pupil_x_preproc / (2560 - 1),  # -1 because 0-indexed (0 to 2559)
+  pupil_y_preproc_norm = pupil_y_preproc / (1600 - 1))

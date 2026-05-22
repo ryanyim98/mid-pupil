@@ -6,8 +6,8 @@ fmri3_pupil_data.for.regs <- fmri3_pupil_data%>%
   group_by(subject,block,trial,probe,rating_type,
            tr)%>%
   summarise(luminance= mean(luminance, na.rm = T),
-            pupil_x = mean(pupil_x,na.rm = T),
-            pupil_y = mean(pupil_x,na.rm = T),
+            pupil_x = mean(pupil_x_preproc,na.rm = T),
+            pupil_y = mean(pupil_y_preproc,na.rm = T),
             blink = mean(blink,na.rm = T),
             sacc = mean(sacc,na.rm = T),
             mean_pupil_nobc_scaled= mean(pupilDiameter_scaled, na.rm = T))

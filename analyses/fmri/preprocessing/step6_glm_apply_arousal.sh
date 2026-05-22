@@ -1,6 +1,6 @@
 #!/bin/bash
-#model with parametric regressors for arousal ratings REGARDLESS of probe type and probe timing (ant-ant, out-out)
-# (neural activity 1-2 TR prior predicting subsequent affect)
+#glm33c is the model with pupil size modulation (convolved with HRF)
+#controlling for luminance, pupil location and blink
 
 SCRIPTS_DIR=$(pwd)
 
@@ -11,7 +11,7 @@ MAIN_DIR=$(pwd)
 cd data
 DATA_DIR=$(pwd)
 
-SUBJECTS=$MAIN_DIR/data/subjects-midaffemo.txt
+SUBJECTS=$MAIN_DIR/data/subjects-pupil-fmri.txt
 
 OUT_DIR=$MAIN_DIR/glm_results/individuals_MIDaffemo
 
@@ -27,10 +27,10 @@ do
 	cd $DATA_DIR/subjects/$SUBJECT/func_proc_MIDaffemo
 
 
-		for KERNEL in 0 2 4
+		for KERNEL in 4
 		do
 
-		    3dDeconvolve -overwrite -float -input pp_MIDaffemo_b${KERNEL}_orig.nii.gz -nfirst 0 -num_stimts 15 -xjpeg Xmat -polort 2 -concat '1D: 0 245 490 735' \
+		    3dDeconvolve -overwrite -float -input pp_MIDaffemo_b${KERNEL}_orig.nii.gz -nfirst 0 -num_stimts 19 -xjpeg Xmat -polort 2  -concat '1D: 0 245 490 735' \
 						-censor motion_censor.1D -mask bmask.nii.gz \
 						-stim_file 1 3dmotion.1D'[1]' -stim_base 1 -stim_label 1 roll \
 		        -stim_file 2 3dmotion.1D'[2]' -stim_base 2 -stim_label 2 pitch \
@@ -46,35 +46,47 @@ do
 						-stim_file 12 regs/button_c.1D -stim_label 12 button \
 						-stim_file 13 regs/reportaff_rtmod_c.1D -stim_label 13 reportaff_rtmod \
 						-stim_file 14 regs/reportemo_rtmod_c.1D -stim_label 14 reportemo_rtmod \
-						-stim_file 15 regs/param_arous_early_c.1D -stim_label 15 param_arous_early \
-		        -tout -fout -rout -bucket $OUT_DIR/${SUBJECT}_glm27_b${KERNEL}
+						-stim_file 15 regs/pupil_scaled_c.1D -stim_label 15 pupil_scaled_convolved \
+						-stim_file 16 regs/luminance_c.1D -stim_label 16 luminance \
+						-stim_file 17 regs/pupilx_c.1D -stim_label 17 pupilx \
+						-stim_file 18 regs/blink_c.1D -stim_label 18 blink \
+						-stim_file 19 regs/saccade_c.1D -stim_label 19 saccade \
+		        -tout -fout -rout -bucket $OUT_DIR/${SUBJECT}_glm33c_b${KERNEL}
 
-		    3dmerge -doall -1zscore -prefix $OUT_DIR/${SUBJECT}_glm27_z_b${KERNEL} $OUT_DIR/${SUBJECT}_glm27_b${KERNEL}+orig
+		    3dmerge -doall -1zscore -prefix $OUT_DIR/${SUBJECT}_glm33c_z_b${KERNEL} $OUT_DIR/${SUBJECT}_glm33c_b${KERNEL}+orig
 
-				3dAFNItoNIFTI -overwrite -prefix $OUT_DIR/${SUBJECT}_glm27_b${KERNEL}_orig.nii.gz $OUT_DIR/${SUBJECT}_glm27_b${KERNEL}+orig
-				3dAFNItoNIFTI -overwrite -prefix $OUT_DIR/${SUBJECT}_glm27_z_b${KERNEL}_orig.nii.gz $OUT_DIR/${SUBJECT}_glm27_z_b${KERNEL}+orig
+				3dAFNItoNIFTI -overwrite -prefix $OUT_DIR/${SUBJECT}_glm33c_b${KERNEL}_orig.nii.gz $OUT_DIR/${SUBJECT}_glm33c_b${KERNEL}+orig
+				3dAFNItoNIFTI -overwrite -prefix $OUT_DIR/${SUBJECT}_glm33c_z_b${KERNEL}_orig.nii.gz $OUT_DIR/${SUBJECT}_glm33c_z_b${KERNEL}+orig
 
 				#replace the z-scored R2 with actual R2
 				temp_vol="temp_vol.nii.gz"
 				temp_output="temp_output.nii.gz"
 				# Extract the first volume from the input dataset
-				3dTcat -overwrite -prefix $temp_vol $OUT_DIR/${SUBJECT}_glm27_b${KERNEL}_orig.nii.gz[0]
+				3dTcat -overwrite -prefix $temp_vol $OUT_DIR/${SUBJECT}_glm33c_b${KERNEL}_orig.nii.gz[0]
 				# Replace the first volume of the output dataset with the extracted volume
-				3dTcat -overwrite -prefix $temp_output $temp_vol $OUT_DIR/${SUBJECT}_glm27_z_b${KERNEL}_orig.nii.gz[1..$]
+				3dTcat -overwrite -prefix $temp_output $temp_vol $OUT_DIR/${SUBJECT}_glm33c_z_b${KERNEL}_orig.nii.gz[1..$]
 				# do some cleaning
-				mv $temp_output $OUT_DIR/${SUBJECT}_glm27_z_b${KERNEL}_orig.nii.gz
+				mv $temp_output $OUT_DIR/${SUBJECT}_glm33c_z_b${KERNEL}_orig.nii.gz
 				rm $temp_vol
 
-				rm $OUT_DIR/${SUBJECT}_glm27_b${KERNEL}+orig.*
-				rm $OUT_DIR/${SUBJECT}_glm27_z_b${KERNEL}+orig.*
+				rm $OUT_DIR/${SUBJECT}_glm33c_b${KERNEL}+orig.*
+				rm $OUT_DIR/${SUBJECT}_glm33c_z_b${KERNEL}+orig.*
 
 				# for some reason when we aply flirt to the non-indexed data, it only transforms the 1st volume, but indexing solves the issue (!)
-				3dTcat -overwrite -prefix $OUT_DIR/${SUBJECT}_glm27_z_b${KERNEL}_IND_orig.nii.gz $OUT_DIR/${SUBJECT}_glm27_z_b${KERNEL}_orig.nii.gz[0..$]
+				3dTcat -overwrite -prefix $OUT_DIR/${SUBJECT}_glm33c_z_b${KERNEL}_IND_orig.nii.gz $OUT_DIR/${SUBJECT}_glm33c_z_b${KERNEL}_orig.nii.gz[0..$]
 
 				### apply the part2mni transformation
-				flirt -in $OUT_DIR/${SUBJECT}_glm27_z_b${KERNEL}_IND_orig.nii.gz -init ../anat_proc/xfs/func2mni_ants.mat -applyxfm \
-						-out $OUT_DIR/${SUBJECT}_glm27_z_b${KERNEL}_mni.nii.gz -paddingsize 0.0 -interp trilinear \
-						-ref $ANAT_TEMPLATE_FUNC
+				 flirt -in $OUT_DIR/${SUBJECT}_glm33c_z_b${KERNEL}_IND_orig.nii.gz -init ../anat_proc/xfs/func2mni_ants.mat -applyxfm \
+						 -out $OUT_DIR/${SUBJECT}_glm33c_z_b${KERNEL}_mni.nii.gz -paddingsize 0.0 -interp trilinear \
+						 -ref $ANAT_TEMPLATE_FUNC
+
+				3dTcat -overwrite -prefix $OUT_DIR/${SUBJECT}_glm33c_b${KERNEL}_IND_orig.nii.gz $OUT_DIR/${SUBJECT}_glm33c_b${KERNEL}_orig.nii.gz[0..$]
+
+				### apply the part2mni transformation
+				 flirt -in $OUT_DIR/${SUBJECT}_glm33c_b${KERNEL}_IND_orig.nii.gz -init ../anat_proc/xfs/func2mni_ants.mat -applyxfm \
+						 -out $OUT_DIR/${SUBJECT}_glm33c_b${KERNEL}_mni.nii.gz -paddingsize 0.0 -interp trilinear \
+						 -ref $ANAT_TEMPLATE_FUNC
+
 
 			done # kernel loop
 done # subject loop

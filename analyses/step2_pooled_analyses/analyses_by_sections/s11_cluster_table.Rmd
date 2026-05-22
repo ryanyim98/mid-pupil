@@ -20,20 +20,20 @@ library(label4MRI)
 
 ```{r}
 
-midaffemo_pupil <-read_table('../../fmri/cluster_tables/table_model33b_Z3.227.1D',
+midaffemo_pupil <-read_table('../../fmri/cluster_tables/table_model33b_Z3.175.1D',
     comment = "#") %>% 
   mutate(contrast = "pupil",
-         z_threshold = 3.227)
+         z_threshold = 3.175)
 
-midaffemo_pupil2 <-read_table('../../fmri/cluster_tables/table_model33c_Z3.227.1D',
+midaffemo_pupil2 <-read_table('../../fmri/cluster_tables/table_model33c_Z3.175.1D',
     comment = "#") %>% 
   mutate(contrast = "pupil-covaried",
-         z_threshold = 3.227)
+         z_threshold = 3.175)
 
-midaffemo_arousal <-read_table('../../fmri/cluster_tables/table_model27_Z3.227.1D',
+midaffemo_arousal <-read_table('../../fmri/cluster_tables/table_model27c_Z3.09.1D',
     comment = "#") %>% 
   mutate(contrast = "arousal",
-         z_threshold = 3.227)
+         z_threshold = 3.09)
 
 
 mydf <- midaffemo_arousal %>% 
@@ -53,7 +53,7 @@ write.csv(df_labels_list, "../../fmri/cluster_tables/cluserpeak_tables_temp.csv"
 # writing out and reading the df back in is the workaround for:
 # the written file has empty columns bc the label columns are lists rather than character/numeric!!!
 
-df_labels <- read_csv( "./cluserpeak_tables_temp.csv") %>% 
+df_labels <- read_csv( "../../fmri/cluster_tables/cluserpeak_tables_temp.csv") %>% 
   dplyr::select(-...1) %>% 
   bind_cols(mydf, .)
 
