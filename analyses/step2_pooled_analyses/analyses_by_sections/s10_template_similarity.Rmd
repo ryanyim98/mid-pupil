@@ -537,12 +537,12 @@ p1m2p<-plot_spacer()+ggplot(d1 %>% filter(probe == "anticipation probe",threshol
        aes(x = tr_in_trial, y = mean))+
   geom_vline(xintercept = c(3.5,4.5,5.5,9.5,10.5,11.5,12.5), size = 1, color = "grey")+
   geom_hline(yintercept = 0, color = "grey")+
-  annotate("text",x = 4,y = 0.08, label = "C")+
-  annotate("text",x = 5,y = 0.08, label = "F")+
-  annotate("text",x = 10,y = 0.08, label = "F")+
-  annotate("text",x = 11,y = 0.08, label = "T")+
-  annotate("text",x = 12,y = 0.08, label = "O")+
-  annotate("text",x = 7.5,y = 0.08, label = "R")+
+  annotate("text",x = 4,y = -0.08, label = "C")+
+  annotate("text",x = 5,y = -0.08, label = "F")+
+  annotate("text",x = 10,y = -0.08, label = "F")+
+  annotate("text",x = 11,y = -0.08, label = "T")+
+  annotate("text",x = 12,y = -0.08, label = "O")+
+  annotate("text",x = 7.5,y = -0.08, label = "R")+
   geom_line(size = 0.5) +
   geom_point()+
   geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
@@ -561,11 +561,11 @@ ggplot(d1 %>% filter(probe == "outcome probe",threshold == 0.5, tr_in_trial <= P
        aes(x = tr_in_trial, y = mean))+
   geom_vline(xintercept = c(3.5,4.5,5.5,6.5,7.5,11.5), size = 1, color = "grey")+
     geom_hline(yintercept = 0, color = "grey")+
-  annotate("text",x = 4,y = 0.08, label = "C")+
-  annotate("text",x = 5,y = 0.08, label = "F")+
-  annotate("text",x = 6,y = 0.08, label = "T")+
-  annotate("text",x = 7,y = 0.08, label = "O")+
-  annotate("text",x = 10,y = 0.08, label = "R")+
+  annotate("text",x = 4,y = -0.08, label = "C")+
+  annotate("text",x = 5,y = -0.08, label = "F")+
+  annotate("text",x = 6,y = -0.08, label = "T")+
+  annotate("text",x = 7,y = -0.08, label = "O")+
+  annotate("text",x = 10,y = -0.08, label = "R")+
   geom_line(size = 0.5) +
   geom_point()+
   geom_errorbar(aes(x = tr_in_trial, ymin = mean-se,ymax = mean+se), width = 0.3)+
@@ -1144,8 +1144,7 @@ ggplot(lag_df, aes(x = lag_new, y = estimate)) +
   labs(
     x = "Lag (s)",
     y = "β",
-    title = "Cross-correlation",
-    subtitle = "pupil's lag relative to the arousal index"
+    title = "Cross-correlation"
   ) +
   annotate("text",x = -4, y = 0.05, label = "pupil leads", color = "darkgrey")+
   annotate("text",x = 3, y = 0.05, label = "pupil follows", color = "darkgrey")+
@@ -1177,5 +1176,5 @@ plot_annotation(
   plot_layout(heights = c(1.5,1,1))
 
 
-ggsave("../../../figures/fig_glmPupil.png", dpi = 300, height = 9.5, width = 12)
+ggsave("../../../figures/fig_glmPupil.png", dpi = 300, height = 9.2, width = 11)
 ```
