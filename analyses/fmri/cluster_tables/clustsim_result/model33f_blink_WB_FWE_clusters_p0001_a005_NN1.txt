@@ -1,0 +1,25 @@
+#
+#  Cluster report 
+#[ Dataset prefix      = model33f_blink ]
+#[ Threshold vol       = [1] 'groupA:t' ]
+#[ Supplement dat vol  = [1] 'groupA:t' ]
+#[ Option summary      = -bisided,p=0.001,clust_nvox,34,NN1 ]
+#[ Threshold value(s)  = left-tail p=0.001000 -> thr=-3.792131;  right-tail p=0.001000 -> thr=3.792131 ]
+#[ Aux. stat. info.    = DEGREES-of-FREEDOM : 22  ]
+#[ Nvoxel threshold    = 34;  Volume threshold = 829.226 ]
+#[ Single voxel volume = 24.389 (microliters) ]
+#[ Neighbor type, NN   = 1 ]
+#[ Voxel datum type    = short ]
+#[ Voxel dimensions    = 2.900 mm X 2.900 mm X 2.900 mm ]
+#[ Coordinates Order   = RAI ]
+#[ Mask                = /home/span/dopa/midaffemo/ROIs/glm_mask_gm.nii.gz ]
+#[ Mean and SEM based on signed voxel intensities ]
+#
+#Volume  CM RL  CM AP  CM IS  minRL  maxRL  minAP  maxAP  minIS  maxIS    Mean     SEM    Max Int  MI RL  MI AP  MI IS
+#------  -----  -----  -----  -----  -----  -----  -----  -----  -----  -------  -------  -------  -----  -----  -----
+    103  -19.8   59.3  -62.1  -42.1   -1.5   48.4   74.6  -67.9  -56.3   7.4946   0.4174   27.754  -13.1   54.2  -65.0 
+     69   59.5   16.6   12.8   50.8   68.2   10.8   28.2    7.5   19.1   4.2897    0.043   5.5849   56.5   16.6   16.2 
+     51  -52.7   61.0   -7.3  -59.5  -45.0   57.2   65.8  -15.7   -1.2   4.0595   0.0308   4.7121  -53.7   62.9   -4.1 
+     49  -60.0    6.7    7.2  -65.3  -53.7    2.1   16.6    1.7   13.3   4.0661    0.035   4.8921  -59.5    4.9    4.6 
+#------  -----  -----  -----  -----  -----  -----  -----  -----  -----  -------  -------  -------  -----  -----  -----
+#   272  -13.9   43.9  -30.0                                             5.4199   0.1864                             

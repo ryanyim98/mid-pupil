@@ -4,60 +4,183 @@ output: html_document
 date: "2025-10-28"
 ---
 
-Purpose: Getting labels of brain regions based on coordinates of peak activity in whole-brain group analyses. 
+Purpose: Label brain regions from peak coordinates @ bi-sided p = 0.005 (WB FWE).
 
+- **Self-reported arousal:** AFNI `3dClusterize` cluster report only.
+- **Pupil:** AFNI peaks for the two smaller FWE clusters; **atlas-intersection** approach for the large connected AFNI cluster (~15k voxels).
 
-```{r}
-library(tidyverse)
-library(devtools)
-#install_github("yunshiuan/label4MRI") #This is also only required for the first time*
-library(label4MRI)
+The atlas intersection approach intersects the thresholded Z-map (masked to the AFNI cluster) with Harvard-Oxford cortical + subcortical atlases for the cerebrum, and with AAL cerebellar parcels (labels 91–116) for the cerebellum. It reports the single peak voxel within each named region whose overlap with the blob exceeds the minimum size threshold. This enforces anatomical plausibility and sparsity (one row per named region instead of 150+ distance-based sub-peaks).
+
+Generate pupil atlas-intersection table (midaffemo repo):
+
+```bash
+# Default: ≥ 500 mm³ overlap required (48 regions)
+python cluster_table/export_cluster_peaks_nilearn.py \
+  --atlas-intersection \
+  --vrmid-nilearn-dir ../../fmri/cluster_tables/nilearn
+
+# Stricter (fewer rows): raise --min-overlap-mm3, e.g. 2000 → 33 regions
+python cluster_table/export_cluster_peaks_nilearn.py \
+  --atlas-intersection --min-overlap-mm3 2000 \
+  --vrmid-nilearn-dir ../../fmri/cluster_tables/nilearn
 ```
 
-# import tables
-**output of 3dClusterize
-***manually minimally edited to have no space in column labels and uncomment the column labels
+Output: `nilearn/table_model33f_pupil_huge_blob_atlas_p0005.csv`
 
-```{r}
+```{r setup}
+library(tidyverse)
+library(devtools)
+# install_github("yunshiuan/label4MRI")  # first time only
+library(label4MRI)
 
-midaffemo_pupil <-read_table('../../fmri/cluster_tables/table_model33b_Z3.175.1D',
-    comment = "#") %>% 
-  mutate(contrast = "pupil",
-         z_threshold = 3.175)
+cluster_dir <- "../../fmri/cluster_tables/clustsim_result"
+nilearn_dir <- "../../fmri/cluster_tables/nilearn"
+```
 
-midaffemo_pupil2 <-read_table('../../fmri/cluster_tables/table_model33c_Z3.175.1D',
-    comment = "#") %>% 
-  mutate(contrast = "pupil-covaried",
-         z_threshold = 3.175)
+```{r helpers}
+fix_cluster_header_line <- function(header_line) {
+  header_line %>%
+    str_replace_all("CM RL", "CM_RL") %>%
+    str_replace_all("CM AP", "CM_AP") %>%
+    str_replace_all("CM IS", "CM_IS") %>%
+    str_replace_all("Max Int", "Max_Int") %>%
+    str_replace_all("MI RL", "MI_RL") %>%
+    str_replace_all("MI AP", "MI_AP") %>%
+    str_replace_all("MI IS", "MI_IS") %>%
+    str_remove("^#") %>%
+    str_squish()
+}
 
-midaffemo_arousal <-read_table('../../fmri/cluster_tables/table_model27c_Z3.09.1D',
-    comment = "#") %>% 
-  mutate(contrast = "arousal",
-         z_threshold = 3.09)
+read_afni_cluster_table <- function(path, contrast, z_threshold) {
+  lines <- read_lines(path)
+  hdr_idx <- which(str_detect(lines, "^#Volume\\s"))
+  if (length(hdr_idx) != 1) {
+    stop("Could not find #Volume header in: ", path)
+  }
+  col_names <- fix_cluster_header_line(lines[hdr_idx]) %>%
+    str_split("\\s+") %>%
+    unlist() %>%
+    .[. != ""]
+  sep_idx <- which(str_detect(lines, "^#------"))
+  data_lines <- lines[(sep_idx[1] + 1):(sep_idx[2] - 1)]
+  data_lines <- data_lines[str_trim(data_lines) != ""]
+  read_table(
+    I(data_lines),
+    col_names = col_names,
+    col_types = cols(.default = col_double()),
+    progress = FALSE
+  ) %>%
+    mutate(
+      contrast = contrast,
+      z_threshold = z_threshold,
+      method = "afni_fwe"
+    )
+}
 
+# AFNI MI_RL/MI_AP/MI_IS -> label4MRI (RAI convention used in this project)
+afni_to_label_coords <- function(df) {
+  df %>%
+    mutate(
+      x = -MI_RL,
+      y = -MI_AP,
+      z = MI_IS
+    )
+}
+```
 
-mydf <- midaffemo_arousal %>% 
-  bind_rows(., midaffemo_pupil) %>% 
-  bind_rows(., midaffemo_pupil2) %>% 
-  dplyr::select(contrast, "n_voxels" = Volume, "x_afni" = MI_RL, "y_afni" = MI_AP, "z_afni" = MI_IS, "peak_Z" = Max_Int, "threshold" = z_threshold) %>% 
-  mutate(x = -x_afni, 
-         y = -y_afni,
-         z = z_afni)
+# Arousal: AFNI only
 
-#get labels
-# mni_to_region_name(df$x, df$y, df$z)
+```{r arousal-afni}
+arousal_afni <- read_afni_cluster_table(
+  file.path(cluster_dir, "model27c_param_arous_early_WB_FWE_clusters_p0005_a005_NN1.txt"),
+  contrast = "arousal",
+  z_threshold = 3.038
+) %>%
+  mutate(cluster_id = as.character(row_number())) %>%
+  afni_to_label_coords() %>%
+  transmute(
+    contrast,
+    method,
+    cluster_id,
+    n_voxels = Volume,
+    peak_Z = Max_Int,
+    z_threshold,
+    x,
+    y,
+    z
+  )
+
+arousal_afni
+```
+
+# Pupil: small clusters (AFNI) + huge blob (nilearn sub-peaks)
+
+```{r pupil-tables}
+pupil_afni_all <- read_afni_cluster_table(
+  file.path(
+    cluster_dir,
+    "model33f_pupil_scaled_convolved_lagged_WB_FWE_clusters_p0005_a005_NN1.txt"
+  ),
+  contrast = "pupil",
+  z_threshold = 3.119
+)
+
+huge_n_voxels <- max(pupil_afni_all$Volume)
+
+pupil_afni_small <- pupil_afni_all %>%
+  filter(Volume < huge_n_voxels) %>%
+  mutate(cluster_id = as.character(row_number())) %>%
+  afni_to_label_coords() %>%
+  transmute(
+    contrast,
+    method,
+    cluster_id,
+    n_voxels = Volume,
+    peak_Z = Max_Int,
+    z_threshold,
+    x,
+    y,
+    z
+  )
+
+pupil_nilearn_huge <- read_csv(
+  file.path(nilearn_dir, "table_model33f_pupil_huge_blob_atlas_p0005.csv"),
+  show_col_types = FALSE
+) %>%
+  transmute(
+    contrast,
+    method,
+    cluster_id = as.character(cluster_id),
+    parcel_label,
+    atlas,
+    n_voxels = round(cluster_size_mm3 / 2.9^3),  # mm³ → voxels (2.9mm isotropic)
+    peak_Z,
+    z_threshold,
+    x = X_mni,
+    y = Y_mni,
+    z = Z_mni
+  )
+
+mydf <- bind_rows(arousal_afni, pupil_afni_small, pupil_nilearn_huge)
+mydf
+```
+
+# Region labels (`label4MRI`)
+
+```{r labels}
 df_labels_list <- t(mapply(FUN = mni_to_region_name, x = mydf$x, y = mydf$y, z = mydf$z))
 
 write.csv(df_labels_list, "../../fmri/cluster_tables/cluserpeak_tables_temp.csv")
 
-# writing out and reading the df back in is the workaround for:
-# the written file has empty columns bc the label columns are lists rather than character/numeric!!!
-
-df_labels <- read_csv( "../../fmri/cluster_tables/cluserpeak_tables_temp.csv") %>% 
-  dplyr::select(-...1) %>% 
+df_labels <- read_csv("../../fmri/cluster_tables/cluserpeak_tables_temp.csv", show_col_types = FALSE) %>%
+  dplyr::select(-...1) %>%
   bind_cols(mydf, .)
 
-write_delim(x = df_labels, delim = ",", file = 
-              paste0("../../fmri/cluster_tables/cluserpeak_table_pupilaro.csv"))
-```
+write_delim(
+  df_labels,
+  delim = ",",
+  file = "../../fmri/cluster_tables/cluserpeak_table_pupilarous.csv"
+)
 
+df_labels
+```

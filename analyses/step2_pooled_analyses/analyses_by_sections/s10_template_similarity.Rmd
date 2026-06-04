@@ -8,6 +8,7 @@ date: "2025-11-15"
 knitr::opts_chunk$set(echo = TRUE)
 source("../../load_libraries.R")
 source("../helper/template_similarity_utils.R")
+# GLM index CSVs: MIDAFFEMO_ROOT/glm_maps/arousal_index_csv/ (see GLM_INDEX_CSV_DIR in helper)
 
 fmri3_data_2probes <- readr::read_csv(
   mid_pupil_resolve_data("fmri3", "derivatives", "fmri3_data_2probes.csv"),

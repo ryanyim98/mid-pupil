@@ -1,5 +1,10 @@
 MIDAFFEMO_ROOT <- Sys.getenv("MIDAFFEMO_ROOT", unset = "~/Desktop/midaffemo")
 
+# GLM template similarity CSVs from plot_glm_maps_pupilarous.ipynb
+GLM_INDEX_CSV_DIR <- function(root = MIDAFFEMO_ROOT) {
+  file.path(root, "glm_maps", "arousal_index_csv")
+}
+
 THRESH_STR <- c("0", "05", "1", "15", "2", "25", "3", "35")
 THRESH <- c(0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5)
 SPLITS <- c("run12", "run34")
@@ -188,14 +193,16 @@ load_fmri3_glm_arrays <- function(
   subject_col <- TS_COL$subject
   val_col <- TS_COL$val
 
+  index_csv_dir <- GLM_INDEX_CSV_DIR(root)
+
   purrr::map_dfr(seq_along(thresh_str), function(t) {
     arousal_path <- file.path(
-      root, "glm_maps",
+      index_csv_dir,
       paste0("glm27c_", template_half, "_array_threshold", thresh_str[t], ".csv")
     )
     pupil_path <- file.path(
-      root, "glm_maps",
-      paste0("glm33b_", template_half, "_array_threshold", thresh_str[t], ".csv")
+      index_csv_dir,
+      paste0("glm33f_", template_half, "_array_threshold", thresh_str[t], ".csv")
     )
 
     glm_arousal <- as.data.frame(t(read_csv(arousal_path, col_names = FALSE)[c(1, 3:24), ])) %>%
@@ -213,7 +220,7 @@ load_fmri3_glm_arrays <- function(
       )
 
     pupil_ts <- as.data.frame(t(read_csv(
-      file.path(root, "glm_maps/pupil_array.csv"),
+      file.path(index_csv_dir, "pupil_array.csv"),
       col_names = FALSE
     ))) %>%
       slice(pupil_tr_slice) %>%

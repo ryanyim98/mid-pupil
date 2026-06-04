@@ -1,0 +1,20 @@
+#
+#  Cluster report 
+#[ Dataset prefix      = model33f_saccade ]
+#[ Threshold vol       = [1] 'groupA:t' ]
+#[ Supplement dat vol  = [1] 'groupA:t' ]
+#[ Option summary      = -bisided,p=0.005,clust_nvox,90,NN1 ]
+#[ Threshold value(s)  = left-tail p=0.005000 -> thr=-3.118824;  right-tail p=0.005000 -> thr=3.118824 ]
+#[ Aux. stat. info.    = DEGREES-of-FREEDOM : 22  ]
+#[ Nvoxel threshold    = 90;  Volume threshold = 2195.010 ]
+#[ Single voxel volume = 24.389 (microliters) ]
+#[ Neighbor type, NN   = 1 ]
+#[ Voxel datum type    = short ]
+#[ Voxel dimensions    = 2.900 mm X 2.900 mm X 2.900 mm ]
+#[ Coordinates Order   = RAI ]
+#[ Mask                = /home/span/dopa/midaffemo/ROIs/glm_mask_gm.nii.gz ]
+#[ Mean and SEM based on signed voxel intensities ]
+#
+#Volume  CM RL  CM AP  CM IS  minRL  maxRL  minAP  maxAP  minIS  maxIS    Mean     SEM    Max Int  MI RL  MI AP  MI IS
+#------  -----  -----  -----  -----  -----  -----  -----  -----  -----  -------  -------  -------  -----  -----  -----
+    529    2.6   75.4    0.2  -18.8   21.8   45.6   91.9  -15.7   30.7   3.4167   0.0102   4.4221   10.2   51.3   -7.0 

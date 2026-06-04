@@ -1,0 +1,10 @@
+# 3dClustSim -mask /home/span/dopa/midaffemo/ROIs/glm_mask_gm.nii.gz -acf 0.36106 5.7344349999999995 14.8634 -athr 0.05 -pthr 0.001 0.005 -prefix model27c_param_arous_early_WB_FWE_ClustSim
+# 1-sided thresholding
+# Grid: 68x80x65 2.90x2.90x2.90 mm^3 (61631 voxels in mask)
+#
+# CLUSTER SIZE THRESHOLD(pthr,alpha) in Voxels
+# -NN 1  | alpha = Prob(Cluster >= given size)
+#  pthr  | .05000
+# ------ | ------
+ 0.005000   130.1
+ 0.001000    45.2

@@ -1,0 +1,24 @@
+#
+#  Cluster report 
+#[ Dataset prefix      = model33f_pupil_scaled_convolved_lagged ]
+#[ Threshold vol       = [1] 'groupA:t' ]
+#[ Supplement dat vol  = [1] 'groupA:t' ]
+#[ Option summary      = -bisided,p=0.005,clust_nvox,98,NN1 ]
+#[ Threshold value(s)  = left-tail p=0.005000 -> thr=-3.118824;  right-tail p=0.005000 -> thr=3.118824 ]
+#[ Aux. stat. info.    = DEGREES-of-FREEDOM : 22  ]
+#[ Nvoxel threshold    = 98;  Volume threshold = 2390.122 ]
+#[ Single voxel volume = 24.389 (microliters) ]
+#[ Neighbor type, NN   = 1 ]
+#[ Voxel datum type    = short ]
+#[ Voxel dimensions    = 2.900 mm X 2.900 mm X 2.900 mm ]
+#[ Coordinates Order   = RAI ]
+#[ Mask                = /home/span/dopa/midaffemo/ROIs/glm_mask_gm.nii.gz ]
+#[ Mean and SEM based on signed voxel intensities ]
+#
+#Volume  CM RL  CM AP  CM IS  minRL  maxRL  minAP  maxAP  minIS  maxIS    Mean     SEM    Max Int  MI RL  MI AP  MI IS
+#------  -----  -----  -----  -----  -----  -----  -----  -----  -----  -------  -------  -------  -----  -----  -----
+  15785    2.3   25.6    8.1  -68.2   68.2  -50.2   91.9  -65.0   77.1   4.3846   0.0086   20.883    7.2  -24.1  -27.3 
+    397   35.2  -40.4   21.0   21.8   45.0  -61.8  -26.9   -4.1   39.4   4.0325    0.031   5.7965   42.0  -38.6   22.0 
+    392  -31.6  -42.3   22.6  -42.1  -21.8  -61.8  -24.1   -4.1   39.4   4.0333   0.0328   6.0782  -27.6  -32.8   30.7 
+#------  -----  -----  -----  -----  -----  -----  -----  -----  -----  -------  -------  -------  -----  -----  -----
+# 16574    2.3   22.6    8.7                                             4.3679   0.0083                             

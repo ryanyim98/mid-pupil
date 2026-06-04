@@ -1,0 +1,29 @@
+#
+#  Cluster report 
+#[ Dataset prefix      = model33f_pupil_scaled_convolved_lagged ]
+#[ Threshold vol       = [1] 'groupA:t' ]
+#[ Supplement dat vol  = [1] 'groupA:t' ]
+#[ Option summary      = -bisided,p=0.001,clust_nvox,36,NN1 ]
+#[ Threshold value(s)  = left-tail p=0.001000 -> thr=-3.792131;  right-tail p=0.001000 -> thr=3.792131 ]
+#[ Aux. stat. info.    = DEGREES-of-FREEDOM : 22  ]
+#[ Nvoxel threshold    = 36;  Volume threshold = 878.004 ]
+#[ Single voxel volume = 24.389 (microliters) ]
+#[ Neighbor type, NN   = 1 ]
+#[ Voxel datum type    = short ]
+#[ Voxel dimensions    = 2.900 mm X 2.900 mm X 2.900 mm ]
+#[ Coordinates Order   = RAI ]
+#[ Mask                = /home/span/dopa/midaffemo/ROIs/glm_mask_gm.nii.gz ]
+#[ Mean and SEM based on signed voxel intensities ]
+#
+#Volume  CM RL  CM AP  CM IS  minRL  maxRL  minAP  maxAP  minIS  maxIS    Mean     SEM    Max Int  MI RL  MI AP  MI IS
+#------  -----  -----  -----  -----  -----  -----  -----  -----  -----  -------  -------  -------  -----  -----  -----
+   6169    2.8   33.2  -17.9  -62.3   65.2  -32.8   89.1  -62.1   30.7   5.1813    0.014    12.07   33.3   60.1  -62.1 
+   2481    9.8    1.2   48.5  -39.2   65.2  -47.2   54.2    4.6   77.1   4.5447   0.0122   7.6856   13.0   -9.6   59.7 
+    658    3.0   50.6   51.4  -27.6   33.3   19.4   80.4   33.6   71.3   4.3498   0.0181   6.5365   10.2   36.8   42.3 
+    263  -43.4   20.2   42.7  -62.3  -27.6   10.8   31.1    7.5   68.4   4.2753    0.022   5.4371  -45.0   19.4   36.5 
+    237   35.2  -38.7   22.7   21.8   45.0  -55.9  -26.9    1.7   36.5   4.4303   0.0303   5.7965   42.0  -38.6   22.0 
+    224  -31.4  -41.0   24.8  -42.1  -24.7  -55.9  -26.9    7.5   36.5   4.4863   0.0315   6.0782  -27.6  -32.8   30.7 
+    148  -55.4   36.7   28.8  -65.3  -45.0   25.2   48.4   16.2   42.3   4.5997   0.0511   7.0705  -53.7   36.8   24.9 
+     58   61.8   30.5   18.3   53.7   68.2   22.3   33.9   10.4   27.8   4.2626   0.0605   5.8545   59.5   31.1   16.2 
+#------  -----  -----  -----  -----  -----  -----  -----  -----  -----  -------  -------  -------  -----  -----  -----
+# 10238    2.9   23.7    4.9                                             4.9041   0.0097                             
