@@ -3,6 +3,11 @@ title: "lmer_cross_validation"
 output: html_document
 date: "2025-11-12"
 ---
+
+```{r setup, include=FALSE}
+source("../helper/save_figure.R")
+```
+
 four-level cross validation
 
 # within-subject evaluation
@@ -776,7 +781,7 @@ p2<-ggplot(heatmap_long, aes(x = train, y = test, fill = variance_explained)) +
 
 p1+p2
 
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/cross_study_validation.png"),dpi = 300, height = 3.3, width = 7)
+save_figure("s4b_cross_study_validation", dpi = 300, height = 3.3, width = 7)
 ```
 
 ```{r}

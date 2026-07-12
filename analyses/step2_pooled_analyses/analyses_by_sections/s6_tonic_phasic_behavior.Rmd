@@ -3,6 +3,11 @@ title: "tonic_phasic_behavior"
 output: html_document
 date: "2025-12-27"
 ---
+
+```{r setup, include=FALSE}
+source("../helper/save_figure.R")
+```
+
 ## fatigue: visualise tonic activity over time
 ```{r}
 vrmid1_pupil_data_tonic <- vrmid1_pupil_data%>%
@@ -1552,7 +1557,7 @@ pp2<-ggplot(rt_reg_coef %>% filter(predictor != "subjective arousal"), aes(x = s
        x = "",
        title = "rt ~ tonic + phasic")
 pp1+pp2
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/pupil_rt.png"),dpi = 300, height = 3, width = 8)
+save_figure("s6_pupil_rt_correlation", dpi = 300, height = 3, width = 8)
 ```
 
 
@@ -1677,7 +1682,7 @@ par3<-ggplot() +
 
 par1+par3
 
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/ar.png"),dpi = 300, height = 3, width = 9)
+save_figure("s6_arousal_rating_correlation", dpi = 300, height = 3, width = 9)
 ```
 
 ```{r}
@@ -1685,15 +1690,15 @@ ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/ar.png"),dpi = 300, he
 (par1+par3)
   # plot_annotation(tag_levels = "a")
 
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig5_beh.png"),dpi = 300, height = 6, width = 12)
+save_figure("s6_tonic_phasic_behavior", dpi = 300, height = 6, width = 12)
 
-fig5 <- image_read("~/Desktop/VRMID-analysis/mid-pupil/figures/fig5_beh.png")
+fig5 <- image_read(mid_pupil_figure_path("s6_tonic_phasic_behavior", "png"))
 fig5 <- image_annotate(fig5, "A", size = 55, location = "+250+00", color = "black", gravity = "northwest")
-fig5 <- image_annotate(fig5, "B", size = 55, location = "+1600+00", color = "black", gravity = "northwest")
+fig5 <- image_annotate(fig5, "B", size = 55, location = "+2000+00", color = "black", gravity = "northwest")
 fig5 <- image_annotate(fig5, "C", size = 55, location = "+250+950", color = "black", gravity = "northwest")
 # fig5 <- image_annotate(fig5, "D", size = 55, location = "+1600+950", color = "black", gravity = "northwest")
-image_write(fig5, "~/Desktop/VRMID-analysis/mid-pupil/figures/fig5_beh.png")
-image_write(fig5, "~/Desktop/VRMID-analysis/mid-pupil/figures/fig5_beh.jpeg")
+save_figure_image("s6_tonic_phasic_behavior", fig5)
+magick::image_write(fig5, mid_pupil_figure_path("s6_tonic_phasic_behavior", "jpeg"))
 ```
 
 ```{r}
@@ -1738,6 +1743,6 @@ ggplot(rt_reg_coef %>% filter(predictor == "subjective arousal"), aes(x = study,
                   tag_levels = "A")
 
 
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig5_beh2.png"),dpi = 300, height = 9, width = 5)
+save_figure("s6_tonic_phasic_behavior_by_study", dpi = 300, height = 9, width = 5)
 ```
 

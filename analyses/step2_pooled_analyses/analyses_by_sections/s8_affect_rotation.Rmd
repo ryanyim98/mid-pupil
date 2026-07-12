@@ -3,6 +3,11 @@ title: "affect_rotation"
 output: html_document
 date: "2025-12-27"
 ---
+
+```{r setup, include=FALSE}
+source("../helper/save_figure.R")
+```
+
 # using a data-driven approach to identify the affective dimension most associated with pupil size
 ```{r message = F, warning=F}
 da <- vrmid1_data_antprobe
@@ -251,7 +256,7 @@ p3<-ggplot(fmri3_axes%>%
 
 p1+p3
 
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig2_axes.png"),dpi = 300, height = 4, width = 7)
+save_figure("s8_affect_axes_by_study", dpi = 300, height = 4, width = 7)
 
 ```
 
@@ -541,16 +546,16 @@ p3<-ggplot(fmri3_axes_v%>%
 ```{r}
 p1+p3
 
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig2_axes2.png"),dpi = 300, height = 4, width = 7)
+save_figure("s8_affect_axes_pooled", dpi = 300, height = 4, width = 7)
 
-fig2a <- image_read("~/Desktop/VRMID-analysis/mid-pupil/figures/fig2_axes.png")
-fig2b <- image_read("~/Desktop/VRMID-analysis/mid-pupil/figures/fig2_axes2.png")
+fig2a <- image_read(mid_pupil_figure_path("s8_affect_axes_by_study", "png"))
+fig2b <- image_read(mid_pupil_figure_path("s8_affect_axes_pooled", "png"))
 fig2a <- image_annotate(fig2a, "A", size = 60, location = "+30+10", color = "black", gravity = "northwest")
 fig2b <- image_annotate(fig2b, "B", size = 60, location = "+30+10", color = "black", gravity = "northwest")
 # Stack the images vertically
 combined <- image_append(c(fig2a, fig2b), stack = TRUE)
 
 # Save the combined image
-image_write(combined, "~/Desktop/VRMID-analysis/mid-pupil/figures/fig2_axes3.png")
+save_figure_image("s8_affect_axes_combined", combined)
 ```
 

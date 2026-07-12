@@ -3,6 +3,11 @@ title: "manipulation_check_cue"
 output: html_document
 date: "2025-11-12"
 ---
+
+```{r setup, include=FALSE}
+source("../helper/save_figure.R")
+```
+
 Checking if affect and pupil size responds to cue value and outcome
 # rating behavior on affective circumplex
 ```{r}
@@ -281,13 +286,13 @@ title2 <- wrap_elements(full = grid::textGrob("Pupillometry", gp =  grid::gpar(f
   title2 /                        # Title for the second row
   (p1a  + p3a)             # Second row
 ) + plot_layout(nrow = 4, heights = c(0.1, 1.5, 0.1, 1.5))  # Adjust heights for title rows
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig9_manipCheck.png"), height = 6, width = 7)
+save_figure("s3_manipulation_check", height = 6, width = 7)
 
-fig1 <- image_read("~/Desktop/VRMID-analysis/mid-pupil/figures/fig9_manipCheck.png")
+fig1 <- image_read(mid_pupil_figure_path("s3_manipulation_check", "png"))
 fig1 <- image_annotate(fig1, "A", size = 55, location = "+400+00", color = "black", gravity = "northwest")
 fig1 <- image_annotate(fig1, "B", size = 55, location = "+400+950", color = "black", gravity = "northwest")
 
-image_write(fig1, "~/Desktop/VRMID-analysis/mid-pupil/figures/fig9_manipCheck.png")
+save_figure_image("s3_manipulation_check", fig1)
 ```
 
 ### asymmetry
@@ -429,10 +434,10 @@ pp8 <- plot_model(l1,type= "pred", terms = c("cue_value","hit"))+
 
 ```{r}
 pp1+pp2+pp5+pp6
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/si_arousal.png"),dpi = 300, height = 5, width = 8)
+save_figure("s3_si_arousal_timecourse", dpi = 300, height = 5, width = 8)
 
 pp3+pp4+pp7+pp8
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/si_valence.png"),dpi = 300, height = 5, width = 8)
+save_figure("s3_si_valence_timecourse", dpi = 300, height = 5, width = 8)
 
 ```
 
@@ -488,9 +493,10 @@ round(r.squaredGLMM(l1)*100,2)
 anova(lmer(mean_pupil_nobc_scaled_out ~ cue_value * hit +arousal + (1|subject)+ (1|cue_size),fmri3_data_antprobe))
 summary(lmer(scale(mean_pupil_nobc_scaled_out) ~ as.factor(trial_outcome) + (1|subject) + (1|cue_size),fmri3_data_antprobe))
 ```
+
 ```{r}
 pp1+pp2+pp3+pp4
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/si_pupil.png"),dpi = 300, height = 5, width = 8)
+save_figure("s3_si_pupil_timecourse", dpi = 300, height = 5, width = 8)
 
 ```
 
@@ -509,6 +515,184 @@ summary(lmer(arousal_scaled ~ luminance_convolved_mean_ant + (1|subject) + (1|pr
 
 summary(lmer(arousal_scaled ~ luminance_convolved_mean_out + (1|subject) + (1|probe),rbind(fmri3_data_antprobe,
                                                                      fmri3_data_outprobe)))
+```
+
+## do pupil size and self-reports differ by cue size?
+
+```{r}
+# Align VR cue-size factor order with Set2 coloring used in s2 timecourse plots
+vrmid1_data_antprobe <- vrmid1_data_antprobe %>%
+  mutate(condition = factor(condition, levels = c("large", "looming", "receding", "small")))
+vrmid1_data_outprobe <- vrmid1_data_outprobe %>%
+  mutate(condition = factor(condition, levels = c("large", "looming", "receding", "small")))
+
+# Connect predicted points within each cue-size level
+add_cuesize_lines <- function(p) {
+  p + geom_line(aes(group = group), linewidth = 0.8)
+}
+```
+
+### anticipation
+```{r}
+# VR: cue value on x, cue size as color
+summary(l1 <- lmer(scale(mean_pupil_nobc_ant) ~ trial_type * condition + (1|Subject),
+                   vrmid1_data_antprobe))
+round(anova(l1), 2)
+round(r.squaredGLMM(l1) * 100, 2)
+effectsize::eta_squared(anova(l1), partial = TRUE)
+pp_cs_pupil_ant_vr <- add_cuesize_lines(
+  plot_model(l1, type = "pred", terms = c("trial_type", "condition")) +
+    labs(title = "Anticipatory pupil", x = "", y = "z-scored pupil",
+         subtitle = "VR Study", color = "cue size") +
+    scale_color_brewer(palette = "Set2")
+)
+
+summary(l1 <- lmer(scale(arousal_scaled) ~ trial_type * condition + (1|Subject),
+                   vrmid1_data_antprobe))
+round(anova(l1), 2)
+round(r.squaredGLMM(l1) * 100, 2)
+effectsize::eta_squared(anova(l1), partial = TRUE)
+pp_cs_arousal_ant_vr <- add_cuesize_lines(
+  plot_model(l1, type = "pred", terms = c("trial_type", "condition")) +
+    labs(title = "Anticipatory arousal", x = "", y = "z-scored arousal",
+         subtitle = "VR Study", color = "cue size") +
+    scale_color_brewer(palette = "Set2")
+)
+
+summary(l1 <- lmer(scale(valence_scaled) ~ trial_type * condition + (1|Subject),
+                   vrmid1_data_antprobe))
+round(anova(l1), 2)
+round(r.squaredGLMM(l1) * 100, 2)
+effectsize::eta_squared(anova(l1), partial = TRUE)
+pp_cs_valence_ant_vr <- add_cuesize_lines(
+  plot_model(l1, type = "pred", terms = c("trial_type", "condition")) +
+    labs(title = "Anticipatory valence", x = "", y = "z-scored valence",
+         subtitle = "VR Study", color = "cue size") +
+    scale_color_brewer(palette = "Set2")
+)
+
+# FMRI: cue value on x, cue size as color (2 levels; Set2 colors match s2)
+summary(l1 <- lmer(scale(mean_pupil_nobc_scaled_ant) ~ cue_value * cue_size + (1|subject),
+                   fmri3_data_antprobe))
+round(anova(l1), 2)
+round(r.squaredGLMM(l1) * 100, 2)
+effectsize::eta_squared(anova(l1), partial = TRUE)
+pp_cs_pupil_ant_fmri <- add_cuesize_lines(
+  plot_model(l1, type = "pred", terms = c("cue_value", "cue_size")) +
+    labs(title = "Anticipatory pupil", x = "", y = "z-scored pupil",
+         subtitle = "FMRI Study", color = "cue size") +
+    scale_color_brewer(palette = "Set2")
+)
+
+summary(l1 <- lmer(scale(arousal_scaled) ~ cue_value * cue_size + (1|subject),
+                   fmri3_data_antprobe))
+round(anova(l1), 2)
+round(r.squaredGLMM(l1) * 100, 2)
+effectsize::eta_squared(anova(l1), partial = TRUE)
+pp_cs_arousal_ant_fmri <- add_cuesize_lines(
+  plot_model(l1, type = "pred", terms = c("cue_value", "cue_size")) +
+    labs(title = "Anticipatory arousal", x = "", y = "z-scored arousal",
+         subtitle = "FMRI Study", color = "cue size") +
+    scale_color_brewer(palette = "Set2")
+)
+
+summary(l1 <- lmer(scale(valence_scaled) ~ cue_value * cue_size + (1|subject),
+                   fmri3_data_antprobe))
+round(anova(l1), 2)
+round(r.squaredGLMM(l1) * 100, 2)
+effectsize::eta_squared(anova(l1), partial = TRUE)
+pp_cs_valence_ant_fmri <- add_cuesize_lines(
+  plot_model(l1, type = "pred", terms = c("cue_value", "cue_size")) +
+    labs(title = "Anticipatory valence", x = "", y = "z-scored valence",
+         subtitle = "FMRI Study", color = "cue size") +
+    scale_color_brewer(palette = "Set2")
+)
+```
+
+### outcome
+```{r}
+# VR
+summary(l1 <- lmer(scale(mean_pupil_nobc_out) ~ trial_type * condition * reaction_outcome + (1|Subject),
+                   vrmid1_data_outprobe))
+round(anova(l1), 2)
+round(r.squaredGLMM(l1) * 100, 2)
+effectsize::eta_squared(anova(l1), partial = TRUE)
+pp_cs_pupil_out_vr <- add_cuesize_lines(
+  plot_model(l1, type = "pred", terms = c("trial_type", "condition")) +
+    labs(title = "Outcome pupil", x = "", y = "z-scored pupil",
+         subtitle = "VR Study", color = "cue size") +
+    scale_color_brewer(palette = "Set2")
+)
+
+summary(l1 <- lmer(scale(arousal_scaled) ~ trial_type * condition * reaction_outcome + (1|Subject),
+                   vrmid1_data_outprobe %>% filter(!is.na(arousal_scaled))))
+round(anova(l1), 2)
+round(r.squaredGLMM(l1) * 100, 2)
+effectsize::eta_squared(anova(l1), partial = TRUE)
+pp_cs_arousal_out_vr <- add_cuesize_lines(
+  plot_model(l1, type = "pred", terms = c("trial_type", "condition")) +
+    labs(title = "Outcome arousal", x = "", y = "z-scored arousal",
+         subtitle = "VR Study", color = "cue size") +
+    scale_color_brewer(palette = "Set2")
+)
+
+summary(l1 <- lmer(scale(valence_scaled) ~ trial_type * condition * reaction_outcome + (1|Subject),
+                   vrmid1_data_outprobe))
+round(anova(l1), 2)
+round(r.squaredGLMM(l1) * 100, 2)
+effectsize::eta_squared(anova(l1), partial = TRUE)
+pp_cs_valence_out_vr <- add_cuesize_lines(
+  plot_model(l1, type = "pred", terms = c("trial_type", "condition")) +
+    labs(title = "Outcome valence", x = "", y = "z-scored valence",
+         subtitle = "VR Study", color = "cue size") +
+    scale_color_brewer(palette = "Set2")
+)
+
+# FMRI
+summary(l1 <- lmer(scale(mean_pupil_nobc_scaled_out) ~ cue_value * cue_size * hit + (1|subject),
+                   fmri3_data_outprobe))
+round(anova(l1), 2)
+round(r.squaredGLMM(l1) * 100, 2)
+effectsize::eta_squared(anova(l1), partial = TRUE)
+pp_cs_pupil_out_fmri <- add_cuesize_lines(
+  plot_model(l1, type = "pred", terms = c("cue_value", "cue_size")) +
+    labs(title = "Outcome pupil", x = "", y = "z-scored pupil",
+         subtitle = "FMRI Study", color = "cue size") +
+    scale_color_brewer(palette = "Set2")
+)
+
+summary(l1 <- lmer(scale(arousal_scaled) ~ cue_value * cue_size * hit + (1|subject),
+                   fmri3_data_outprobe))
+round(anova(l1), 2)
+round(r.squaredGLMM(l1) * 100, 2)
+effectsize::eta_squared(anova(l1), partial = TRUE)
+pp_cs_arousal_out_fmri <- add_cuesize_lines(
+  plot_model(l1, type = "pred", terms = c("cue_value", "cue_size")) +
+    labs(title = "Outcome arousal", x = "", y = "z-scored arousal",
+         subtitle = "FMRI Study", color = "cue size") +
+    scale_color_brewer(palette = "Set2")
+)
+
+summary(l1 <- lmer(scale(valence_scaled) ~ cue_value * cue_size * hit + (1|subject),
+                   fmri3_data_outprobe))
+round(anova(l1), 2)
+round(r.squaredGLMM(l1) * 100, 2)
+effectsize::eta_squared(anova(l1), partial = TRUE)
+pp_cs_valence_out_fmri <- add_cuesize_lines(
+  plot_model(l1, type = "pred", terms = c("cue_value", "cue_size")) +
+    labs(title = "Outcome valence", x = "", y = "z-scored valence",
+         subtitle = "FMRI Study", color = "cue size") +
+    scale_color_brewer(palette = "Set2")
+)
+```
+
+```{r}
+# rows: pupil / arousal / valence; cols: VR ant | FMRI ant | VR out | FMRI out
+(pp_cs_pupil_ant_vr + pp_cs_pupil_ant_fmri + pp_cs_pupil_out_vr + pp_cs_pupil_out_fmri +
+  pp_cs_arousal_ant_vr + pp_cs_arousal_ant_fmri + pp_cs_arousal_out_vr + pp_cs_arousal_out_fmri +
+  pp_cs_valence_ant_vr + pp_cs_valence_ant_fmri + pp_cs_valence_out_vr + pp_cs_valence_out_fmri) +
+  plot_layout(ncol = 4)
+save_figure("s3_si_cuesize_effects", dpi = 300, height = 8, width = 14)
 ```
 
 ## is OBJECTIVE or SUBJECTIVE model better?

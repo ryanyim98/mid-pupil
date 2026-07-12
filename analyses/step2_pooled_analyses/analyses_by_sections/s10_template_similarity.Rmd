@@ -7,6 +7,7 @@ date: "2025-11-15"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 source("../../load_libraries.R")
+source("../helper/save_figure.R")
 source("../helper/template_similarity_utils.R")
 # GLM index CSVs: MIDAFFEMO_ROOT/glm_maps/arousal_index_csv/ (see GLM_INDEX_CSV_DIR in helper)
 
@@ -510,7 +511,7 @@ p_m2_arousal_c <- ggplot() +
 plot_annotation(title = "Arousal template",
                   tag_levels = "A")
 
-ggsave("../../../figures/fig_glmArousal.png", dpi = 300, height = 6, width = 11)
+save_figure("s10_glm_arousal_template", dpi = 300, height = 6, width = 11)
 ```
 
 ## get pupil glm template
@@ -888,7 +889,7 @@ p_thresh_rate<-ggplot(df_rating %>% filter(tr <= 14), aes(x = tr, y = Estimate))
   plot_layout(heights = c(1,2))+
   plot_annotation(tag_levels = "A")
 
-ggsave("../../../figures/si_pattern_threshold.png", dpi = 300, height = 5, width = 8)
+save_figure("s10_si_pattern_threshold", dpi = 300, height = 5, width = 8)
 ```
 
 #### visualize peak correlation
@@ -900,6 +901,7 @@ d3 <- my_array_s1_ %>% filter(tr_in_trial == 7, probe == "outcome probe", thresh
 
 # Fit models
 l1 <- lmer(scale(arousal_scaled) ~ scale(glmPupil) + (1|split), d1)
+summary(l1)
 l2 <- lmer(scale(arousal_scaled) ~ scale(glmPupil) + (1|split), d2)
 l3 <- lmer(scale(arousal_scaled) ~ scale(glmPupil) + (1|split), d3)
 # Extract coefficients and p-values
@@ -1065,7 +1067,7 @@ ggplot(corr_long, aes(Var1, Var2, fill = value)) +
   coord_fixed() +
   labs(x = "", y = "", title = "Correlation Matrix (threshold = 0.5)")
 
-ggsave("../../../figures/arousal_index_corr_s1.png", dpi = 300, height = 5, width = 6)
+save_figure("s10_arousal_index_corr_s1", dpi = 300, height = 5, width = 6)
 
 
 corr_mat1 <- my_array_s1 %>%
@@ -1128,7 +1130,7 @@ ggplot(corr_long2, aes(Var1, Var2, fill = value)) +
   plot_annotation(tag_levels = "A")
 
 
-ggsave("../../../figures/arousal_index_corr_s2_split.png", dpi = 300, height = 5, width = 10)
+save_figure("s10_arousal_index_corr_s2_split", dpi = 300, height = 5, width = 10)
 
 p_cc <- 
 ggplot(lag_df, aes(x = lag_new, y = estimate)) +
@@ -1176,5 +1178,5 @@ plot_annotation(
   plot_layout(heights = c(1.5,1,1))
 
 
-ggsave("../../../figures/fig_glmPupil.png", dpi = 300, height = 9.2, width = 11)
+save_figure("s10_glm_pupil_template", dpi = 300, height = 9.2, width = 11)
 ```

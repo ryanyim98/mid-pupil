@@ -355,90 +355,49 @@ display: none;
 </div>
 
 
-<p>Purpose: Label brain regions from peak coordinates in whole-brain
-group analyses (pupil &amp; arousal @ bi-sided p = 0.005).</p>
-<p><strong>Nilearn sub-peaks</strong> (<code>get_clusters_table</code>,
-local maxima ≥ 20 mm apart) are used for <code>label4MRI</code>. AFNI
-<code>3dClusterize</code> cluster reports are kept as <strong>reference
-only</strong> (the pupil map has one ~15k-voxel connected component at
-NN1 that is not useful for region names).</p>
-<p>Generate nilearn CSVs first (from midaffemo repo):</p>
-<pre class="bash"><code>python cluster_table/export_cluster_peaks_nilearn.py \
+<p>Purpose: Label brain regions from peak coordinates @ bi-sided p =
+0.005 (WB FWE).</p>
+<ul>
+<li><strong>Self-reported arousal:</strong> AFNI
+<code>3dClusterize</code> cluster report only.</li>
+<li><strong>Pupil:</strong> AFNI peaks for the two smaller FWE clusters;
+<strong>atlas-intersection</strong> approach for the large connected
+AFNI cluster (~15k voxels).</li>
+</ul>
+<p>The atlas intersection approach intersects the thresholded Z-map
+(masked to the AFNI cluster) with Harvard-Oxford cortical + subcortical
+atlases for the cerebrum, and with AAL cerebellar parcels (labels
+91–116) for the cerebellum. It reports the single peak voxel within each
+named region whose overlap with the blob exceeds the minimum size
+threshold. This enforces anatomical plausibility and sparsity (one row
+per named region instead of 150+ distance-based sub-peaks).</p>
+<p>Generate pupil atlas-intersection table (midaffemo repo):</p>
+<pre class="bash"><code># Default: ≥ 500 mm³ overlap required (48 regions)
+python cluster_table/export_cluster_peaks_nilearn.py \
+  --atlas-intersection \
+  --vrmid-nilearn-dir ../../fmri/cluster_tables/nilearn
+
+# Stricter (fewer rows): raise --min-overlap-mm3, e.g. 2000 → 33 regions
+python cluster_table/export_cluster_peaks_nilearn.py \
+  --atlas-intersection --min-overlap-mm3 2000 \
   --vrmid-nilearn-dir ../../fmri/cluster_tables/nilearn</code></pre>
-<pre class="r"><code>library(tidyverse)</code></pre>
-<pre><code>## Warning: package &#39;ggplot2&#39; was built under R version 4.4.3</code></pre>
-<pre><code>## ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
-## ✔ dplyr     1.1.4     ✔ readr     2.1.5
-## ✔ forcats   1.0.0     ✔ stringr   1.5.1
-## ✔ ggplot2   4.0.2     ✔ tibble    3.2.1
-## ✔ lubridate 1.9.3     ✔ tidyr     1.3.1
-## ✔ purrr     1.0.2     
-## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
-## ✖ dplyr::filter() masks stats::filter()
-## ✖ dplyr::lag()    masks stats::lag()
-## ℹ Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors</code></pre>
-<pre class="r"><code>library(devtools)</code></pre>
+<p>Output:
+<code>nilearn/table_model33f_pupil_huge_blob_atlas_p0005.csv</code></p>
+<pre class="r"><code>library(tidyverse)
+library(devtools)</code></pre>
 <pre><code>## Warning: package &#39;devtools&#39; was built under R version 4.4.3</code></pre>
 <pre><code>## Loading required package: usethis</code></pre>
 <pre><code>## Warning: package &#39;usethis&#39; was built under R version 4.4.1</code></pre>
+<pre><code>## 
+## Attaching package: &#39;devtools&#39;</code></pre>
+<pre><code>## The following object is masked from &#39;package:emmeans&#39;:
+## 
+##     test</code></pre>
 <pre class="r"><code># install_github(&quot;yunshiuan/label4MRI&quot;)  # first time only
 library(label4MRI)
 
-nilearn_dir &lt;- &quot;../../fmri/cluster_tables/nilearn&quot;
-cluster_dir &lt;- &quot;../../fmri/cluster_tables/clustsim_result&quot;</code></pre>
-<div id="import-nilearn-sub-peak-tables-primary" class="section level1">
-<h1>Import nilearn sub-peak tables (primary)</h1>
-<pre class="r"><code>read_nilearn_subpeaks &lt;- function(path) {
-  read_csv(path, show_col_types = FALSE) %&gt;%
-    transmute(
-      contrast,
-      method,
-      cluster_id,
-      z_threshold,
-      cluster_threshold_voxels,
-      source_z_map,
-      peak_Z,
-      cluster_size_mm3,
-      x_mni = X_mni,
-      y_mni = Y_mni,
-      z_mni = Z_mni,
-      x,
-      y,
-      z
-    )
-}
-
-pupil_nilearn &lt;- read_nilearn_subpeaks(
-  file.path(nilearn_dir, &quot;table_model33f_pupil_subpeaks_p0005.csv&quot;)
-)
-arousal_nilearn &lt;- read_nilearn_subpeaks(
-  file.path(nilearn_dir, &quot;table_model27c_arousal_subpeaks_p0005.csv&quot;)
-)
-
-mydf &lt;- bind_rows(arousal_nilearn, pupil_nilearn)
-mydf</code></pre>
-<pre><code>## # A tibble: 58 × 14
-##    contrast method    cluster_id z_threshold cluster_threshold_vo…¹ source_z_map
-##    &lt;chr&gt;    &lt;chr&gt;     &lt;chr&gt;            &lt;dbl&gt;                  &lt;dbl&gt; &lt;chr&gt;       
-##  1 arousal  nilearn_… 1                 3.04                      0 model27c_pa…
-##  2 arousal  nilearn_… 2                 3.04                      0 model27c_pa…
-##  3 arousal  nilearn_… 2a                3.04                      0 model27c_pa…
-##  4 arousal  nilearn_… 3                 3.04                      0 model27c_pa…
-##  5 arousal  nilearn_… 4                 3.04                      0 model27c_pa…
-##  6 arousal  nilearn_… 5                 3.04                      0 model27c_pa…
-##  7 arousal  nilearn_… 6                 3.04                      0 model27c_pa…
-##  8 arousal  nilearn_… 7                 3.04                      0 model27c_pa…
-##  9 arousal  nilearn_… 8                 3.04                      0 model27c_pa…
-## 10 arousal  nilearn_… 9                 3.04                      0 model27c_pa…
-## # ℹ 48 more rows
-## # ℹ abbreviated name: ¹​cluster_threshold_voxels
-## # ℹ 8 more variables: peak_Z &lt;dbl&gt;, cluster_size_mm3 &lt;dbl&gt;, x_mni &lt;dbl&gt;,
-## #   y_mni &lt;dbl&gt;, z_mni &lt;dbl&gt;, x &lt;dbl&gt;, y &lt;dbl&gt;, z &lt;dbl&gt;</code></pre>
-</div>
-<div id="afni-cluster-reports-reference-only" class="section level1">
-<h1>AFNI cluster reports (reference only)</h1>
-<p>Coarse FWE-corrected clusters from <code>3dClusterize</code> (not
-used for <code>mni_to_region_name</code>).</p>
+cluster_dir &lt;- &quot;../../fmri/cluster_tables/clustsim_result&quot;
+nilearn_dir &lt;- &quot;../../fmri/cluster_tables/nilearn&quot;</code></pre>
 <pre class="r"><code>fix_cluster_header_line &lt;- function(header_line) {
   header_line %&gt;%
     str_replace_all(&quot;CM RL&quot;, &quot;CM_RL&quot;) %&gt;%
@@ -452,7 +411,7 @@ used for <code>mni_to_region_name</code>).</p>
     str_squish()
 }
 
-read_cluster_table &lt;- function(path, contrast, z_threshold) {
+read_afni_cluster_table &lt;- function(path, contrast, z_threshold) {
   lines &lt;- read_lines(path)
   hdr_idx &lt;- which(str_detect(lines, &quot;^#Volume\\s&quot;))
   if (length(hdr_idx) != 1) {
@@ -471,30 +430,41 @@ read_cluster_table &lt;- function(path, contrast, z_threshold) {
     col_types = cols(.default = col_double()),
     progress = FALSE
   ) %&gt;%
-    mutate(contrast = contrast, z_threshold = z_threshold, method = &quot;afni_fwe&quot;)
+    mutate(
+      contrast = contrast,
+      z_threshold = z_threshold,
+      method = &quot;afni_fwe&quot;
+    )
 }
 
-afni_ref &lt;- bind_rows(
-  read_cluster_table(
-    file.path(cluster_dir, &quot;model27c_param_arous_early_WB_FWE_clusters_p0005_a005_NN1.txt&quot;),
-    &quot;arousal&quot;,
-    3.038
-  ),
-  read_cluster_table(
-    file.path(cluster_dir, &quot;model33f_pupil_scaled_convolved_lagged_WB_FWE_clusters_p0005_a005_NN1.txt&quot;),
-    &quot;pupil&quot;,
-    3.119
-  )
+# AFNI MI_RL/MI_AP/MI_IS -&gt; label4MRI (RAI convention used in this project)
+afni_to_label_coords &lt;- function(df) {
+  df %&gt;%
+    mutate(
+      x = -MI_RL,
+      y = -MI_AP,
+      z = MI_IS
+    )
+}</code></pre>
+<div id="arousal-afni-only" class="section level1">
+<h1>Arousal: AFNI only</h1>
+<pre class="r"><code>arousal_afni &lt;- read_afni_cluster_table(
+  file.path(cluster_dir, &quot;model27c_param_arous_early_WB_FWE_clusters_p0005_a005_NN1.txt&quot;),
+  contrast = &quot;arousal&quot;,
+  z_threshold = 3.038
 ) %&gt;%
+  mutate(cluster_id = as.character(row_number())) %&gt;%
+  afni_to_label_coords() %&gt;%
   transmute(
     contrast,
     method,
+    cluster_id,
     n_voxels = Volume,
-    x_afni = MI_RL,
-    y_afni = MI_AP,
-    z_afni = MI_IS,
     peak_Z = Max_Int,
-    z_threshold
+    z_threshold,
+    x,
+    y,
+    z
   )</code></pre>
 <pre><code>## Warning: 5 parsing failures.
 ## row col   expected     actual         file
@@ -503,27 +473,83 @@ afni_ref &lt;- bind_rows(
 ##   3  -- 16 columns 17 columns literal data
 ##   4  -- 16 columns 17 columns literal data
 ##   5  -- 16 columns 17 columns literal data</code></pre>
+<pre class="r"><code>arousal_afni</code></pre>
+<pre><code>## # A tibble: 5 × 9
+##   contrast method   cluster_id n_voxels peak_Z z_threshold     x     y     z
+##   &lt;chr&gt;    &lt;chr&gt;    &lt;chr&gt;         &lt;dbl&gt;  &lt;dbl&gt;       &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+## 1 arousal  afni_fwe 1               472   4.54        3.04  -1.4 -62.9 -21.5
+## 2 arousal  afni_fwe 2               141   4.77        3.04  33.3 -39.8 -36  
+## 3 arousal  afni_fwe 3               126   4.14        3.04 -10.2  15.4  -1.2
+## 4 arousal  afni_fwe 4               110   4.52        3.04 -33.3 -45.6 -36  
+## 5 arousal  afni_fwe 5               110   5.26        3.04  59.5   0.9  42.3</code></pre>
+</div>
+<div id="pupil-small-clusters-afni-huge-blob-nilearn-sub-peaks" class="section level1">
+<h1>Pupil: small clusters (AFNI) + huge blob (nilearn sub-peaks)</h1>
+<pre class="r"><code>pupil_afni_all &lt;- read_afni_cluster_table(
+  file.path(
+    cluster_dir,
+    &quot;model33f_pupil_scaled_convolved_lagged_WB_FWE_clusters_p0005_a005_NN1.txt&quot;
+  ),
+  contrast = &quot;pupil&quot;,
+  z_threshold = 3.119
+)</code></pre>
 <pre><code>## Warning: 3 parsing failures.
 ## row col   expected     actual         file
 ##   1  -- 16 columns 17 columns literal data
 ##   2  -- 16 columns 17 columns literal data
 ##   3  -- 16 columns 17 columns literal data</code></pre>
-<pre class="r"><code>write_csv(
-  afni_ref,
-  &quot;../../fmri/cluster_tables/cluserpeak_table_pupilarous_afni_reference.csv&quot;
-)
-afni_ref</code></pre>
-<pre><code>## # A tibble: 8 × 8
-##   contrast method   n_voxels x_afni y_afni z_afni peak_Z z_threshold
-##   &lt;chr&gt;    &lt;chr&gt;       &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;       &lt;dbl&gt;
-## 1 arousal  afni_fwe      472    1.4   62.9  -21.5   4.54        3.04
-## 2 arousal  afni_fwe      141  -33.3   39.8  -36     4.77        3.04
-## 3 arousal  afni_fwe      126   10.2  -15.4   -1.2   4.14        3.04
-## 4 arousal  afni_fwe      110   33.3   45.6  -36     4.52        3.04
-## 5 arousal  afni_fwe      110  -59.5   -0.9   42.3   5.26        3.04
-## 6 pupil    afni_fwe    15785    7.2  -24.1  -27.3  20.9         3.12
-## 7 pupil    afni_fwe      397   42    -38.6   22     5.80        3.12
-## 8 pupil    afni_fwe      392  -27.6  -32.8   30.7   6.08        3.12</code></pre>
+<pre class="r"><code>huge_n_voxels &lt;- max(pupil_afni_all$Volume)
+
+pupil_afni_small &lt;- pupil_afni_all %&gt;%
+  filter(Volume &lt; huge_n_voxels) %&gt;%
+  mutate(cluster_id = as.character(row_number())) %&gt;%
+  afni_to_label_coords() %&gt;%
+  transmute(
+    contrast,
+    method,
+    cluster_id,
+    n_voxels = Volume,
+    peak_Z = Max_Int,
+    z_threshold,
+    x,
+    y,
+    z
+  )
+
+pupil_nilearn_huge &lt;- read_csv(
+  file.path(nilearn_dir, &quot;table_model33f_pupil_huge_blob_atlas_p0005.csv&quot;),
+  show_col_types = FALSE
+) %&gt;%
+  transmute(
+    contrast,
+    method,
+    cluster_id = as.character(cluster_id),
+    parcel_label,
+    atlas,
+    n_voxels = round(cluster_size_mm3 / 2.9^3),  # mm³ → voxels (2.9mm isotropic)
+    peak_Z,
+    z_threshold,
+    x = X_mni,
+    y = Y_mni,
+    z = Z_mni
+  )
+
+mydf &lt;- bind_rows(arousal_afni, pupil_afni_small, pupil_nilearn_huge)
+mydf</code></pre>
+<pre><code>## # A tibble: 41 × 11
+##    contrast method             cluster_id n_voxels peak_Z z_threshold      x     y     z parcel_label atlas
+##    &lt;chr&gt;    &lt;chr&gt;              &lt;chr&gt;         &lt;dbl&gt;  &lt;dbl&gt;       &lt;dbl&gt;  &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;chr&gt;        &lt;chr&gt;
+##  1 arousal  afni_fwe           1               472   4.54        3.04  -1.4  -62.9 -21.5 &lt;NA&gt;         &lt;NA&gt; 
+##  2 arousal  afni_fwe           2               141   4.77        3.04  33.3  -39.8 -36   &lt;NA&gt;         &lt;NA&gt; 
+##  3 arousal  afni_fwe           3               126   4.14        3.04 -10.2   15.4  -1.2 &lt;NA&gt;         &lt;NA&gt; 
+##  4 arousal  afni_fwe           4               110   4.52        3.04 -33.3  -45.6 -36   &lt;NA&gt;         &lt;NA&gt; 
+##  5 arousal  afni_fwe           5               110   5.26        3.04  59.5    0.9  42.3 &lt;NA&gt;         &lt;NA&gt; 
+##  6 pupil    afni_fwe           1               397   5.80        3.12 -42     38.6  22   &lt;NA&gt;         &lt;NA&gt; 
+##  7 pupil    afni_fwe           2               392   6.08        3.12  27.6   32.8  30.7 &lt;NA&gt;         &lt;NA&gt; 
+##  8 pupil    atlas_intersection 1               148   6.39        3.12 -10.2  -57.2 -21.5 Cerebelum_4… AAL-…
+##  9 pupil    atlas_intersection 2               319   6.14        3.12  33.4  -48.4 -53.4 Cerebelum_8… AAL-…
+## 10 pupil    atlas_intersection 3               138   6.08        3.12  -1.45 -65.8 -12.8 Vermis_6     AAL-…
+## # ℹ 31 more rows</code></pre>
 </div>
 <div id="region-labels-label4mri" class="section level1">
 <h1>Region labels (<code>label4MRI</code>)</h1>
@@ -543,24 +569,21 @@ df_labels &lt;- read_csv(&quot;../../fmri/cluster_tables/cluserpeak_tables_temp.
 )
 
 df_labels</code></pre>
-<pre><code>## # A tibble: 58 × 18
-##    contrast method    cluster_id z_threshold cluster_threshold_vo…¹ source_z_map
-##    &lt;chr&gt;    &lt;chr&gt;     &lt;chr&gt;            &lt;dbl&gt;                  &lt;dbl&gt; &lt;chr&gt;       
-##  1 arousal  nilearn_… 1                 3.04                      0 model27c_pa…
-##  2 arousal  nilearn_… 2                 3.04                      0 model27c_pa…
-##  3 arousal  nilearn_… 2a                3.04                      0 model27c_pa…
-##  4 arousal  nilearn_… 3                 3.04                      0 model27c_pa…
-##  5 arousal  nilearn_… 4                 3.04                      0 model27c_pa…
-##  6 arousal  nilearn_… 5                 3.04                      0 model27c_pa…
-##  7 arousal  nilearn_… 6                 3.04                      0 model27c_pa…
-##  8 arousal  nilearn_… 7                 3.04                      0 model27c_pa…
-##  9 arousal  nilearn_… 8                 3.04                      0 model27c_pa…
-## 10 arousal  nilearn_… 9                 3.04                      0 model27c_pa…
-## # ℹ 48 more rows
-## # ℹ abbreviated name: ¹​cluster_threshold_voxels
-## # ℹ 12 more variables: peak_Z &lt;dbl&gt;, cluster_size_mm3 &lt;dbl&gt;, x_mni &lt;dbl&gt;,
-## #   y_mni &lt;dbl&gt;, z_mni &lt;dbl&gt;, x &lt;dbl&gt;, y &lt;dbl&gt;, z &lt;dbl&gt;, aal.distance &lt;dbl&gt;,
-## #   aal.label &lt;chr&gt;, ba.distance &lt;dbl&gt;, ba.label &lt;chr&gt;</code></pre>
+<pre><code>## # A tibble: 41 × 15
+##    contrast method             cluster_id n_voxels peak_Z z_threshold      x     y     z parcel_label atlas
+##    &lt;chr&gt;    &lt;chr&gt;              &lt;chr&gt;         &lt;dbl&gt;  &lt;dbl&gt;       &lt;dbl&gt;  &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;chr&gt;        &lt;chr&gt;
+##  1 arousal  afni_fwe           1               472   4.54        3.04  -1.4  -62.9 -21.5 &lt;NA&gt;         &lt;NA&gt; 
+##  2 arousal  afni_fwe           2               141   4.77        3.04  33.3  -39.8 -36   &lt;NA&gt;         &lt;NA&gt; 
+##  3 arousal  afni_fwe           3               126   4.14        3.04 -10.2   15.4  -1.2 &lt;NA&gt;         &lt;NA&gt; 
+##  4 arousal  afni_fwe           4               110   4.52        3.04 -33.3  -45.6 -36   &lt;NA&gt;         &lt;NA&gt; 
+##  5 arousal  afni_fwe           5               110   5.26        3.04  59.5    0.9  42.3 &lt;NA&gt;         &lt;NA&gt; 
+##  6 pupil    afni_fwe           1               397   5.80        3.12 -42     38.6  22   &lt;NA&gt;         &lt;NA&gt; 
+##  7 pupil    afni_fwe           2               392   6.08        3.12  27.6   32.8  30.7 &lt;NA&gt;         &lt;NA&gt; 
+##  8 pupil    atlas_intersection 1               148   6.39        3.12 -10.2  -57.2 -21.5 Cerebelum_4… AAL-…
+##  9 pupil    atlas_intersection 2               319   6.14        3.12  33.4  -48.4 -53.4 Cerebelum_8… AAL-…
+## 10 pupil    atlas_intersection 3               138   6.08        3.12  -1.45 -65.8 -12.8 Vermis_6     AAL-…
+## # ℹ 31 more rows
+## # ℹ 4 more variables: aal.distance &lt;dbl&gt;, aal.label &lt;chr&gt;, ba.distance &lt;dbl&gt;, ba.label &lt;chr&gt;</code></pre>
 </div>
 
 

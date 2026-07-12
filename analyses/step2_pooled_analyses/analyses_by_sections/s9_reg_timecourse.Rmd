@@ -4,6 +4,10 @@ output: html_document
 date: "2025-12-27"
 ---
 
+```{r setup, include=FALSE}
+source("../helper/save_figure.R")
+```
+
 ## get the correlation time series
 ```{r warning = F, message=F}
 read_file <- 1
@@ -414,17 +418,17 @@ wrap_elements(full = grid::textGrob("Separated by probe type", gp = grid::gpar(f
 plot_layout(heights = c(0.2,1.5,1.5))
 
 
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig7_howlongago2.png"),dpi = 300, height = 8, width = 8)
+save_figure("s9_iti_pupil_correlation", dpi = 300, height = 8, width = 8)
 
-fig1 <- magick::image_read("~/Desktop/VRMID-analysis/mid-pupil/figures/fig7_howlongago2.png")
+fig1 <- magick::image_read(mid_pupil_figure_path("s9_iti_pupil_correlation", "png"))
 fig1 <-  magick::image_annotate(fig1, "A", size = 70, location = "+200+120", color = "black", gravity = "northwest")
 fig1 <-  magick::image_annotate(fig1, "B", size = 70, location = "+200+1200", color = "black", gravity = "northwest")
 
-magick::image_write(fig1, "~/Desktop/VRMID-analysis/mid-pupil/figures/fig7_howlongago2.png")
+save_figure_image("s9_iti_pupil_correlation", fig1)
 ```
 
 # identify the variability of individual peaks
-```{r warning = F, message=F}
+```{r warning = F, message=F, eval=F}
 if (read_file == 1) {
   vrmid1_regression_coefs_ant_nobc_ind <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivatives/vrmid1_regression_coefs_ant_nobc_ind.csv")
   vrmid1_regression_coefs_out_nobc_ind <- read_csv("~/Desktop/VRMID-analysis/mid-pupil/data/vrmid1/derivatives/vrmid1_regression_coefs_out_nobc_ind.csv")
@@ -555,7 +559,7 @@ write.csv(fmri3_regression_coefs_out_nobc_ind,  "~/Desktop/VRMID-analysis/mid-pu
 }
 ```
 # visualize individual peak
-```{r}
+```{r eval=F}
 vrmid_ant_peak_ind <- vrmid1_regression_coefs_ant_nobc_ind %>%
   filter(sample_point < 14 * 120) %>%
   group_by(subject) %>%

@@ -3,6 +3,11 @@ title: "affect_dimension"
 output: html_document
 date: "2025-12-27"
 ---
+
+```{r setup, include=FALSE}
+source("../helper/save_figure.R")
+```
+
 Is pupil size  explained by valence or emotion categories?
 
 (Can't make comparison between emotion vs. arousal because they are not the same trials)
@@ -214,5 +219,5 @@ pe3+pe4+
   plot_annotation(tag_levels = "A")+
   plot_layout(nrow = 3)
 
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig_emo.png"),dpi = 300, height = 10, width = 8)
+save_figure("s7_affect_dimension", dpi = 300, height = 10, width = 8)
 ```

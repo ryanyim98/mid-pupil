@@ -4,6 +4,10 @@ output: html_document
 date: "2025-12-27"
 ---
 
+```{r setup, include=FALSE}
+source("../helper/save_figure.R")
+```
+
 This is the RMD file for calculating the pupil-arousal effect size for each study separately
 
 ### were ant and out pupil, tonic and phasic pupil correlated?
@@ -458,7 +462,7 @@ p3d<-plot_model(l3d, type = "pred", terms = "mean_pupil_nobc_scaled_out",
 p1a+p1b+p1c+p1d+
   p3a+p3b+p3c+p3d+
   plot_layout(nrow = 2)
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig4_scatter.png"),dpi = 300, height = 6, width = 8)
+save_figure("s4a_pupil_arousal_scatter", dpi = 300, height = 6, width = 8)
 ```
 
 ## pool the effect sizes and make summary plots
@@ -672,8 +676,7 @@ geom_line(data=df_plot, aes(x = x, y = y, color = study),
   xlim(-5,5)
 
 p1+p3+p2+p4+plot_layout(nrow = 2)
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig4_pooled_effects.tiff"),dpi = 300, height = 6, width = 8)
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/fig4_pooled_effects.png"),dpi = 300, height = 6, width = 8)
+save_figure("s4a_pooled_effects", dpi = 300, height = 6, width = 8)
 ```
 
 ## also consider non-linear relationship

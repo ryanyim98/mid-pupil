@@ -3,6 +3,11 @@ title: "beh_performance"
 output: html_document
 date: "2025-12-27"
 ---
+
+```{r setup, include=FALSE}
+source("../helper/save_figure.R")
+```
+
 ## rt and hit rate
 ```{r}
 vrmid1_beh_summary1<-vrmid1_beh_data %>% 
@@ -56,7 +61,7 @@ ggplot(fmri3_beh_summary2,aes(x = cue_value, y = rt, color = cue_value))+
        subtitle = "FMRI study")+
   plot_layout(nrow = 2)
 
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/figx_beh.png"),dpi = 300, height = 5, width = 6)
+save_figure("s1_beh_rt_by_cue", dpi = 300, height = 5, width = 6)
 ```
 ## hit rate over time
 ```{r}
@@ -126,7 +131,7 @@ ggplot(fmri3_beh_data %>%
 plot_layout(nrow = 2, heights = c(2,1))+
   plot_annotation(tag_levels = "A")
 
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/figxxx_beh.png"),dpi = 300, height = 6, width = 8)
+save_figure("s1_beh_hitrate_over_trials", dpi = 300, height = 6, width = 8)
 ```
 
 ## are people faster in rating valence or arousal? positive or negative?

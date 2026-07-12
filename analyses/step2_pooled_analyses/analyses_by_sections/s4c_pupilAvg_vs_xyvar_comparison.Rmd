@@ -4,6 +4,10 @@ output: html_document
 date: "2026-04-27"
 ---
 
+```{r setup, include=FALSE}
+source("../helper/save_figure.R")
+```
+
 # Gaze location over time: individual trials (all cue values pooled)
 ```{r}
 # 25° left/right/down and 20° up — one faint line per trial; data piped straight into ggplot (no summary tibble)
@@ -17,11 +21,12 @@ p_vr1_sum_x <- ggplot(
   geom_line(linewidth = 0.1, alpha = 0.1, color = "grey25") +
   geom_vline(xintercept = c(0, 4, 6, 14, 16, 18), linewidth = 1, color = "grey") +
   geom_vline(xintercept = c(0, 4, 6), linewidth = 1, color = "grey") +
-  annotate("text", x = 2, y = 0.5, label = "C", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 5, y = 0.5, label = "F", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 15, y = 0.5, label = "T", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 17, y = 0.5, label = "O", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 10, y = 0.5, label = "R", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 2, y = 1.7, label = "C", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 5, y = 1.7, label = "F", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 15, y = 1.7, label = "T", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 17, y = 1.7, label = "O", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 10, y = 1.7, label = "R", color = "black", size = unit(4, "pt")) +
+  ylim(-1,2)+
   labs(
     title = "VR study",
     subtitle = "anticipation probe (individual trials)",
@@ -36,17 +41,18 @@ p_vr1_sum_x <- ggplot(
   geom_line(linewidth = 0.1, alpha = 0.1, color = "grey25") +
   geom_vline(xintercept = c(0, 4, 6, 8, 10, 18), linewidth = 1, color = "grey") +
   geom_vline(xintercept = c(0, 4, 6), linewidth = 1, color = "grey") +
-  annotate("text", x = 2, y = 0.5, label = "C", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 5, y = 0.5, label = "F", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 7, y = 0.5, label = "T", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 9, y = 0.5, label = "O", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 14, y = 0.5, label = "R", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 2, y = 1.7, label = "C", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 5, y = 1.7, label = "F", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 7, y = 1.7, label = "T", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 9, y = 1.7, label = "O", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 14, y = 1.7, label = "R", color = "black", size = unit(4, "pt")) +
   labs(
     title = "VR study",
     subtitle = "outcome probe (individual trials)",
     x = "time (s)",
     y = "normalized gaze location (x)"
-  ) 
+  ) +
+  ylim(-1,2)
 
 p_vr1_sum_y <- ggplot(
   vrmid1_pupil_data %>% dplyr::filter(probe == "anti", dplyr::between(sample_in_trial_t, vr1_x_rng[1], vr1_x_rng[2])),
@@ -55,11 +61,11 @@ p_vr1_sum_y <- ggplot(
   geom_line(linewidth = 0.1, alpha = 0.1, color = "grey25") +
   geom_vline(xintercept = c(0, 4, 6, 14, 16, 18), linewidth = 1, color = "grey") +
   geom_vline(xintercept = c(0, 4, 6), linewidth = 1, color = "grey") +
-  annotate("text", x = 2, y = 0.5, label = "C", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 5, y = 0.5, label = "F", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 15, y = 0.5, label = "T", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 17, y = 0.5, label = "O", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 10, y = 0.5, label = "R", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 2, y = 1.7, label = "C", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 5, y = 1.7, label = "F", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 15, y = 1.7, label = "T", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 17, y = 1.7, label = "O", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 10, y = 1.7, label = "R", color = "black", size = unit(4, "pt")) +
   labs(
     title = "VR study",
     subtitle = "anticipation probe (individual trials)",
@@ -67,6 +73,7 @@ p_vr1_sum_y <- ggplot(
     y = "normalized gaze location (y)"
   ) +
   theme(legend.position = "none") +
+  ylim(-1,2)+
   ggplot(
     vrmid1_pupil_data %>% dplyr::filter(probe == "out", dplyr::between(sample_in_trial_t, vr1_x_rng[1], vr1_x_rng[2])),
     aes(x = sample_in_trial_t, y = AvgPPos_y_preproc, group = interaction(Subject, trial))
@@ -74,17 +81,19 @@ p_vr1_sum_y <- ggplot(
   geom_line(linewidth = 0.1, alpha = 0.1, color = "grey25") +
   geom_vline(xintercept = c(0, 4, 6, 8, 10, 18), linewidth = 1, color = "grey") +
   geom_vline(xintercept = c(0, 4, 6), linewidth = 1, color = "grey") +
-  annotate("text", x = 2, y = 0.5, label = "C", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 5, y = 0.5, label = "F", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 7, y = 0.5, label = "T", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 9, y = 0.5, label = "O", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 14, y = 0.5, label = "R", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 2, y = 1.7, label = "C", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 5, y = 1.7, label = "F", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 7, y = 1.7, label = "T", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 9, y = 1.7, label = "O", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 14, y = 1.7, label = "R", color = "black", size = unit(4, "pt")) +
   labs(
     title = "VR study",
     subtitle = "outcome probe (individual trials)",
     x = "time (s)",
-    y = "normalized gaze location (y)"
-  )
+    y = "normalized gaze location (y)",
+      caption = "C = Cue, F = Fixation, \nT = Target, O = Outcome, R = Rating"
+  )+
+  ylim(-1,2)
 
 p_vr1_sum_x / p_vr1_sum_y
 ```
@@ -104,18 +113,19 @@ p_fmri3_sum_x <- ggplot(
 ) +
   geom_line(linewidth = 0.1, alpha = 0.1, color = "grey25") +
   geom_vline(xintercept = c(0, 2, 4, 12, 14, 16, 18), linewidth = 1, color = "grey") +
-  annotate("text", x = 1, y = 0.5, label = "C", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 3, y = 0.5, label = "F", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 13, y = 0.5, label = "F", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 15, y = 0.5, label = "T", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 17, y = 0.5, label = "O", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 8, y = 0.5, label = "R", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 1, y = 1.7, label = "C", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 3, y = 1.7, label = "F", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 13, y = 1.7, label = "F", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 15, y = 1.7, label = "T", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 17, y = 1.7, label = "O", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 8, y = 1.7, label = "R", color = "black", size = unit(4, "pt")) +
   labs(
     title = "FMRI study",
     subtitle = "anticipation probe (individual trials)",
     x = "time (s)",
     y = "normalized gaze location (x)"
   ) +
+  ylim(-1,2)+
   theme(legend.position = "none") +
   ggplot(
     fmri3_pupil_data %>%
@@ -127,17 +137,18 @@ p_fmri3_sum_x <- ggplot(
   ) +
   geom_line(linewidth = 0.1, alpha = 0.1, color = "grey25") +
   geom_vline(xintercept = c(0, 2, 4, 6, 8, 16), linewidth = 1, color = "grey") +
-  annotate("text", x = 1, y = 0.5, label = "C", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 3, y = 0.5, label = "F", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 5, y = 0.5, label = "T", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 7, y = 0.5, label = "O", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 12, y = 0.5, label = "R", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 1, y = 1.7, label = "C", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 3, y = 1.7, label = "F", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 5, y = 1.7, label = "T", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 7, y = 1.7, label = "O", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 12, y = 1.7, label = "R", color = "black", size = unit(4, "pt")) +
   labs(
     title = "FMRI study",
     subtitle = "outcome probe (individual trials)",
     x = "time (s)",
     y = "normalized gaze location (x)"
-  )
+  )+
+  ylim(-1,2)
 
 p_fmri3_sum_y <- ggplot(
   fmri3_pupil_data %>%
@@ -149,18 +160,19 @@ p_fmri3_sum_y <- ggplot(
 ) +
   geom_line(linewidth = 0.1, alpha = 0.1, color = "grey25") +
   geom_vline(xintercept = c(0, 2, 4, 12, 14, 16, 18), linewidth = 1, color = "grey") +
-  annotate("text", x = 1, y = 0.5, label = "C", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 3, y = 0.5, label = "F", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 13, y = 0.5, label = "F", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 15, y = 0.5, label = "T", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 17, y = 0.5, label = "O", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 8, y = 0.5, label = "R", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 1, y = 1.7, label = "C", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 3, y = 1.7, label = "F", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 13, y = 1.7, label = "F", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 15, y = 1.7, label = "T", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 17, y = 1.7, label = "O", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 8, y = 1.7, label = "R", color = "black", size = unit(4, "pt")) +
   labs(
     title = "FMRI study",
     subtitle = "anticipation probe (individual trials)",
     x = "time (s)",
     y = "normalized gaze location (y)"
   ) +
+  ylim(-1,2)+
   theme(legend.position = "none") +
   ggplot(
     fmri3_pupil_data %>%
@@ -172,17 +184,19 @@ p_fmri3_sum_y <- ggplot(
   ) +
   geom_line(linewidth = 0.1, alpha = 0.1, color = "grey25") +
   geom_vline(xintercept = c(0, 2, 4, 6, 8, 16), linewidth = 1, color = "grey") +
-  annotate("text", x = 1, y = 0.5, label = "C", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 3, y = 0.5, label = "F", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 5, y = 0.5, label = "T", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 7, y = 0.5, label = "O", color = "black", size = unit(4, "pt")) +
-  annotate("text", x = 12, y = 0.5, label = "R", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 1, y = 1.7, label = "C", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 3, y = 1.7, label = "F", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 5, y = 1.7, label = "T", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 7, y = 1.7, label = "O", color = "black", size = unit(4, "pt")) +
+  annotate("text", x = 12, y = 1.7, label = "R", color = "black", size = unit(4, "pt")) +
   labs(
     title = "FMRI study",
     subtitle = "outcome probe (individual trials)",
     x = "time (s)",
-    y = "normalized gaze location (y)"
-  ) 
+    y = "normalized gaze location (y)",
+  caption = "C = Cue, F = Fixation, \nT = Target, O = Outcome, R = Rating"
+  ) +
+  ylim(-1,2)
 
 p_fmri3_sum_x / p_fmri3_sum_y
 ```
@@ -191,7 +205,7 @@ p_fmri3_sum_x / p_fmri3_sum_y
 (p_vr1_sum_x | p_vr1_sum_y) /
 (p_fmri3_sum_x | p_fmri3_sum_y)
 
-ggsave(paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/xyloc.png"),dpi = 300, height = 6, width = 13)
+save_figure("s4c_gaze_location_timecourse", dpi = 300, height = 6, width = 13)
 
 ```
 
@@ -317,8 +331,8 @@ p_xy_xyloc_combined <- (p_xy_vrmid1 | p_xy_fmri3) +
 
 p_xy_xyloc_combined
 
-ggsave(
-  paste0("~/Desktop/VRMID-analysis/mid-pupil/figures/xyloc_combined.png"),
+save_figure(
+  "s4c_gaze_location_marginals",
   plot = p_xy_xyloc_combined,
   dpi = 300, height = 8, width = 8
 )
@@ -373,7 +387,7 @@ ggplot(fmri3_gaze_pupil, aes(x = pupilDiameter_scaled, fill = gaze_region)) +
     values = c("gaze inside [0, 1]" = "gray65", "gaze outside [0, 1] (x or y)" = "firebrick2")
   ) +
   labs(
-    title = "fMRI study 3 — pupil size vs gaze position",
+    title = "fMRI study — pupil size vs gaze position",
     subtitle = "Scaled pupil diameter when normalized gaze (x or y) is outside vs inside [0, 1]",
     x = "z-scored pupil diameter",
     y = "density",
@@ -926,8 +940,7 @@ ggplot(plot_dat, aes(x = pupil_value, y = arousal_scaled, color = signal)) +
     y = "z-scored arousal rating",
     color = "Signal"
   )
-# ggsave("~/Desktop/VRMID-analysis/mid-pupil/figures/fig4c_pooled_effects_xyvar.tiff", dpi = 300, height = 6, width = 8)
-ggsave("~/Desktop/VRMID-analysis/mid-pupil/figures/fig4c_pooled_effects_xyvar.png", dpi = 300, height = 6, width = 8)
+save_figure("s4c_pooled_effects_xyvar", dpi = 300, height = 6, width = 8)
 ```
 
 ```{r}

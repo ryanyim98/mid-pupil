@@ -3,6 +3,11 @@ title: "pupil-svr"
 output: html_document
 date: "2025-11-11"
 ---
+
+```{r setup, include=FALSE}
+source("../helper/save_figure.R")
+```
+
 # vrmid 1
 ```{r}
 library(genlasso)
@@ -653,6 +658,7 @@ weights_vrmid1_out_svr_pic <- ggplot(weights_vrmid1_out_svr_df, aes(x = Time_sec
     y = "feature weight",
     title = "VR Study",
     subtitle = "Outcome probe",
+      caption = "C = Cue, F = Fixation, \nT = Target, O = Outcome, R = Rating"
   )+
   geom_vline(xintercept = c(0,4,6,8,10), size = 1, color = "grey") +
   annotate("text", x = 2,y = 0.01, label = "C",
@@ -800,7 +806,8 @@ weights_vrmid1_out_lasso_pic <- ggplot(weights_vrmid1_out_lasso_df, aes(x = Time
     x = "Time (s)",
     y = "Feature weight",
     title = "VR Study",
-    subtitle = "Outcome probe"
+    subtitle = "Outcome probe",
+    caption = "C = Cue, F = Fixation, \nT = Target, O = Outcome, R = Rating"
   ) +
   geom_vline(xintercept = c(0,4,6,8,10), size = 1, color = "grey") +
   annotate("text", x = 2,y = 0.01, label = "C",
@@ -1727,9 +1734,6 @@ lasso_block <-
 # 5–6 = LASSO block
 svr_label / svr_block / lasso_label / lasso_block+plot_layout(heights = c(0.1,1,0.1,1))
 
-ggsave(
-  "~/Desktop/VRMID-analysis/mid-pupil/figures/svr_lasso.png",
-  dpi = 300, height = 12, width = 7
-)
+save_figure("s5_svr_lasso_weights", dpi = 300, height = 12, width = 7)
 
 ```
